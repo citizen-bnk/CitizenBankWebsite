@@ -1,0 +1,26 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# In Render: New + > Blueprint > pick this repo. You'll be prompted for the secret values.
+services:
+  - type: web
+    name: citizenhub
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL_PROD
+        sync: false
+      - key: DATABASE_URL_ADMIN_PROD
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABUTTON_EXTENSIONS
+        sync: false
+      - key: STACK_SECRET_SERVER_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: HOST
+        sync: false
