@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional
 import databutton as db
+from app.libs.database import get_db_connection
 from app.auth import AuthorizedUser
 
 router = APIRouter(prefix="/document-requests")
@@ -43,7 +44,7 @@ async def create_document_request(
     Create a document request for a board member.
     Only accessible by back office staff.
     """
-    conn = await db.storage.get_connection()
+    conn = await get_db_connection()
     
     try:
         # Get board member details
@@ -133,7 +134,7 @@ async def get_my_document_requests(user: AuthorizedUser) -> list[DocumentRequest
     """
     Get all document requests for the logged-in board member.
     """
-    conn = await db.storage.get_connection()
+    conn = await get_db_connection()
     
     try:
         requests = await conn.fetch(
@@ -192,7 +193,7 @@ async def get_all_document_requests(user: AuthorizedUser) -> list[DocumentReques
     """
     Get all document requests (back office view).
     """
-    conn = await db.storage.get_connection()
+    conn = await get_db_connection()
     
     try:
         requests = await conn.fetch(
@@ -252,7 +253,7 @@ async def complete_document_request(
     Mark a document request as completed.
     Called when board member uploads the requested document.
     """
-    conn = await db.storage.get_connection()
+    conn = await get_db_connection()
     
     try:
         # Verify request belongs to user

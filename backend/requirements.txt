@@ -29,3 +29,6 @@ anthropic==0.75.0
 google-generativeai==0.8.6
 icalendar==6.3.2
 email-validator==2.3.0
+boto3
+apscheduler>=3.10,<4
+africastalking

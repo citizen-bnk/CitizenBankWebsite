@@ -5,7 +5,7 @@ from app.env import Mode, mode
 
 DEV_UI_PATH = "_projects/4e911b3d-b027-4c6a-8f76-c90e63535892/dbtn/devx/ui"
 DEV_API_PATH = "_projects/4e911b3d-b027-4c6a-8f76-c90e63535892/dbtn/devx/app/routes"
-PROD_DOMAIN = f'https://{os.environ.get("HOST")}' if os.environ.get("HOST") else "https://citizenhub.co.za"
+PROD_DOMAIN = f'https://{os.environ.get("HOST")}' if os.environ.get("HOST") else "https://citizenbank.co.ls"
 DEV_UI_DOMAIN = "https://databutton.com"
 DEV_API_DOMAIN = "https://api.databutton.com"
 STATIC_ASSET_BASE = "https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892"

@@ -1,3 +1,4 @@
+import os
 """SMS service utility for sending SMS messages with proper country code formatting."""
 
 import re
@@ -166,6 +167,36 @@ async def send_sms(phone_number: str, message: str, country_code: str = "ZA") ->
     #         "formatted_phone": formatted_phone
     #     }
     
+    # Africa's Talking (used when credentials are configured)
+    at_username = os.environ.get("AFRICASTALKING_USERNAME")
+    at_api_key = os.environ.get("AFRICASTALKING_API_KEY")
+    if at_username and at_api_key:
+        try:
+            import asyncio
+            import africastalking
+
+            africastalking.initialize(at_username, at_api_key)
+            sender_id = os.environ.get("AFRICASTALKING_SENDER_ID") or None
+            response = await asyncio.to_thread(
+                africastalking.SMS.send, message, [formatted_phone], sender_id
+            )
+            recipients = response.get("SMSMessageData", {}).get("Recipients", [])
+            ok = bool(recipients) and recipients[0].get("status") == "Success"
+            print(f"📱 SMS to {formatted_phone}: {recipients[0].get('status') if recipients else response}")
+            return {
+                "success": ok,
+                "formatted_phone": formatted_phone,
+                "response": response,
+                **({} if ok else {"error": str(response)}),
+            }
+        except Exception as e:
+            print(f"❌ Failed to send SMS to {formatted_phone}: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "formatted_phone": formatted_phone
+            }
+
     # For now, just log the SMS (SMS provider not configured)
     print(f"📱 [SMS SIMULATION] To: {formatted_phone} | Message: {message}")
     return {

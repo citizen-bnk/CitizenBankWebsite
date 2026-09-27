@@ -199,7 +199,8 @@ class BoardMemberOption(BaseModel):
 # Helper functions
 async def get_db_connection():
     """Get database connection."""
-    return await db.storage.databutton.engine.raw_connection()
+    from app.libs.database import get_db_connection as _connect
+    return await _connect()
 
 
 # Endpoints

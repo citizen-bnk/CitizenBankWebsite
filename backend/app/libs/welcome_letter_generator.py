@@ -167,7 +167,7 @@ class WelcomeLetterGenerator:
             "Your share certificate has been issued and is attached to this welcome package",
             "You will receive updates on our progress towards obtaining our banking license",
             "Watch for invitations to shareholder meetings and important announcements",
-            "Access your shareholder portal at citizenhub.co.za for updates and documents"
+            "Access your shareholder portal at citizenbank.co.ls for updates and documents"
         ]
         
         for step in next_steps:

@@ -1,26 +1,80 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
-# In Render: New + > Blueprint > pick this repo. You'll be prompted for the secret values.
+# In Render: New + > Blueprint > pick this repo. You'll be prompted for every `sync: false` value.
+databases:
+  - name: citizenhub-db
+    databaseName: citizenhub
+    plan: basic-256mb
+    region: frankfurt
+
 services:
   - type: web
     name: citizenhub
     runtime: docker
     plan: starter
+    region: frankfurt
     dockerfilePath: ./Dockerfile
     healthCheckPath: /
+    numInstances: 1 # the in-app scheduler must run on exactly one instance
+    domains:
+      - citizenbank.co.ls
+      - www.citizenbank.co.ls
     envVars:
+      # --- Database (Render Postgres) ---
       - key: DATABASE_URL_PROD
-        sync: false
+        fromDatabase: { name: citizenhub-db, property: connectionString }
       - key: DATABASE_URL_ADMIN_PROD
-        sync: false
+        fromDatabase: { name: citizenhub-db, property: connectionString }
       - key: DATABASE_URL
-        sync: false
+        fromDatabase: { name: citizenhub-db, property: connectionString }
+
+      # --- App ---
+      - key: HOST
+        value: citizenbank.co.ls
+      - key: ENABLE_SCHEDULER
+        value: "true"
+      - key: SCHEDULER_WEBHOOK_TOKEN
+        generateValue: true
+
+      # --- Login (Stack Auth) ---
       - key: DATABUTTON_EXTENSIONS
         sync: false
       - key: STACK_SECRET_SERVER_KEY
         sync: false
+
+      # --- File storage (Cloudflare R2) ---
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        value: citizenhub-files
+
+      # --- Email (Resend) ---
       - key: RESEND_API_KEY
         sync: false
+      - key: RESEND_WEBHOOK_SECRET
+        sync: false
+
+      # --- AI ---
       - key: OPENAI_API_KEY
         sync: false
-      - key: HOST
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      # --- SMS (Africa's Talking) ---
+      - key: AFRICASTALKING_USERNAME
+        sync: false
+      - key: AFRICASTALKING_API_KEY
+        sync: false
+      - key: AFRICASTALKING_SENDER_ID
+        sync: false
+
+      # --- Push notifications (Pushwoosh) ---
+      - key: PUSHWOOSH_APP_CODE
+        sync: false
+      - key: PUSHWOOSH_SERVER_TOKEN
         sync: false

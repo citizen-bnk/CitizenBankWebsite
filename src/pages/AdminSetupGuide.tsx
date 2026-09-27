@@ -99,7 +99,7 @@ export default function AdminSetupGuide() {
     const curlId = idNumber || '1234567890';
     const curlToken = setupToken || 'YOUR_SETUP_TOKEN';
 
-    return `curl -X POST "https://citizenhub.co.za/api/admin/initialize-super-admin" \\
+    return `curl -X POST "https://citizenbank.co.ls/api/admin/initialize-super-admin" \\
   -H "Content-Type: application/json" \\
   -d '{
     "email": "${curlEmail}",
@@ -385,11 +385,11 @@ export default function AdminSetupGuide() {
                     <div className="bg-muted p-4 rounded-lg space-y-2">
                       <p className="text-sm font-medium">After successful API call:</p>
                       <ol className="list-decimal ml-5 space-y-1 text-sm text-muted-foreground">
-                        <li>Go to <a href="https://citizenhub.co.za/auth/sign-up" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">citizenhub.co.za/auth/sign-up</a></li>
+                        <li>Go to <a href="https://citizenbank.co.ls/auth/sign-up" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">citizenbank.co.ls/auth/sign-up</a></li>
                         <li>Register with the <strong>exact same email</strong> used in the API call</li>
                         <li>Complete Stack Auth registration</li>
                         <li>Your account will be automatically linked to super_admin role</li>
-                        <li>Access Admin Dashboard at <a href="https://citizenhub.co.za/admin-dashboard" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">/admin-dashboard</a></li>
+                        <li>Access Admin Dashboard at <a href="https://citizenbank.co.ls/admin-dashboard" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">/admin-dashboard</a></li>
                       </ol>
                     </div>
                   </div>

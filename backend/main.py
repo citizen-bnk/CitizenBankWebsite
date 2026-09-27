@@ -133,8 +133,16 @@ def parse_auth_configs() -> list[AuthConfig]:
 
 def create_app() -> FastAPI:
     """Create the app. This is called by uvicorn with the factory option to construct the app object."""
+    from app.libs import object_storage, scheduler
+
+    object_storage.install()
+
     app = FastAPI()
     app.include_router(import_api_routers())
+
+    @app.on_event("startup")
+    async def start_scheduler():
+        app.state.scheduler = scheduler.start()
 
     for route in app.routes:
         if hasattr(route, "methods"):

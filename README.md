@@ -1,59 +1,91 @@
 # CitizenHub
 
 React (Vite) frontend + FastAPI backend, exported from Riff/Databutton.
+Production runs as one Docker service on Render at **https://citizenbank.co.ls**:
+the backend serves both the website and `/api`.
 
-## Deploying
+| Piece | Where |
+| --- | --- |
+| App (website + API) | Render web service `citizenhub` (Frankfurt) |
+| Database | Render Postgres `citizenhub-db` |
+| Login | Stack Auth |
+| Uploaded files | Cloudflare R2 bucket `citizenhub-files` |
+| Email | Resend |
+| SMS | Africa's Talking |
+| Push | Pushwoosh |
+| Scheduled jobs | Built into the app (`backend/app/libs/scheduler.py`) |
 
-The frontend always calls the API at `<same origin>/api`, so the simplest setup is
-**one service that serves both**. The `Dockerfile` builds the frontend and serves it
-from the FastAPI app alongside `/api`.
+## Launch checklist
 
-### Option A: Render (recommended, one service)
+1. **Rotate the leaked secrets.** The public `citizen-bnk/citizen-hub` repo contains a
+   Firebase service-account key and `.env` files. Revoke and replace the key (Google Cloud
+   console > IAM > Service accounts > Keys), change the old database password, and make that
+   repo private.
+2. **Create the R2 bucket.** Cloudflare dashboard > R2 > Create bucket `citizenhub-files`.
+   Then R2 > Manage API tokens > create a token with *Object Read & Write* on that bucket.
+   Note the Account ID, Access Key ID and Secret Access Key.
+3. **Deploy on Render.** New + > Blueprint > pick this repo. It creates the database and the
+   web service from `render.yaml` and asks for each secret (see *Environment variables*).
+4. **Copy the database.** In Render, open `citizenhub-db` and copy the *External Database URL*. Then:
+   ```bash
+   OLD_DATABASE_URL='<old Riff/Neon production URL>' \
+   NEW_DATABASE_URL='<Render external URL>' \
+   ./scripts/migrate_database.sh
+   ```
+5. **Copy uploaded files** from Databutton to R2 (needs the Databutton project ID and token):
+   ```bash
+   pip install -r backend/requirements.txt
+   DATABUTTON_PROJECT_ID=... DATABUTTON_TOKEN=... \
+   R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=citizenhub-files \
+   python scripts/migrate_files.py
+   ```
+6. **Point the domain.** Render > `citizenhub` > Settings > Custom Domains shows the DNS
+   records. Add them at the `.co.ls` registrar for `citizenbank.co.ls` and `www`.
+7. **Stack Auth.** In the Stack Auth dashboard, add `https://citizenbank.co.ls` to trusted
+   domains.
+8. **Resend.** Verify the domain your emails are sent from (the code sends from
+   `@citizenhub.co.za` addresses).
+9. **Smoke test:** sign up, log in, upload a profile photo, download a certificate, and
+   check the Render logs for `Scheduler started with 6 jobs`.
 
-1. In Render: **New + → Blueprint**, pick this repository. It reads `render.yaml`.
-2. Fill in the secret environment variables it asks for (see below).
-3. Deploy. The app is served at `https://citizenhub.onrender.com` (or whatever name Render gives it).
+## Environment variables
 
-The same `Dockerfile` also works on Railway, Fly.io and Google Cloud Run.
-
-### Option B: Vercel for the frontend + Render for the API
-
-Vercel cannot host this backend well: its Python dependencies (~700 MB) exceed
-Vercel's function size limit, and some jobs (PDF generation, AI calls, a per-minute
-email queue) do not fit serverless timeouts. You can still put the frontend on Vercel:
-
-1. Deploy the backend to Render first (Option A).
-2. If the Render URL is not `https://citizenhub.onrender.com`, update the `/api` rewrite in `vercel.json`.
-3. In Vercel: **Add New → Project**, import this repository. `vercel.json` sets the build.
-4. Add the frontend domain to Stack Auth's trusted domains.
-
-### Environment variables
-
-Set these in the hosting dashboard. Never commit them: `.env*` files and
+Set in Render (the blueprint prompts for them). Never commit them: `.env*` files and
 `serviceAccountKey.json` are git-ignored.
 
 | Variable | Needed for |
 | --- | --- |
-| `DATABASE_URL_PROD`, `DATABASE_URL_ADMIN_PROD`, `DATABASE_URL` | Postgres (Neon) database |
-| `DATABUTTON_EXTENSIONS` | Auth config JSON (the `stack-auth` entry). Without it every protected API returns unauthorized |
+| `DATABASE_URL_PROD`, `DATABASE_URL_ADMIN_PROD`, `DATABASE_URL` | Filled automatically from Render Postgres |
+| `DATABUTTON_EXTENSIONS` | Stack Auth config JSON: `[{"name":"stack-auth","version":"0.0.0","config":{"projectId":"...","jwksUrl":"...","publishableClientKey":"..."}}]`. Without it, logged-in API calls are rejected |
 | `STACK_SECRET_SERVER_KEY` | Stack Auth server calls |
-| `HOST` | Public domain used in emailed links (defaults to `citizenhub.co.za`) |
-| `RESEND_API_KEY` | Email |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | File storage |
+| `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` | Email |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` | AI features |
-| Others as needed | `EXCHANGERATE_API_KEY`, `GOOGLE_DRIVE_CLIENT_ID/SECRET`, `PUSHWOOSH_*`, `TWILIO_*`, `SCHEDULER_WEBHOOK_TOKEN`, `UNSPLASH_ACCESS_KEY`, `IPSTACK_API_KEY` |
+| `AFRICASTALKING_USERNAME`, `AFRICASTALKING_API_KEY`, `AFRICASTALKING_SENDER_ID` | SMS (without them SMS is only logged) |
+| `PUSHWOOSH_APP_CODE`, `PUSHWOOSH_SERVER_TOKEN` | Push notifications |
+| `HOST`, `ENABLE_SCHEDULER`, `SCHEDULER_WEBHOOK_TOKEN` | Set by the blueprint |
 
-`ENV=prod` and `DATABUTTON_SERVICE_TYPE=prodx` are set in the Dockerfile so the app
-uses the production database URLs.
+## Scheduled jobs
 
-### Scheduled jobs
+With `ENABLE_SCHEDULER=true` the app runs these itself (times in UTC). Keep the service at one
+instance, or the jobs run twice.
 
-See `SCHEDULES.md`. These must be set up separately (Render Cron Jobs or a GitHub
-Actions schedule calling the endpoints).
+| Job | Schedule |
+| --- | --- |
+| Governance email queue | every minute |
+| AI lead health monitor | daily 08:00 |
+| Board document reminders | daily 08:00 |
+| AI lead follow-up reminders | daily 09:00 |
+| Profile completion reminders | daily 09:00 |
+| Board member engagement emails | Mon/Wed/Fri 09:00 |
+
+The "Investor Lead Follow-up Reminders" job from Riff has no matching endpoint in the exported
+code, so it is not scheduled.
 
 ## Local development
 
 ```bash
-npm ci && npx vite            # frontend on http://localhost:5173
+npm ci && npx vite            # frontend on http://localhost:5173 (proxies /api to :8000)
 cd backend && python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/uvicorn main:app --port 8000
 ```
