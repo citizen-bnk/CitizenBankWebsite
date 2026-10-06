@@ -1,0 +1,31 @@
+name: Demo smoke test
+# Signs in as each of the seven demo accounts on the deployed demo and checks what each can and cannot do.
+# Run it from Actions > Demo smoke test > Run workflow, pasting the demo addresses.
+# If the demo projects use Vercel Deployment Protection, add a repository secret VERCEL_PROTECTION_BYPASS
+# (Vercel project > Settings > Deployment Protection > Protection Bypass for Automation).
+on:
+  workflow_dispatch:
+    inputs:
+      website_url: { description: "Demo website address, no trailing slash", required: true }
+      hub_url: { description: "Demo Hub address (optional)", required: false }
+      banking_url: { description: "Demo Internet Banking address (optional)", required: false }
+      app_url: { description: "Demo mobile App address (optional)", required: false }
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: The test itself still catches mistakes
+        run: node e2e/selftest.mjs
+      - name: Demo smoke test
+        run: node --test e2e/demo-smoke.test.mjs
+        env:
+          WEBSITE_URL: ${{ inputs.website_url }}
+          HUB_URL: ${{ inputs.hub_url }}
+          BANKING_URL: ${{ inputs.banking_url }}
+          APP_URL: ${{ inputs.app_url }}
+          VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
