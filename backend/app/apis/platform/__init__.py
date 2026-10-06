@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.auth import AuthorizedUser
 from app.libs import platform_tokens as tokens
+from app.libs.demo_seed import ACCOUNTS as DEMO_ACCOUNTS
 from app.libs.database import db_connection
 from app.libs.platform_people import ensure_person
 
@@ -51,6 +52,22 @@ def _service_url(service_id: str) -> str | None:
 
 def _demo_mode() -> bool:
     return os.environ.get("DEMO_MODE", "").strip().lower() in ("1", "true", "yes")
+
+
+class PlatformConfig(BaseModel):
+    demo_mode: bool
+
+
+class DemoAccountInfo(BaseModel):
+    key: str
+    email: str
+    roles: list[str]
+    description: str
+
+
+class DemoAccountsResponse(BaseModel):
+    accounts: list[DemoAccountInfo]
+    password: str | None
 
 
 class MeResponse(BaseModel):
@@ -96,6 +113,28 @@ async def platform_jwks(response: Response) -> dict:
         raise HTTPException(status_code=503, detail=str(exc)) from None
     response.headers["Cache-Control"] = "public, max-age=300"
     return doc
+
+
+@router.get("/config")
+async def platform_config() -> PlatformConfig:
+    """Public. Lets the browser app know whether this is the demonstration environment (to show its banner)."""
+    return PlatformConfig(demo_mode=_demo_mode())
+
+
+@router.get("/demo-accounts")
+async def platform_demo_accounts() -> DemoAccountsResponse:
+    """Public, demonstration environment only: the seven demo accounts and the shared demo password.
+
+    The password is shown on purpose, because the demo is open to anyone; it comes only from DEMO_PASSWORD_DISPLAY,
+    which the operator sets to the password chosen in the demo Stack Auth project. Anywhere else this is a 404.
+    """
+    if not _demo_mode():
+        raise HTTPException(status_code=404, detail="Not found")
+    return DemoAccountsResponse(
+        accounts=[DemoAccountInfo(key=a.key, email=a.email, roles=list(a.roles), description=a.description)
+                  for a in DEMO_ACCOUNTS],
+        password=os.environ.get("DEMO_PASSWORD_DISPLAY", "").strip() or None,
+    )
 
 
 @router.get("/me")

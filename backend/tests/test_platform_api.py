@@ -187,9 +187,55 @@ def test_router_is_public_in_routers_json_and_endpoints_still_require_a_user():
     cfg = json.loads(pathlib.Path("routers.json").read_text())
     assert cfg["routers"]["platform"]["disableAuth"] is True
     # Router-level auth is off, so each protected endpoint must declare AuthorizedUser itself.
+    public = {"/platform/jwks.json", "/platform/config", "/platform/demo-accounts"}
     for route in api.router.routes:
         names = {d.call.__name__ for d in route.dependant.dependencies}
-        if route.path.endswith("/jwks.json"):
-            assert "get_authorized_user" not in names
+        if route.path in public:
+            assert "get_authorized_user" not in names, route.path
         else:
             assert "get_authorized_user" in names, route.path
+    assert public <= {r.path for r in api.router.routes}
+
+
+async def test_config_reports_the_demo_flag(env, monkeypatch):
+    assert (await api.platform_config()).demo_mode is False
+    for value in ("true", "1", "YES"):
+        monkeypatch.setenv("DEMO_MODE", value)
+        assert (await api.platform_config()).demo_mode is True
+    monkeypatch.setenv("DEMO_MODE", "false")
+    assert (await api.platform_config()).demo_mode is False
+
+
+async def test_demo_accounts_are_not_available_outside_the_demo(env, monkeypatch):
+    monkeypatch.setenv("DEMO_PASSWORD_DISPLAY", "should-never-be-shown")
+    for value in (None, "", "false", "no"):
+        if value is None:
+            monkeypatch.delenv("DEMO_MODE", raising=False)
+        else:
+            monkeypatch.setenv("DEMO_MODE", value)
+        with pytest.raises(HTTPException) as exc:
+            await api.platform_demo_accounts()
+        assert exc.value.status_code == 404
+
+
+async def test_demo_accounts_list_the_seven_accounts_and_the_configured_password(env, monkeypatch):
+    from app.libs.demo_seed import ACCOUNTS
+
+    monkeypatch.setenv("DEMO_MODE", "true")
+    monkeypatch.setenv("DEMO_PASSWORD_DISPLAY", "  Shared-Demo-Pw  ")
+    out = await api.platform_demo_accounts()
+    assert [a.key for a in out.accounts] == [a.key for a in ACCOUNTS] and len(out.accounts) == 7
+    assert out.password == "Shared-Demo-Pw"
+    combined = next(a for a in out.accounts if a.key == "combined")
+    assert combined.email == "combined@demo.citizenbank.test"
+    assert combined.roles == ["customer", "investor", "shareholder", "board_member"]
+    dumped = out.model_dump_json()
+    assert "stack-" not in dumped and "user_id" not in dumped  # nothing about real ids
+
+
+async def test_demo_accounts_without_a_configured_password_show_none(env, monkeypatch):
+    monkeypatch.setenv("DEMO_MODE", "true")
+    monkeypatch.delenv("DEMO_PASSWORD_DISPLAY", raising=False)
+    assert (await api.platform_demo_accounts()).password is None
+    monkeypatch.setenv("DEMO_PASSWORD_DISPLAY", "   ")
+    assert (await api.platform_demo_accounts()).password is None

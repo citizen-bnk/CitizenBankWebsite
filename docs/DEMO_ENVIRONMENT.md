@@ -89,7 +89,7 @@ WP 1 to 5 can be built and tested here. WP 6 and 7 need the provider accounts.
 | 1 Platform keys and handoff (website backend) | Built and tested | This branch (`claude/practical-volta-tqe0qk`) |
 | 2 Core `POST /api/auth/sso` | Built and tested | Branch `claude/demo-sso` in CitizenBankCore (pushed, no PR, `main` untouched) |
 | 3 Banking frontends `/sso`, sign-in redirect, demo banner | Built and tested | Branch `claude/demo-sso` in CitizenInternetBanking and CitizenBankApp (pushed, no PRs, `main` untouched) |
-| 4 Website button, banner, demo sign-in page | Not started | |
+| 4 Website launcher, banner, demo sign-in page | Built and tested | This branch: `/demo` (public), `/demo/launch` (signed in), banner, `/api/platform/config` and `/demo-accounts` |
 | 5 Demo seeder for the seven accounts | Built and tested | This branch: `backend/app/libs/demo_seed.py`, `backend/scripts/seed_demo_accounts.py` |
 | 6 Demo blueprint and deploy runbook | Not started | |
 | 7 End-to-end per account on the deployed demo | Not started | |
@@ -116,6 +116,29 @@ person for each. Safety: refuses unless `DEMO_MODE=true`; refuses an ID whose pr
 by default; re-running keeps demo progress. Notes: the shareholder account also holds `investor`, because the existing
 investor screens key off that role; the admin account is `admin` and `super_admin` only.
 
+### The demo pages (WP 4)
+
+- **`/demo`** (public): the seven accounts with their emails, roles and what each should reach, the shared password
+  (from `DEMO_PASSWORD_DISPLAY`), the licence disclaimer, and a Sign in button that continues to the launcher. It also
+  explains `?reason=timeout|sso|unavailable` from the banking apps and ignores any other value. Outside the demo it says
+  "Demonstration only" and shows no account or password; `/api/platform/demo-accounts` is a 404 there.
+- **`/demo/launch`** (signed in): who you are, the Citizen Hub workspaces your roles open (administration, back office,
+  board portal, my investments) and "Open" buttons for Internet Banking and the App, which ask `/api/platform/handoff`
+  and go to the banking host. A banking button is disabled, with the reason, for anyone without the customer role.
+- **Banner:** a small tab on every page of the demo; nothing on a normal site.
+- Set `SIGN_IN_URL` on Internet Banking and the App to `<website>/demo` so a refused or expired link comes back here.
+
+### Two existing problems found and fixed on the way
+
+1. **Signed-in requests failed on the deployed app.** About 68 modules use `AuthorizedUser`, whose middleware needs
+   application state that only the old platform's own entry point created; the root `main.py` used on Render never
+   did, so any signed-in request reaching such an endpoint returned a 500. Signed-out requests were still a correct
+   401, which hid it. `main.py` now builds the state with secure fixed settings. Found by calling the running app
+   with a validly signed token; 12 tests keep it fixed.
+2. **Downloads, uploads and "record board payment" called `http://localhost:8000` in production.** Eight pages built
+   their URLs from `API_URL`, which the build fixes to localhost. It now resolves from the page's own origin, as the
+   typed API client already did.
+
 ### What was verified
 
 - Website to Core: a token signed by `platform_tokens.py` verifies in Core's TypeScript verifier. A committed fixture
@@ -133,7 +156,10 @@ investor screens key off that role; the admin account is `admin` and `super_admi
 - The seeder against the real demo database. The production table definitions are not in the repo, so its tests use
   tables rebuilt from the INSERTs the application already runs; it checks the columns first and stops with a message
   if one is missing. Run the dry run first and read the counts.
-- Real Stack Auth sign-in, and the website handing off from the browser (no button yet, WP 4).
+- Real Stack Auth sign-in. The public page and the launcher were checked in Chromium (40 checks): the public page
+  against the real backend and built app, the launcher in a harness with the platform API mocked, because a signed-in
+  Stack session cannot be produced here. The step from the launcher's button through the website's real handoff
+  endpoint to a real banking host is therefore only covered in two halves.
 - Any real deployment: Render fetching and serving keys, Vercel reaching them, Neon, TLS and `Secure` cookies on the real hosts.
 - The remaining Hub screens with the seven accounts (WP 5 and 7).
 - Next's development mode does not work with the apps' strict Content Security Policy (it needs `eval`). Use a production
@@ -149,6 +175,7 @@ None of these values go in a repository.
 | | `PLATFORM_ISSUER` | The demo website's public address, for example `https://citizenhub-demo.onrender.com` |
 | | `BANKING_URL`, `APP_URL` | Addresses of the demo Internet Banking and App |
 | | `DEMO_MODE` | `true` |
+| | `DEMO_PASSWORD_DISPLAY` | The shared demo password, exactly as set for the seven users in the demo Stack Auth project. It is shown publicly on `/demo`, so use a password made for this demo only. |
 | Core (Vercel, demo) | `PLATFORM_JWKS_URL` | `<PLATFORM_ISSUER>/api/platform/jwks.json` (must be https) |
 | | `PLATFORM_ISSUER` | Exactly the same value as on the website |
 | | `SSO_AUDIENCES` | `banking,app` (the default) |

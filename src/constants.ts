@@ -1,3 +1,5 @@
+import { resolveApiUrl } from "./utils/apiUrl";
+
 export enum Mode {
   DEV = "development",
   PROD = "production",
@@ -18,7 +20,10 @@ declare const __API_PATH__: string;
 export const API_PATH = __API_PATH__;
 
 declare const __API_URL__: string;
-export const API_URL = __API_URL__;
+export const API_URL = resolveApiUrl(
+  typeof window !== "undefined" ? window.location.origin : undefined,
+  __API_URL__,
+);
 
 declare const __API_HOST__: string;
 export const API_HOST = __API_HOST__;
