@@ -24,3 +24,17 @@ for f in "${FILES[@]}"; do
   done
 done
 echo "--- saved:"; ls -la "$OUT"
+
+echo "=== favicon candidates on the old host"
+for f in favicon.ico favicon.png favicon.svg icon.png apple-touch-icon.png favicon-light.svg favicon-dark.svg; do
+  tmp=$(mktemp); code=$(curl -sS -L -m 30 -o "$tmp" -w "%{http_code}" "https://static.databutton.com/public/$ID/$f" 2>/dev/null || echo 000)
+  echo "$f,$code,$(stat -c %s "$tmp"),$(file -b --mime-type "$tmp")"; rm -f "$tmp"
+done
+echo "=== what the live demo website serves"
+for site in https://citizen-website-demo.vercel.app; do
+  echo "-- $site/ head:"; curl -sS -L -m 30 "$site/" | grep -io '<link[^>]*icon[^>]*>\|<title>[^<]*</title>' | head
+  for p in icon.png brand/logo.png "brand/HappyCitizen%201.png" favicon.ico; do
+    tmp=$(mktemp); code=$(curl -sS -m 30 -o "$tmp" -w "%{http_code}" "$site/$p" 2>/dev/null || echo 000)
+    echo "$p,$code,$(stat -c %s "$tmp"),$(file -b --mime-type "$tmp")"; rm -f "$tmp"
+  done
+done
