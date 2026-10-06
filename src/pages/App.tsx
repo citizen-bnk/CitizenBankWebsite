@@ -31,10 +31,10 @@ export default function App() {
 
   // Citizen Bank customer images
   const heroBackgrounds = [
-    '/brand/HappyCitizen%201.png',
-    '/brand/HappyCitizen%203.png',
-    '/brand/HappyCitizen%204.png',
-    '/brand/HappyCitizen%207.png',
+    '/brand/HappyCitizen%201.webp',
+    '/brand/HappyCitizen%203.webp',
+    '/brand/HappyCitizen%204.webp',
+    '/brand/HappyCitizen%207.webp',
   ];
 
   // Rotate background images every 2 minutes (120000ms)
@@ -167,7 +167,7 @@ export default function App() {
         <section 
           className="relative py-16 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url("/brand/HappyCitizen%207.png")',
+            backgroundImage: 'url("/brand/HappyCitizen%207.webp")',
           }}
         >
           {/* Overlay for better text readability */}
