@@ -1,0 +1,36 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: test }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PG_TEST_URL: postgresql://postgres:test@localhost:5432/postgres
+      OPENAI_API_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r api/requirements.txt pytest pytest-asyncio python-dotenv
+      - run: cd backend && python -m pytest -q
+  frontend:
+    runs-on: ubuntu-latest
+    env:
+      AUTH_PROVIDERS: '[{"name":"stack-auth","version":"0.0.0","config":{"projectId":"00000000-0000-4000-8000-000000000000","jwksUrl":"https://example.test/jwks.json","publishableClientKey":"pck_ci"}}]'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx vite build
