@@ -1,21 +1,26 @@
 import { useStackApp } from "@stackframe/react";
-import { Check, Copy, FlaskConical } from "lucide-react";
+import { Check, Copy, FlaskConical, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { type DemoAccounts, getDemoAccounts, reasonMessage } from "utils/platform";
+import { MANUAL_PARAM, afterSignInTarget, opensLabels } from "utils/demoSignIn";
+import { type DemoAccount, type DemoAccounts, getDemoAccounts, reasonMessage } from "utils/platform";
 
 /**
- * Public sign-in page for the demonstration environment: lists the seven demo accounts and the shared demo
- * password, then hands over to the normal sign-in. The banking apps also send people back here.
+ * Sign-in page for the demonstration environment. Pick an account and you are signed in with no typing, then taken where you
+ * were heading (the Citizen Hub, banking) or to the launcher. Because every demo account shares one published password this
+ * is only offered when the demo accounts endpoint answers; anywhere else the page says it is unavailable and the normal
+ * sign-in form is used. The banking apps also send people back here.
  */
 export default function DemoSignIn() {
   const app = useStackApp();
   const [data, setData] = useState<DemoAccounts | null | undefined>(undefined);
   const [copied, setCopied] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const reason = reasonMessage(new URLSearchParams(window.location.search).get("reason"));
 
   useEffect(() => {
@@ -32,13 +37,25 @@ export default function DemoSignIn() {
     }
   };
 
-  const signIn = () => {
+  const signInAs = async (account: DemoAccount) => {
+    if (!data?.password || busy) return;
+    setBusy(account.key);
+    setError(null);
     try {
-      localStorage.setItem("dtbn-login-next", "/demo/launch");
-    } catch {
-      /* private mode: sign-in still works, it just lands on the home page */
+      const result = await app.signInWithCredential({ email: account.email, password: data.password, noRedirect: true });
+      if (result.status === "error") throw new Error(result.error?.message || "Sign-in failed");
+      const next = afterSignInTarget(new URLSearchParams(window.location.search).get("after_auth_return_to"), window.location.origin);
+      window.location.assign(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sign-in failed. Check that the demo accounts exist in the Stack project.");
+      setBusy(null);
     }
-    window.location.assign(app.urls.signIn);
+  };
+
+  const manualSignIn = () => {
+    const params = new URLSearchParams(window.location.search);
+    params.set(MANUAL_PARAM, "1");
+    window.location.assign(`${app.urls.signIn}?${params.toString()}`);
   };
 
   if (data === undefined) {
@@ -70,7 +87,7 @@ export default function DemoSignIn() {
               <div>
                 <CardTitle className="text-2xl">Citizen Bank demonstration</CardTitle>
                 <CardDescription>
-                  Try every part of the platform with a ready-made account. Banking is simulated and no real money
+                  Pick an account to be signed in at once and try every part of the platform it opens. Banking is simulated and no real money
                   moves. Citizen Digital Ltd (Reg. 99073) is the applicant for a Central Bank of Lesotho banking
                   licence and does not currently carry on banking business.
                 </CardDescription>
@@ -81,6 +98,7 @@ export default function DemoSignIn() {
             {reason && (
               <Alert data-testid="reason"><AlertDescription>{reason}</AlertDescription></Alert>
             )}
+            {error && <Alert variant="destructive" data-testid="sign-in-error"><AlertDescription>{error}</AlertDescription></Alert>}
             <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-white p-3 dark:bg-slate-900">
               <span className="text-sm font-medium">Password for every account:</span>
               {data.password ? (
@@ -96,7 +114,9 @@ export default function DemoSignIn() {
               ) : (
                 <span className="text-sm text-slate-600">Ask the demonstration administrator.</span>
               )}
-              <Button className="ml-auto" onClick={signIn} data-testid="sign-in">Sign in</Button>
+              <Button className="ml-auto" variant="outline" onClick={manualSignIn} data-testid="sign-in">
+                Use another account
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -116,6 +136,13 @@ export default function DemoSignIn() {
                 <div className="flex flex-wrap gap-1">
                   {a.roles.map((r) => <Badge key={r} variant="secondary">{r}</Badge>)}
                 </div>
+                <p className="text-xs text-slate-500" data-testid={`opens-${a.key}`}>
+                  Opens: {opensLabels(a).join(", ") || "nothing"}
+                </p>
+                <Button className="w-full" disabled={!data.password || busy !== null} onClick={() => signInAs(a)} data-testid={`login-${a.key}`}>
+                  <LogIn className="mr-1 h-4 w-4" />
+                  {busy === a.key ? "Signing in…" : `Sign in as ${a.key}`}
+                </Button>
               </CardContent>
             </Card>
           ))}

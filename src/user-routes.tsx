@@ -4,6 +4,7 @@ import { RouteObject } from "react-router-dom";
 
 
 import { UserGuard } from "./app/auth";
+import { HubRedirect } from "./components/HubRedirect";
 
 
 import { StackHandlerRoutes, LoginRedirect } from "./app/auth";
@@ -147,18 +148,18 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/backofficesubscribeonbehalf", element: <UserGuard><BackOfficeSubscribeOnBehalf /></UserGuard> },
 	{ path: "/back-office-subscriptions", element: <UserGuard><BackOfficeSubscriptions /></UserGuard> },
 	{ path: "/backofficesubscriptions", element: <UserGuard><BackOfficeSubscriptions /></UserGuard> },
-	{ path: "/board-documents", element: <UserGuard><BoardDocuments /></UserGuard> },
-	{ path: "/boarddocuments", element: <UserGuard><BoardDocuments /></UserGuard> },
+	{ path: "/board-documents", element: <HubRedirect><UserGuard><BoardDocuments /></UserGuard></HubRedirect> },
+	{ path: "/boarddocuments", element: <HubRedirect><UserGuard><BoardDocuments /></UserGuard></HubRedirect> },
 	{ path: "/board-investment", element: <UserGuard><BoardInvestment /></UserGuard> },
 	{ path: "/boardinvestment", element: <UserGuard><BoardInvestment /></UserGuard> },
-	{ path: "/board-meetings", element: <UserGuard><BoardMeetings /></UserGuard> },
-	{ path: "/boardmeetings", element: <UserGuard><BoardMeetings /></UserGuard> },
+	{ path: "/board-meetings", element: <HubRedirect><UserGuard><BoardMeetings /></UserGuard></HubRedirect> },
+	{ path: "/boardmeetings", element: <HubRedirect><UserGuard><BoardMeetings /></UserGuard></HubRedirect> },
 	{ path: "/board-member-detail", element: <UserGuard><BoardMemberDetail /></UserGuard> },
 	{ path: "/boardmemberdetail", element: <UserGuard><BoardMemberDetail /></UserGuard> },
 	{ path: "/board-onboarding", element: <UserGuard><BoardOnboarding /></UserGuard> },
 	{ path: "/boardonboarding", element: <UserGuard><BoardOnboarding /></UserGuard> },
-	{ path: "/board-portal", element: <UserGuard><BoardPortal /></UserGuard> },
-	{ path: "/boardportal", element: <UserGuard><BoardPortal /></UserGuard> },
+	{ path: "/board-portal", element: <HubRedirect><UserGuard><BoardPortal /></UserGuard></HubRedirect> },
+	{ path: "/boardportal", element: <HubRedirect><UserGuard><BoardPortal /></UserGuard></HubRedirect> },
 	{ path: "/board-portal-invitations", element: <UserGuard><BoardPortalInvitations /></UserGuard> },
 	{ path: "/boardportalinvitations", element: <UserGuard><BoardPortalInvitations /></UserGuard> },
 	{ path: "/branch-locator", element: <BranchLocator /> },
@@ -198,12 +199,12 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/invite-acceptance", element: <InviteAcceptance /> },
 	{ path: "/inviteacceptance", element: <InviteAcceptance /> },
 	{ path: "/media", element: <Media /> },
-	{ path: "/meeting-details", element: <UserGuard><MeetingDetails /></UserGuard> },
-	{ path: "/meetingdetails", element: <UserGuard><MeetingDetails /></UserGuard> },
+	{ path: "/meeting-details", element: <HubRedirect><UserGuard><MeetingDetails /></UserGuard></HubRedirect> },
+	{ path: "/meetingdetails", element: <HubRedirect><UserGuard><MeetingDetails /></UserGuard></HubRedirect> },
 	{ path: "/my-agreements", element: <UserGuard><MyAgreements /></UserGuard> },
 	{ path: "/myagreements", element: <UserGuard><MyAgreements /></UserGuard> },
-	{ path: "/my-subscriptions", element: <UserGuard><MySubscriptions /></UserGuard> },
-	{ path: "/mysubscriptions", element: <UserGuard><MySubscriptions /></UserGuard> },
+	{ path: "/my-subscriptions", element: <HubRedirect><UserGuard><MySubscriptions /></UserGuard></HubRedirect> },
+	{ path: "/mysubscriptions", element: <HubRedirect><UserGuard><MySubscriptions /></UserGuard></HubRedirect> },
 	{ path: "/no-roles", element: <NoRoles /> },
 	{ path: "/noroles", element: <NoRoles /> },
 	{ path: "/notification-analytics", element: <NotificationAnalytics /> },
