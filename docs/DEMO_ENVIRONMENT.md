@@ -90,12 +90,31 @@ WP 1 to 5 can be built and tested here. WP 6 and 7 need the provider accounts.
 | 2 Core `POST /api/auth/sso` | Built and tested | Branch `claude/demo-sso` in CitizenBankCore (pushed, no PR, `main` untouched) |
 | 3 Banking frontends `/sso`, sign-in redirect, demo banner | Built and tested | Branch `claude/demo-sso` in CitizenInternetBanking and CitizenBankApp (pushed, no PRs, `main` untouched) |
 | 4 Website button, banner, demo sign-in page | Not started | |
-| 5 Demo seeder for the seven accounts | Not started | |
+| 5 Demo seeder for the seven accounts | Built and tested | This branch: `backend/app/libs/demo_seed.py`, `backend/scripts/seed_demo_accounts.py` |
 | 6 Demo blueprint and deploy runbook | Not started | |
 | 7 End-to-end per account on the deployed demo | Not started | |
 
 Nothing is merged: review and merge the three `claude/demo-sso` branches yourself. Core's migration `0001_sso` is additive
 (a nullable column and a new table) and runs on its next build.
+
+### Seeding the seven accounts (WP 5)
+
+Stack Auth holds the logins and I cannot reach it from the build environment, so the owner creates the seven users
+there and the seeder does the rest.
+
+1. In the demo Stack Auth project create `customer@`, `investor@`, `shareholder@`, `board@`, `staff@`, `admin@` and
+   `combined@demo.citizenbank.test` with one shared demo password. `python scripts/seed_demo_accounts.py --list`
+   prints them with their roles.
+2. Copy each user's User ID into a JSON file (format in the script's help).
+3. In the demo service's Render Shell: `python scripts/seed_demo_accounts.py --ids demo_ids.json` (dry run), then
+   add `--apply`. Add `--create-missing-roles` if the roles table has no `shareholder`, and `--reset-demo-data` to put
+   the sample subscriptions back to their start.
+
+It creates the profiles (marked complete so nobody is sent to onboarding), the roles, a board record for the board and
+combined accounts, three sample subscriptions (investor and combined unpaid, shareholder fully paid), and a platform
+person for each. Safety: refuses unless `DEMO_MODE=true`; refuses an ID whose profile has a different email; dry run
+by default; re-running keeps demo progress. Notes: the shareholder account also holds `investor`, because the existing
+investor screens key off that role; the admin account is `admin` and `super_admin` only.
 
 ### What was verified
 
@@ -111,6 +130,9 @@ Nothing is merged: review and merge the three `claude/demo-sso` branches yoursel
 
 ### What was not verified
 
+- The seeder against the real demo database. The production table definitions are not in the repo, so its tests use
+  tables rebuilt from the INSERTs the application already runs; it checks the columns first and stops with a message
+  if one is missing. Run the dry run first and read the counts.
 - Real Stack Auth sign-in, and the website handing off from the browser (no button yet, WP 4).
 - Any real deployment: Render fetching and serving keys, Vercel reaching them, Neon, TLS and `Secure` cookies on the real hosts.
 - The remaining Hub screens with the seven accounts (WP 5 and 7).
