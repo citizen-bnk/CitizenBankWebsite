@@ -61,6 +61,16 @@ How the test caught a real thing early: the first runs on the branch preview URL
 
 **Still open for Phase 1:** put the integration branches on the demo (merge, or point the demo projects at them), switch on the AI provider keys, a browser-level test of the screens, and the callback-domain and storage-credential items the owner is handling.
 
+## Update, 6 October evening: integration merged, and the first cross-ecosystem use case
+
+**Merged to `main`, in order:** CitizenBankCore (#4), CitizenInternetBanking (#3), CitizenBankApp (#3), CitizenBankWebsite (#1). Post-merge CI is green on all four. The superseded pull requests (Core 2 and 3, Internet Banking 1 and 2, App 1 and 2) are contained in these and can be closed.
+
+**Use case, running on the live demo: one person, one sign-in, two systems of record, two channels.** The smoke test signs in as the demo customer on the website, opens Internet Banking and the mobile App from there, and checks that both land on the **same bank profile, accounts and balances** in Bank Core, with customer rights only (a website sign-in never grants banking staff or admin power). It also checks that the demo's Core is the integrated release (health check, and the progressive-KYC route is present, marked demonstration-only). Result after the merge: passing for the customer and combined accounts. Nothing is changed in the demo: every call in the use case reads.
+
+**First defect the use case found: investors could not see their own investments.** `GET /api/subscriptions/core/my-public-subscriptions` returns 500 for every account on the demo, because the demo database (built from Core's first reconstruction of the website schema) lacks five columns of `share_subscriptions`. Reproduced locally through the website's own code (500 for all four accounts), fixed by an additive migration, and proven (200 with 1, 1, 1 and 0 subscriptions). It is Core pull request 5 (migration `004` plus a test that builds a fresh database and fails when the migration is missing). The website migrations do not run automatically, so the demo database needs one command (in the pull request). Until it is applied, two investment checks in the smoke test fail, which is the correct signal.
+
+**What this does not yet show:** moving money. The new KYC policy blocks transfers until a reviewer verifies a customer's evidence, and signing in through the website creates a customer with no verified evidence by design, so a transfer between channels needs the reviewer step (a Core administrator) to be part of the demo. That is the next use case to build.
+
 ## 2. Decisions needed from the owner
 
 | # | Decision | Recommendation |
