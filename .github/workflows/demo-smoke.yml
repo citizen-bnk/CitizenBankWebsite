@@ -1,12 +1,15 @@
 name: Demo smoke test
 # Signs in as each of the seven demo accounts on the deployed demo and checks what each can and cannot do.
-# Run it from Actions > Demo smoke test > Run workflow, pasting the demo addresses.
+# Two ways to run it: (1) Actions > Demo smoke test > Run workflow, pasting the demo addresses (once this file is on
+# the default branch), or (2) edit e2e/demo-urls.json (public addresses, no secrets) and push: that push runs it.
 # If the demo projects use Vercel Deployment Protection, add a repository secret VERCEL_PROTECTION_BYPASS
 # (Vercel project > Settings > Deployment Protection > Protection Bypass for Automation).
 on:
+  push:
+    paths: ["e2e/demo-urls.json"]
   workflow_dispatch:
     inputs:
-      website_url: { description: "Demo website address, no trailing slash", required: true }
+      website_url: { description: "Demo website address, no trailing slash", required: false }
       hub_url: { description: "Demo Hub address (optional)", required: false }
       banking_url: { description: "Demo Internet Banking address (optional)", required: false }
       app_url: { description: "Demo mobile App address (optional)", required: false }
@@ -19,13 +22,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - name: Read the addresses from e2e/demo-urls.json
+        id: urls
+        run: echo "json=$(node e2e/read-urls.mjs)" >> "$GITHUB_OUTPUT"
       - name: The test itself still catches mistakes
         run: node e2e/selftest.mjs
       - name: Demo smoke test
         run: node --test e2e/demo-smoke.test.mjs
         env:
-          WEBSITE_URL: ${{ inputs.website_url }}
-          HUB_URL: ${{ inputs.hub_url }}
-          BANKING_URL: ${{ inputs.banking_url }}
-          APP_URL: ${{ inputs.app_url }}
+          WEBSITE_URL: ${{ inputs.website_url || fromJSON(steps.urls.outputs.json).website_url }}
+          HUB_URL: ${{ inputs.hub_url || fromJSON(steps.urls.outputs.json).hub_url }}
+          BANKING_URL: ${{ inputs.banking_url || fromJSON(steps.urls.outputs.json).banking_url }}
+          APP_URL: ${{ inputs.app_url || fromJSON(steps.urls.outputs.json).app_url }}
           VERCEL_PROTECTION_BYPASS: ${{ secrets.VERCEL_PROTECTION_BYPASS }}
