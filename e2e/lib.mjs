@@ -14,6 +14,11 @@ export async function http(url, opts = {}) {
   const bypass = process.env.VERCEL_PROTECTION_BYPASS;
   if (bypass) headers["x-vercel-protection-bypass"] = bypass;
   const res = await fetch(url, { redirect: "manual", ...opts, headers });
+  // Deployment Protection sends outsiders to a Vercel sign-in page (or answers 401 with a cookie/HTML page).
+  if (res.status >= 300 && res.status < 400) {
+    const to = res.headers.get("location") || "";
+    if (/^https?:\/\/([a-z0-9-]+\.)?vercel\.com\//i.test(to) && !/vercel\.com/i.test(new URL(url).host)) throw protectedError(url);
+  }
   if (res.status === 401 && (res.headers.get("set-cookie") || "").includes("_vercel_sso_nonce")) throw protectedError(url);
   if (res.status === 401 || res.status === 403) {
     const server = res.headers.get("server") || "";

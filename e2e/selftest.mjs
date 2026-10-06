@@ -15,15 +15,16 @@ const run = (urls) => new Promise((resolve) => {
 });
 
 let bad = 0;
-for (const [mode, shouldPass] of [["good", true], ["not-demo", false], ["leaks-private-key", false], ["wrong-roles", false],
-  ["investor-gets-banking", false], ["payments-open", false], ["replayable", false], ["no-cookie", false]]) {
+for (const [mode, shouldPass, mustSay] of [["good", true], ["not-demo", false], ["leaks-private-key", false], ["wrong-roles", false],
+  ["investor-gets-banking", false], ["payments-open", false], ["replayable", false], ["no-cookie", false],
+  ["protected", false, /Deployment Protection/]]) {
   const mock = await start(mode);
   const r = await run(mock.urls);
   mock.close();
   const passed = r.status === 0;
-  const ok = passed === shouldPass;
+  const ok = passed === shouldPass && (!mustSay || mustSay.test(r.out));
   if (!ok) bad++;
-  console.log(`${ok ? "ok  " : "BAD "} mode=${mode}: smoke test ${passed ? "passed" : "failed"}${shouldPass ? " (expected pass)" : " (expected failure)"}`);
+  console.log(`${ok ? "ok  " : "BAD "} mode=${mode}: smoke test ${passed ? "passed" : "failed"}${shouldPass ? " (expected pass)" : " (expected failure)"}${mustSay && !mustSay.test(r.out) ? ` BUT the message does not mention ${mustSay}` : ""}`);
   if (!ok) console.log(r.out.split("\n").filter((l) => /not ok|error|expected/i.test(l)).slice(0, 8).join("\n"));
 }
 process.exit(bad ? 1 : 0);

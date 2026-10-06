@@ -39,6 +39,7 @@ export async function start(mode = "good") {
   const bank = await banking(mode), app = await banking(mode);
   const site = await listen(http.createServer(async (req, res) => {
     const u = new URL(req.url, "http://x"), p = u.pathname, body = await readBody(req);
+    if (mode === "protected") { res.writeHead(302, { location: "https://vercel.com/sso-api?url=" + encodeURIComponent(req.url) }); return res.end(); }
     const who = ACCOUNTS.find((a) => `Bearer tok-${a.key}` === req.headers.authorization);
     if (p === "/") { res.writeHead(200, { "content-type": "text/html" }); return res.end('<script src="/a.js"></script>'); }
     if (p === "/a.js") return res.end('x={projectId:"11111111-1111-4111-8111-111111111111",publishableClientKey:"pck_mock"}');
