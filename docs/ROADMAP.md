@@ -42,6 +42,25 @@ Resolutions worth knowing:
 
 **D2 needs a fresh decision.** I recommended that the website repository own the website schema. The other platform has meanwhile put the same schema in Core and applied it to the demo database, with its own history table. I checked that a database built from that schema works with this repository's demo seeder (seven accounts, run twice, no duplicates), and parked a Python runner and tests for the website repository outside the repo. Two homes would be worse than either one, so nothing is committed here. Options: (a) keep it in Core as built (fastest, already applied; the website then depends on Core's repository for its own schema), or (b) move it here later, with a one-time step that adopts the existing history table.
 
+## Update, 6 October late afternoon: Phase 1 first result, and the pull requests
+
+**Pull requests opened** (decision: merge the integration branches): CitizenBankCore 4, CitizenInternetBanking 3, CitizenBankApp 3, with the website's PR 1. All checks are green on GitHub. They are not merged: merging deploys the production Vercel projects and runs Core's migrations, so that stays with the owner (take a database backup first). Order: Core, then the two frontends, then the website.
+
+**Seven-account test against the live demo: passing.** `e2e/demo-smoke.test.mjs` (run from GitHub's runners, which can reach `vercel.app`) signs in through real Stack Auth as each of the seven accounts against `citizen-website-demo.vercel.app` and checks, with 46 checks in all:
+
+- the website publishes demo mode, public handoff keys only, and all seven accounts, and refuses unauthenticated calls;
+- each account's roles in the database match the demo definition;
+- the launcher offers exactly the right services (customer and combined: both banking hosts; investor, shareholder, board, staff, admin: the Hub only);
+- only staff and admin pass the payment-recording role check; the other five are refused;
+- customer and combined get a handoff to **both** `citizeninternetbanking-demo` and `citizenbankapp-demo`, Core accepts it once and sets a session, the banking home page opens, and replaying the same code is refused; the other five get no banking handoff;
+- the Hub demo answers and forwards `/api` to the demo website, not the live one.
+
+What this proves and does not: it proves sign-in, roles, the website API, the signed handoff and Core's session on real Vercel, Neon and Stack. It does not test the screens in a browser, AI conversation, passkeys, KYC, or anything deployed from the integration branches (the banking demos still run the earlier sign-in branch, where `/login` hands over to the website; the test accepts either behaviour).
+
+How the test caught a real thing early: the first runs on the branch preview URL were blocked by Vercel Deployment Protection (a 302 to Vercel's sign-in); the stable `citizen-website-demo.vercel.app` address is open. The test now says so in plain words.
+
+**Still open for Phase 1:** put the integration branches on the demo (merge, or point the demo projects at them), switch on the AI provider keys, a browser-level test of the screens, and the callback-domain and storage-credential items the owner is handling.
+
 ## 2. Decisions needed from the owner
 
 | # | Decision | Recommendation |
