@@ -131,3 +131,71 @@ describe("each demo account sees exactly what its roles allow", () => {
     });
   }
 });
+
+/**
+ * USE CASE: one person, one sign-in, two systems of record, two channels.
+ *
+ * A demo customer signs in once on the website and opens Internet Banking and the mobile App from there. Both banking
+ * channels must put them in the SAME bank profile (one user, the same accounts and balances in the one ledger), with
+ * customer rights only. The combined account also holds an investment on the website side under the same identity.
+ * Nothing is changed in the demo: every call here only reads.
+ */
+describe("use case: one sign-in reaches the same person's bank accounts on both channels, and their investment", () => {
+  const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN", "BACK_OFFICE", "STAFF"];
+
+  async function enter(auth, audience, base) {
+    const handoff = await json(`${WEBSITE}/api/platform/handoff`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" }, body: JSON.stringify({ audience, next: "/" }),
+    });
+    assert.equal(handoff.status, 200, `no ${audience} handoff: ${JSON.stringify(handoff.body)}`);
+    const landed = await http(handoff.body.url);
+    assert.equal(landed.status, 303, `${audience} refused the handoff (HTTP ${landed.status})`);
+    const cookie = cookiesFrom(landed);
+    assert.match(cookie, /cb_session=/, `${audience} set no session`);
+    const me = await json(`${base}/api/me`, { headers: { cookie } });
+    assert.equal(me.status, 200, `${audience} /api/me returned ${me.status}: ${JSON.stringify(me.body).slice(0, 200)}`);
+    return { cookie, me: me.body };
+  }
+
+  for (const key of ["customer", "combined"]) {
+    test(`${key}: the same bank profile, accounts and balances on Internet Banking and on the App`, { skip: !BANKING || !APP }, async () => {
+      const account = accounts.find((a) => a.key === key);
+      const auth = { authorization: `Bearer ${await signIn(stack, account.email, password)}` };
+      const [web, phone] = [await enter(auth, "banking", BANKING), await enter(auth, "app", APP)];
+
+      // one person: the profile on both channels is the website account's, and it is one and the same user
+      assert.equal(web.me.user.email.toLowerCase(), account.email.toLowerCase(), "the bank profile belongs to someone else");
+      assert.equal(phone.me.user.id, web.me.user.id, "the two channels opened two different bank profiles for one person");
+      // one ledger: the same accounts with the same balances
+      const view = (me) => me.accounts.map((a) => `${a.number}:${a.type}:${a.balance}`).sort();
+      assert.ok(web.me.accounts.length >= 1, "a new customer should have at least the demo account");
+      assert.deepEqual(view(phone.me), view(web.me), "the two channels show different accounts or balances");
+      assert.ok(web.me.accounts.some((a) => Number(a.balance) > 0), "the demo account has no demo money");
+      // customer rights only: signing in through the website never grants banking staff or admin powers
+      const roles = (web.me.user.roles || []).map((r) => String(r).toUpperCase());
+      assert.ok(roles.includes("CUSTOMER"), `roles in the bank: ${roles}`);
+      assert.deepEqual(roles.filter((r) => ADMIN_ROLES.includes(r)), [], "a website sign-in granted banking staff or admin rights");
+    });
+  }
+
+  test("combined: the same sign-in also holds an investment on the website side", async () => {
+    const account = accounts.find((a) => a.key === "combined");
+    const auth = { authorization: `Bearer ${await signIn(stack, account.email, password)}` };
+    const subs = await json(`${WEBSITE}/api/subscriptions/my-subscriptions`, { headers: auth });
+    assert.equal(subs.status, 200, `my-subscriptions returned ${subs.status}`);
+    const list = Array.isArray(subs.body) ? subs.body : subs.body?.subscriptions;
+    assert.ok(Array.isArray(list) && list.length >= 1, "the combined account has no investment on the website");
+  });
+
+  test("an investor who is not a customer has an investment but no bank profile", async () => {
+    const account = accounts.find((a) => a.key === "investor");
+    const auth = { authorization: `Bearer ${await signIn(stack, account.email, password)}` };
+    const subs = await json(`${WEBSITE}/api/subscriptions/my-subscriptions`, { headers: auth });
+    const list = Array.isArray(subs.body) ? subs.body : subs.body?.subscriptions;
+    assert.ok(Array.isArray(list) && list.length >= 1, "the investor has no investment");
+    if (BANKING) {
+      const refused = await json(`${WEBSITE}/api/platform/handoff`, { method: "POST", headers: { ...auth, "content-type": "application/json" }, body: '{"audience":"banking"}' });
+      assert.equal(refused.status, 403, "an investor must not be able to enter banking");
+    }
+  });
+});

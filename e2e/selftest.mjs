@@ -32,7 +32,9 @@ let bad = 0;
 }
 for (const [mode, shouldPass, mustSay] of [["good", true], ["not-demo", false], ["leaks-private-key", false], ["wrong-roles", false],
   ["investor-gets-banking", false], ["payments-open", false], ["replayable", false], ["no-cookie", false],
-  ["protected", false, /Deployment Protection/]]) {
+  ["protected", false, /Deployment Protection/],
+  ["split-ledger", false, /different bank profiles|different accounts or balances/], ["privilege-leak", false, /staff or admin rights/],
+  ["lost-subscription", false, /no investment on the website/]]) {
   const mock = await start(mode);
   const r = await run(mock.urls);
   mock.close();
