@@ -80,8 +80,8 @@ and mirror `person_id` through `platform.person_public`, accepting two stores.
 - The JWT carries `person_id`, session ID and expiry only. Roles are looked up server side on
   sensitive requests, so revocation takes effect within the session TTL.
 - Logout deletes the `platform.session` row; every backend rejects the revoked session ID.
-- **To verify first:** that `citizenbank.co.ls` accepts parent-domain cookies (`co.ls` may be a
-  public suffix). If not, use a redirect-based token exchange per host.
+- Parent-domain cookies are allowed: `co.ls` is on the Public Suffix List (checked 6 Oct 2026), so
+  `citizenbank.co.ls` is the registrable domain. A cookie on `.co.ls` itself would be rejected.
 
 Existing Core users are linked through `platform.identity_mapping`, never merged by email alone.
 

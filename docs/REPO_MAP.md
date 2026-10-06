@@ -115,7 +115,8 @@ Core accepts both `cb_session` and `cz_session` during the switch so rollback ne
 
 ## 5. Risks
 
-- A parent-domain cookie only works if `co.ls` permits it. Verify before step D; else use a redirect exchange per host.
+- Parent-domain cookie: **verified 6 Oct** that `co.ls` is on the Public Suffix List, so `citizenbank.co.ls` is the registrable domain and `Domain=.citizenbank.co.ls` is permitted. No redirect exchange is needed for this reason.
+- DNS for all five `citizenbank.co.ls` names does not resolve yet. See `DNS_AND_HOSTING_RUNBOOK.md`.
 - Vercel serverless to Render Postgres needs pooling and a Frankfurt function region.
 - The website repo is public and already contains a payment-authorisation bug and historical
   secrets. Treat every secret ever committed as exposed until rotation is confirmed.
