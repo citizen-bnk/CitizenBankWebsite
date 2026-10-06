@@ -23,16 +23,18 @@ needs stronger separation later, move the back office to its own host (for examp
 | Host | What it is | Runtime | Source repo |
 |---|---|---|---|
 | `citizenbank.co.ls` (+ `www`) | Public website | Render service `citizenhub` | CitizenHub (this repo) |
-| `hub.citizenbank.co.ls` | Citizen Hub: investor, shareholder, board, staff and admin workspaces | Same Render service, second hostname and second frontend bundle | CitizenHub |
+| `hub.citizenbank.co.ls` | Citizen Hub: investor, shareholder, board, staff and admin workspaces | Frontend in its own repo (proposed: Vercel, `/api/*` rewrite to the Render API). Data and business logic stay in the Hub API on Render. | `citizen-hub` (new; see `REPO_MAP.md`) |
 | `banking.citizenbank.co.ls` | Internet Banking (demo) | Vercel | CitizenInternetBanking |
 | `app.citizenbank.co.ls` | Banking PWA (demo) | Vercel | CitizenBankApp |
 
 Bank Core stays a Vercel project reached only through the two banking frontends' `/api/*`
 rewrite. It gets no public hostname of its own.
 
-Hub on the same Render service keeps `numInstances: 1` (the in-process scheduler must run
-once). The backend picks the frontend bundle from the `Host` header. Split into a separate
-service later only if Hub needs its own scaling or release cadence.
+The Hub **frontend** is carved out of the website's React app into the new `citizen-hub` repo.
+The Hub **API** (subscriptions, governance, back office, licensing) stays in CitizenHub on
+the Render service, which keeps `numInstances: 1` because the in-process scheduler must run once.
+The Hub frontend reaches the API through a same-origin `/api/*` rewrite, the same pattern the
+banking frontends already use for Core, so no cross-origin cookie handling is needed.
 
 ## 2. One source of truth
 
@@ -106,7 +108,7 @@ Investment collection is independent of banking, and live rails stay off.
 | 1 | Restore DNS; add the three subdomains; add `hub.` to Render | TLS valid on all four hosts |
 | 2 | Create `platform` schema, `person`, `identity_mapping`, `membership`; backfill from Stack Auth users and `user_roles` | Reconciliation totals match; ambiguous matches listed, not merged |
 | 3 | Platform session service and JWKS; Core verifies it; banking frontends accept it | One sign-in across all four hosts; logout revokes everywhere |
-| 4 | Split frontend into website and Hub bundles; Hub gets the service switcher | Each host shows only its routes |
+| 4 | Carve the Hub screens out of the website SPA into `citizen-hub`; Hub gets the service switcher; remove them from the website | Each host shows only its own routes |
 | 5 | Move Core to `bank_demo` schema in the shared cluster; reseed | Demo journeys pass; no grants cross schemas |
 | 6 | Retire `customer_banking` and `CustomerPortal` in the website in favour of a redirect to `banking.` | No duplicate banking tables in use |
 | 7 | Stage controls, shared documents and Drive worker, outbox events | Pause-collections and outage scenarios pass |
@@ -117,6 +119,6 @@ Steps 2 and 3 are the foundation. Everything after depends on them.
 ## 7. Open decisions
 
 - Confirm one cluster with three schemas, or keep Core on Neon.
-- Confirm Hub as a hostname on the existing Render service.
+- Confirm the Hub frontend host (proposed: Vercel, like the banking frontends).
 - Confirm Stack Auth stays as identity provider.
 - Approved offer terms, collection method and reconciliation approvers (from the launch plan).
