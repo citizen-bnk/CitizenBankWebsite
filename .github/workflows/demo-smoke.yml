@@ -28,7 +28,7 @@ jobs:
       - name: The test itself still catches mistakes
         run: node e2e/selftest.mjs
       - name: Demo smoke test
-        run: node --test e2e/demo-smoke.test.mjs
+        run: node --test --test-reporter=spec e2e/demo-smoke.test.mjs
         env:
           WEBSITE_URL: ${{ inputs.website_url || fromJSON(steps.urls.outputs.json).website_url }}
           HUB_URL: ${{ inputs.hub_url || fromJSON(steps.urls.outputs.json).hub_url }}

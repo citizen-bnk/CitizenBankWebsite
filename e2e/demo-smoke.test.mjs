@@ -57,9 +57,13 @@ describe("the other hosts are up and send signed-out visitors to sign in", { ski
       const first = await http(url + "/");
       assert.ok([302, 303, 307, 308].includes(first.status), `signed-out home should redirect, got ${first.status}`);
       assert.match(first.headers.get("location") || "", /\/login/);
+      // Either a login page of its own (passkey / explore / website sign-in), or a hand-over to the website's sign-in.
       const login = await http(url + "/login");
-      assert.equal(login.status, 200);
-      assert.match(await login.text(), /Citizen/);
+      if (login.status === 200) assert.match(await login.text(), /Citizen/);
+      else {
+        assert.ok([302, 303, 307, 308].includes(login.status), `/login returned ${login.status}`);
+        assert.ok((login.headers.get("location") || "").startsWith(WEBSITE), `/login redirects somewhere other than the website: ${login.headers.get("location")}`);
+      }
     });
   }
 });
