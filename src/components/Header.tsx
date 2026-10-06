@@ -10,7 +10,7 @@ import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
 import { getFrontendPath } from "utils/env";
 
-const logoUrl = "/brand/logo.png";
+const logoUrl = "/brand/logo-sm.webp";
 
 export function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);

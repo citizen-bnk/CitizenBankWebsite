@@ -177,7 +177,7 @@ export default function InviteAcceptance() {
               <div className="flex justify-between items-center py-3 sm:py-4">
                 <Link to="/" className="flex items-center gap-2 sm:gap-3">
                   <img 
-                    src="/brand/logo.png" 
+                    src="/brand/logo-sm.webp" 
                     alt="Citizen Bank" 
                     className="h-8 sm:h-10 md:h-12 w-auto" 
                   />

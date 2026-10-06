@@ -41,10 +41,10 @@ async def send_subscription_created_email(
     # HappyCitizen images for visual appeal
     happy_citizens_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%201.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%201.jpg" 
              alt="Welcome to Citizen Bank" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.jpg" 
              alt="Citizen Bank Community" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
@@ -211,10 +211,10 @@ async def send_payment_confirmed_email(
     # Success imagery
     success_images_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%204.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%204.jpg" 
              alt="Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.jpg" 
              alt="Celebration" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
@@ -328,10 +328,10 @@ async def send_certificate_ready_email(
     # Professional certificate imagery
     certificate_images_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.jpg" 
              alt="Certificate Ready" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.jpg" 
              alt="Achievement" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>

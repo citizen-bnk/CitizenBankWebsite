@@ -4,7 +4,7 @@ import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
 
 export function Footer() {
-  const logoUrl = "/brand/logo.png";
+  const logoUrl = "/brand/logo-sm.webp";
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [platform, setPlatform] = useState('');
 
