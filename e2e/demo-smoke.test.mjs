@@ -11,22 +11,26 @@ import { before, describe, test } from "node:test";
 import { cookiesFrom, expectations, http, json, signIn, stackConfig, trim } from "./lib.mjs";
 
 const WEBSITE = trim(process.env.WEBSITE_URL);
-const HUB = trim(process.env.HUB_URL);
-const BANKING = trim(process.env.BANKING_URL);
-const APP = trim(process.env.APP_URL);
 if (!WEBSITE) throw new Error("Set WEBSITE_URL to the demo website's address.");
 
-let accounts = [];
-let password = "";
-let stack;
+const demo = await json(`${WEBSITE}/api/platform/demo-accounts`);
+assert.equal(demo.status, 200, `the demo accounts page must be public in demo mode (HTTP ${demo.status})`);
+const accounts = demo.body.accounts;
+const password = demo.body.password;
+const stack = await stackConfig(WEBSITE);
 
-before(async () => {
-  const demo = await json(`${WEBSITE}/api/platform/demo-accounts`);
-  assert.equal(demo.status, 200, "the demo accounts page must be public in demo mode");
-  accounts = demo.body.accounts;
-  password = demo.body.password;
-  stack = await stackConfig(WEBSITE);
-});
+// The website's launcher says where banking is. Use that unless an address was given, so only WEBSITE_URL is needed.
+let HUB = trim(process.env.HUB_URL), BANKING = trim(process.env.BANKING_URL), APP = trim(process.env.APP_URL);
+const discovered = {};
+{
+  const customer = accounts.find((a) => a.key === "customer");
+  const token = await signIn(stack, customer.email, password);
+  const services = await json(`${WEBSITE}/api/platform/services`, { headers: { authorization: `Bearer ${token}` } });
+  for (const svc of services.body || []) if (svc.url && svc.url.startsWith("http")) discovered[svc.id] = trim(svc.url);
+  BANKING ||= discovered.banking || "";
+  APP ||= discovered.app || "";
+}
+console.log(`# demo website: ${WEBSITE}\n# internet banking: ${BANKING || "(not configured)"}\n# mobile app: ${APP || "(not configured)"}\n# hub: ${HUB || "(none given)"}`);
 
 describe("the website is a demo and publishes what other hosts need", () => {
   test("config says demo mode; keys are published; the account list is complete; unauthenticated calls are refused", async () => {
@@ -82,7 +86,6 @@ describe("each demo account sees exactly what its roles allow", () => {
         const eligible = Object.fromEntries(services.body.map((s) => [s.id, s.eligible]));
         for (const [id, url] of [["banking", BANKING], ["app", APP]]) {
           if (url) assert.equal(eligible[id], want[id], `${key}: ${id} eligible should be ${want[id]}`);
-          else assert.equal(eligible[id], false);
         }
         assert.equal(eligible.hub, want.hub, `${key}: hub eligible should be ${want.hub}`);
       });

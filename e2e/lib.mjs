@@ -13,7 +13,12 @@ export async function http(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   const bypass = process.env.VERCEL_PROTECTION_BYPASS;
   if (bypass) headers["x-vercel-protection-bypass"] = bypass;
-  const res = await fetch(url, { redirect: "manual", ...opts, headers });
+  let res;
+  try {
+    res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(30000), ...opts, headers });
+  } catch (e) {
+    throw new Error(`No answer from ${new URL(url).host}${new URL(url).pathname} within 30 seconds (${e.cause?.code || e.name}). Is the deployment up, and is its function crashing?`);
+  }
   // Deployment Protection sends outsiders to a Vercel sign-in page (or answers 401 with a cookie/HTML page).
   if (res.status >= 300 && res.status < 400) {
     const to = res.headers.get("location") || "";

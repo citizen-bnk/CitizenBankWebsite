@@ -55,8 +55,8 @@ export async function start(mode = "good") {
     if (p === "/api/platform/me") return send(res, 200, { person_id: "p", roles });
     if (p === "/api/platform/services") return send(res, 200, [
       { id: "hub", eligible: roles.some((r) => HUB.includes(r)) },
-      { id: "banking", eligible: roles.includes("customer") || (mode === "investor-gets-banking" && who.key === "investor") },
-      { id: "app", eligible: roles.includes("customer") }]);
+      { id: "banking", url: url(bank), eligible: roles.includes("customer") || (mode === "investor-gets-banking" && who.key === "investor") },
+      { id: "app", url: url(app), eligible: roles.includes("customer") }]);
     if (p === "/api/subscriptions/payments/record-payment") {
       const finance = roles.some((r) => ["super_admin", "back_office"].includes(r));
       return finance || (mode === "payments-open" && who.key === "investor") ? send(res, 404, { detail: "unknown" }) : send(res, 403, { detail: "no" });
