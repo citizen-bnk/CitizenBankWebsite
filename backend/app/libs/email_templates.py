@@ -1052,7 +1052,7 @@ def create_investor_invitation_email(
         <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
              alt="Investor Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%20a.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
              alt="Growing Together" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
