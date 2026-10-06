@@ -50,7 +50,7 @@ All seven use one demo password set in the Stack Auth demo project and shown onl
 
 Emails use `@demo.citizenbank.test`. The demo seeder creates profiles, roles and a board record for each.
 
-## 5. Work packages
+## 5. Work packages (status in section 8)
 
 | WP | Repo | What | Verified by |
 |---|---|---|---|
@@ -81,3 +81,59 @@ WP 1 to 5 can be built and tested here. WP 6 and 7 need the provider accounts.
 - Drive filing, email and SMS delivery, and live payment providers are not part of the demo.
 - Which Hub screens work end to end is only known after WP 7. The guide's simulated flows (proof, reconcile,
   receipt, votes, documents) map to existing website features where they exist, and gaps will be listed.
+
+## 8. Status (6 October 2026)
+
+| WP | State | Where the code is |
+|---|---|---|
+| 1 Platform keys and handoff (website backend) | Built and tested | This branch (`claude/practical-volta-tqe0qk`) |
+| 2 Core `POST /api/auth/sso` | Built and tested | Local branch `claude/demo-sso` in CitizenBankCore, **not pushed** |
+| 3 Banking frontends `/sso`, sign-in redirect, demo banner | Built and tested | Local branch `claude/demo-sso` in CitizenInternetBanking and CitizenBankApp, **not pushed** |
+| 4 Website button, banner, demo sign-in page | Not started | |
+| 5 Demo seeder for the seven accounts | Not started | |
+| 6 Demo blueprint and deploy runbook | Not started | |
+| 7 End-to-end per account on the deployed demo | Not started | |
+
+Until WP 2 and 3 are pushed, the work exists only in the build session and would be lost when it is reclaimed.
+
+### What was verified
+
+- Website to Core: a token signed by `platform_tokens.py` verifies in Core's TypeScript verifier. A committed fixture
+  (`tests/fixtures/website-handoff.json` in Core, throwaway key, no secret) keeps both sides honest.
+- The rules around the token each have a test that fails if the rule is removed: audience, issuer, expiry,
+  `use=handoff`, lifetime cap, one-time use, customer role required, no adoption of an unlinked profile by email,
+  no known password, `CUSTOMER` role only, first-visit race, relative-only `next`.
+- A full flow in Chromium: Core on a local database, Internet Banking and the App as **production builds**, and a stub
+  website. A person with a signed token lands on the dashboard (or the App) with the M 5,000.00 demo balance and the
+  banner. A replayed link, an investor-only person, a garbage token and a hostile `next` are all handled. Logging out
+  returns to the website's sign-in. 16 of 16 checks pass.
+
+### What was not verified
+
+- Real Stack Auth sign-in, and the website handing off from the browser (no button yet, WP 4).
+- Any real deployment: Render fetching and serving keys, Vercel reaching them, Neon, TLS and `Secure` cookies on the real hosts.
+- The remaining Hub screens with the seven accounts (WP 5 and 7).
+- Next's development mode does not work with the apps' strict Content Security Policy (it needs `eval`). Use a production
+  build to try them locally.
+
+## 9. Settings for the demo environment
+
+None of these values go in a repository.
+
+| Service | Variable | Value |
+|---|---|---|
+| Website (Render, demo) | `PLATFORM_SIGNING_KEY` | A new P-256 private key. Generate with `openssl ecparam -name prime256v1 -genkey -noout \| openssl pkcs8 -topk8 -nocrypt`. A multi-line value or a single line with `\n` both work. Keep it secret; never reuse it for production. |
+| | `PLATFORM_ISSUER` | The demo website's public address, for example `https://citizenhub-demo.onrender.com` |
+| | `BANKING_URL`, `APP_URL` | Addresses of the demo Internet Banking and App |
+| | `DEMO_MODE` | `true` |
+| Core (Vercel, demo) | `PLATFORM_JWKS_URL` | `<PLATFORM_ISSUER>/api/platform/jwks.json` (must be https) |
+| | `PLATFORM_ISSUER` | Exactly the same value as on the website |
+| | `SSO_AUDIENCES` | `banking,app` (the default) |
+| | `DEMO_MODE`, `ALLOW_REGISTRATION` | `true`, `false` |
+| | `AUTH_SECRET`, `DATABASE_URL` | Its own values: a new Neon database, not production's |
+| Internet Banking and App (Vercel, demo) | `CORE_API_URL` | The demo Core address (build time, redeploy after changing) |
+| | `SIGN_IN_URL` | The website's demo sign-in page (WP 4) |
+| | `NEXT_PUBLIC_DEMO_BANNER` | For example `Demonstration: simulated money` |
+
+The website's key address is `<website>/api/platform/jwks.json`; open it in a browser to check it answers before
+setting up Core.
