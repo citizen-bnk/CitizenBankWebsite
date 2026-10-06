@@ -154,6 +154,12 @@ describe("use case: one sign-in reaches the same person's bank accounts on both 
     assert.match(cookie, /cb_session=/, `${audience} set no session`);
     const me = await json(`${base}/api/me`, { headers: { cookie } });
     assert.equal(me.status, 200, `${audience} /api/me returned ${me.status}: ${JSON.stringify(me.body).slice(0, 200)}`);
+    // Core is healthy and is the release that has progressive KYC (the integration), not an older one
+    const health = await json(`${base}/api/health`);
+    assert.equal(health.body?.ok, true, `${audience}: Core health check failed (${health.status})`);
+    const kyc = await json(`${base}/api/kyc`, { headers: { cookie } });
+    assert.equal(kyc.status, 200, `${audience}: Core has no /api/kyc (HTTP ${kyc.status}): it is not the integrated release yet`);
+    assert.equal(kyc.body?.demoOnly, true, "Core's verification policy must be marked demonstration-only");
     return { cookie, me: me.body };
   }
 

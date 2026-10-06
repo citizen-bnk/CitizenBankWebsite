@@ -27,6 +27,11 @@ function banking(mode, channel) {
       res.writeHead(303, { location: "/", "set-cookie": mode === "no-cookie" ? "x=1" : `cb_session=${who}; Path=/; HttpOnly` });
       return res.end();
     }
+    if (u.pathname === "/api/health") { res.writeHead(200, { "content-type": "application/json" }); return res.end('{"ok":true,"db":"up"}'); }
+    if (u.pathname === "/api/kyc") {
+      if (mode === "old-core") { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { "content-type": "application/json" }); return res.end('{"profile":null,"policy":{"version":"x"},"demoOnly":true}');
+    }
     if (u.pathname === "/api/me") {
       const who = /cb_session=([a-z]+)/.exec(req.headers.cookie || "")?.[1];
       const b = BANK[who];

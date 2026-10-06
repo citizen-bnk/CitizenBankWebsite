@@ -34,7 +34,7 @@ for (const [mode, shouldPass, mustSay] of [["good", true], ["not-demo", false], 
   ["investor-gets-banking", false], ["payments-open", false], ["replayable", false], ["no-cookie", false],
   ["protected", false, /Deployment Protection/],
   ["split-ledger", false, /different bank profiles|different accounts or balances/], ["privilege-leak", false, /staff or admin rights/],
-  ["lost-subscription", false, /no investment on the website/]]) {
+  ["lost-subscription", false, /no investment on the website/], ["old-core", false, /not the integrated release/]]) {
   const mock = await start(mode);
   const r = await run(mock.urls);
   mock.close();
