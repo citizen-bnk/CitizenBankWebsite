@@ -214,6 +214,24 @@ Also check: the App opens from the launcher (Accounts tab shows M 5,000.00); the
 page; signing out and opening a banking address returns to `/demo`; an old banking link (use it twice) comes back to
 `/demo` with "expired or already used".
 
+## Finding the demo addresses, and testing them
+
+**Where the addresses are** (any one of these works):
+
+1. **Vercel dashboard.** Open the team that owns the projects, then each project (for example `citizen-website-demo`), then **Domains**. The `*.vercel.app` name listed there is the project's stable address; it follows the production deployment. A deployment's own page has a **Visit** button for that exact build.
+2. **GitHub.** Open any pull request: the Vercel bot comment has a table with one row per project and a **Preview** link. On a repository's main page, the **Deployments** box in the right-hand column lists the latest ones.
+3. **The demo website itself.** Sign in as the demo customer at `<website>/demo`; the launcher's buttons are the banking addresses. The same list is `GET <website>/api/platform/services` (with a signed-in token).
+
+**Stable address versus preview address.** A pull-request or branch deployment gets a long preview address. Vercel's default *Deployment Protection* sends outsiders to a Vercel sign-in page for previews but normally leaves the production address open. Share the stable address. If a preview must be tested by automation, create a *Protection Bypass for Automation* secret (project, Settings, Deployment Protection) and store it as the repository secret `VERCEL_PROTECTION_BYPASS`.
+
+**Addresses found on 6 October 2026** (read from the pull-request bot comments and confirmed by the smoke test): website `https://citizen-website-demo.vercel.app`, Hub `https://citizen-hub-demo.vercel.app`, Internet Banking `https://citizeninternetbanking-demo.vercel.app`, App `https://citizenbankapp-demo.vercel.app`.
+
+**Running the seven-account test.** It signs in as each demo account through Stack Auth and checks roles, the launcher, the payment-recording permission and the banking handoff (issued only to customers, accepted once, refused on replay). Only the website address is needed; it finds the banking hosts from the launcher.
+
+- On GitHub: edit `e2e/demo-urls.json` (public addresses, no secrets) and push; the push runs the *Demo smoke test* workflow (Actions tab). Once the workflow is on the default branch you can also use *Run workflow* and type the addresses.
+- On your own computer: `WEBSITE_URL=https://citizen-website-demo.vercel.app node --test e2e/demo-smoke.test.mjs` (Node 22 or newer, no installation).
+- `node e2e/selftest.mjs` proves the test itself still fails when something is wrong (eleven scenarios).
+
 ## If something is wrong
 
 | You see | Likely cause and fix |
