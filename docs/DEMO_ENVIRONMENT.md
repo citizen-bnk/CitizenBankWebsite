@@ -87,14 +87,15 @@ WP 1 to 5 can be built and tested here. WP 6 and 7 need the provider accounts.
 | WP | State | Where the code is |
 |---|---|---|
 | 1 Platform keys and handoff (website backend) | Built and tested | This branch (`claude/practical-volta-tqe0qk`) |
-| 2 Core `POST /api/auth/sso` | Built and tested | Local branch `claude/demo-sso` in CitizenBankCore, **not pushed** |
-| 3 Banking frontends `/sso`, sign-in redirect, demo banner | Built and tested | Local branch `claude/demo-sso` in CitizenInternetBanking and CitizenBankApp, **not pushed** |
+| 2 Core `POST /api/auth/sso` | Built and tested | Branch `claude/demo-sso` in CitizenBankCore (pushed, no PR, `main` untouched) |
+| 3 Banking frontends `/sso`, sign-in redirect, demo banner | Built and tested | Branch `claude/demo-sso` in CitizenInternetBanking and CitizenBankApp (pushed, no PRs, `main` untouched) |
 | 4 Website button, banner, demo sign-in page | Not started | |
 | 5 Demo seeder for the seven accounts | Not started | |
 | 6 Demo blueprint and deploy runbook | Not started | |
 | 7 End-to-end per account on the deployed demo | Not started | |
 
-Until WP 2 and 3 are pushed, the work exists only in the build session and would be lost when it is reclaimed.
+Nothing is merged: review and merge the three `claude/demo-sso` branches yourself. Core's migration `0001_sso` is additive
+(a nullable column and a new table) and runs on its next build.
 
 ### What was verified
 
