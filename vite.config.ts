@@ -18,12 +18,12 @@ enum ExtensionName {
 }
 
 const listExtensions = (): Extension[] => {
-	if (process.env.DATABUTTON_EXTENSIONS) {
+	if (process.env.AUTH_PROVIDERS) {
 		try {
-			return JSON.parse(process.env.DATABUTTON_EXTENSIONS) as Extension[];
+			return JSON.parse(process.env.AUTH_PROVIDERS) as Extension[];
 		} catch (err: unknown) {
-			console.error("Error parsing DATABUTTON_EXTENSIONS", err);
-			console.error(process.env.DATABUTTON_EXTENSIONS);
+			console.error("Error parsing AUTH_PROVIDERS", err);
+			console.error(process.env.AUTH_PROVIDERS);
 			return [];
 		}
 	}
@@ -55,7 +55,7 @@ const getExtensionConfig = (name: string): string => {
 };
 
 const buildVariables = () => {
-	const appId = process.env.DATABUTTON_PROJECT_ID;
+	const appId = "citizenhub";
 
 	const defines: Record<string, string> = {
 		__APP_ID__: JSON.stringify(appId),
@@ -64,7 +64,7 @@ const buildVariables = () => {
 		__API_PREFIX_PATH__: JSON.stringify(""),
 		__API_URL__: JSON.stringify("http://localhost:8000"),
 		__WS_API_URL__: JSON.stringify("ws://localhost:8000"),
-		__APP_TITLE__: JSON.stringify("Databutton"),
+		__APP_TITLE__: JSON.stringify("Citizen Hub"),
 		__APP_FAVICON_LIGHT__: JSON.stringify("/favicon-light.svg"),
 		__APP_FAVICON_DARK__: JSON.stringify("/favicon-dark.svg"),
 		__APP_DEPLOY_USERNAME__: JSON.stringify(""),

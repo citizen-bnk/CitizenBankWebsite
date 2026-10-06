@@ -1,6 +1,6 @@
 """Multi-channel notification sender used by the board engagement features.
 
-This module was missing from the Riff export. It currently delivers the
+This module was not part of the original export. It currently delivers the
 "email" channel through Resend (app.libs.email_service); other channels are
 reported as skipped.
 """

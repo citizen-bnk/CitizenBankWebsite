@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import date, datetime, timedelta
 import requests
-import databutton as db
+from app import runtime
 from app.auth import AuthorizedUser
 import asyncpg
 from app.libs import exchange_rate_service

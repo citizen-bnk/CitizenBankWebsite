@@ -51,7 +51,7 @@ export function LoadingProgress() {
         <div 
           className="fixed inset-0 z-40 flex items-center justify-center bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url("https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%201.png")'
+            backgroundImage: 'url("/brand/HappyCitizen%201.png")'
           }}
         >
           {/* Glassmorphism overlay */}

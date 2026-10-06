@@ -41,10 +41,10 @@ async def send_subscription_created_email(
     # HappyCitizen images for visual appeal
     happy_citizens_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%201.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%201.png" 
              alt="Welcome to Citizen Bank" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
              alt="Citizen Bank Community" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
@@ -211,10 +211,10 @@ async def send_payment_confirmed_email(
     # Success imagery
     success_images_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%204.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%204.png" 
              alt="Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
              alt="Celebration" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
@@ -328,10 +328,10 @@ async def send_certificate_ready_email(
     # Professional certificate imagery
     certificate_images_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
              alt="Certificate Ready" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
              alt="Achievement" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>

@@ -3,7 +3,7 @@ import os
 """Test User Seeding API - Development Only"""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import databutton as db
+from app import runtime
 import asyncpg
 from app.env import Mode, mode
 from app.libs.rbac import assign_role_to_user, get_user_roles

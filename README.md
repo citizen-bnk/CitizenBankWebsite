@@ -1,6 +1,7 @@
 # CitizenHub
 
-React (Vite) frontend + FastAPI backend, exported from Riff/Databutton.
+React (Vite) frontend + FastAPI backend.
+
 Production runs as one Docker service on Render at **https://citizenbank.co.ls**:
 the backend serves both the website and `/api`.
 
@@ -28,17 +29,13 @@ the backend serves both the website and `/api`.
    web service from `render.yaml` and asks for each secret (see *Environment variables*).
 4. **Copy the database.** In Render, open `citizenhub-db` and copy the *External Database URL*. Then:
    ```bash
-   OLD_DATABASE_URL='<old Riff/Neon production URL>' \
+   OLD_DATABASE_URL='<old production database URL>' \
    NEW_DATABASE_URL='<Render external URL>' \
    ./scripts/migrate_database.sh
    ```
-5. **Copy uploaded files** from Databutton to R2 (needs the Databutton project ID and token):
-   ```bash
-   pip install -r backend/requirements.txt
-   DATABUTTON_PROJECT_ID=... DATABUTTON_TOKEN=... \
-   R2_ACCOUNT_ID=... R2_ACCESS_KEY_ID=... R2_SECRET_ACCESS_KEY=... R2_BUCKET=citizenhub-files \
-   python scripts/migrate_files.py
-   ```
+5. **Copy uploaded files** (payment proofs, board documents) from the old file storage into the R2 bucket. Export them
+   from the old storage and upload them with any S3 tool (for example `rclone` or `aws s3 sync`, pointed at
+   `https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com`). Keep the same file names: the database stores them as keys.
 6. **Point the domain.** Render > `citizenhub` > Settings > Custom Domains shows the DNS
    records. Add them at the `.co.ls` registrar for `citizenbank.co.ls` and `www`.
 7. **Stack Auth.** In the Stack Auth dashboard, add `https://citizenbank.co.ls` to trusted
@@ -56,7 +53,7 @@ Set in Render (the blueprint prompts for them). Never commit them: `.env*` files
 | Variable | Needed for |
 | --- | --- |
 | `DATABASE_URL_PROD`, `DATABASE_URL_ADMIN_PROD`, `DATABASE_URL` | Filled automatically from Render Postgres |
-| `DATABUTTON_EXTENSIONS` | Stack Auth config JSON: `[{"name":"stack-auth","version":"0.0.0","config":{"projectId":"...","jwksUrl":"...","publishableClientKey":"..."}}]`. Without it, logged-in API calls are rejected |
+| `AUTH_PROVIDERS` | Stack Auth config JSON: `[{"name":"stack-auth","version":"0.0.0","config":{"projectId":"...","jwksUrl":"...","publishableClientKey":"..."}}]`. Without it, logged-in API calls are rejected |
 | `STACK_SECRET_SERVER_KEY` | Stack Auth server calls |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | File storage |
 | `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` | Email |
@@ -79,7 +76,7 @@ instance, or the jobs run twice.
 | Profile completion reminders | daily 09:00 |
 | Board member engagement emails | Mon/Wed/Fri 09:00 |
 
-The "Investor Lead Follow-up Reminders" job from Riff has no matching endpoint in the exported
+The "Investor Lead Follow-up Reminders" job of the old hosting has no matching endpoint in the exported
 code, so it is not scheduled.
 
 ## Local development

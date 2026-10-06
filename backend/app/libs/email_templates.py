@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict
 from datetime import datetime
-import databutton as db
+from app import runtime
 import os
 
 # Citizen Bank Brand Colors
@@ -9,7 +9,7 @@ BRAND_PINK = "#FB0066"
 BRAND_GRADIENT = "linear-gradient(to right, #FB0066, #A600FF, #FB6B00)"
 
 # Logo URL (static asset)
-LOGO_URL = "https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/logo.png"
+LOGO_URL = "https://citizenbank.co.ls/brand/logo.png"
 
 
 def get_base_url() -> str:
@@ -744,18 +744,18 @@ def create_board_invitation_email(
     # HappyCitizen images from landing page carousel - same images rotating on the hero section
     happy_citizens_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%201.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%201.png" 
              alt="Citizen Bank Team" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
              alt="Citizen Bank Community" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
     <div style="margin: 10px 0 30px 0; text-align: center;">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%204.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%204.png" 
              alt="Citizen Bank Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
              alt="Citizen Bank Growth" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
@@ -1049,10 +1049,10 @@ def create_investor_invitation_email(
     # HappyCitizen images from landing page - showing success and community
     happy_investors_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
              alt="Investor Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/HappyCitizen%20a.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%20a.png" 
              alt="Growing Together" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>

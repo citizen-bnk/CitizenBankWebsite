@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from datetime import date, datetime
 from typing import Optional, List
-import databutton as db
+from app import runtime
 from app.auth import AuthorizedUser
 from app.libs.database import get_db_connection
 import re
@@ -317,7 +317,7 @@ async def delete_achievement(
         # Delete image from storage if exists
         if achievement['image_url']:
             try:
-                db.storage.binary.delete(achievement['image_url'])
+                runtime.storage.binary.delete(achievement['image_url'])
             except Exception as e:
                 print(f"Warning: Could not delete image: {e}")
         
@@ -369,7 +369,7 @@ async def upload_achievement_image(
         # Delete old image if exists
         if existing['image_url']:
             try:
-                db.storage.binary.delete(existing['image_url'])
+                runtime.storage.binary.delete(existing['image_url'])
             except Exception as e:
                 print(f"Warning: Could not delete old image: {e}")
         
@@ -378,7 +378,7 @@ async def upload_achievement_image(
         storage_key = f"achievements/achievement_{achievement_id}_{sanitized_filename}"
         
         # Upload to storage
-        db.storage.binary.put(storage_key, content)
+        runtime.storage.binary.put(storage_key, content)
         
         # Update achievement with new image URL
         row = await conn.fetchrow(

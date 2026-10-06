@@ -3,7 +3,7 @@
 Handles generation of share certificates from both HTML and PDF templates.
 """
 import asyncpg
-import databutton as db
+from app import runtime
 from pypdf import PdfReader, PdfWriter
 from io import BytesIO
 import qrcode
@@ -114,7 +114,7 @@ def generate_qr_code(verification_url: str) -> str:
 def fill_pdf_template(template_storage_key: str, cert_data: CertificateData, qr_code_base64: str) -> bytes:
     """Fill PDF template with certificate data"""
     # Load PDF template from storage
-    pdf_data = db.storage.binary.get(template_storage_key)
+    pdf_data = runtime.storage.binary.get(template_storage_key)
     pdf_reader = PdfReader(BytesIO(pdf_data))
     pdf_writer = PdfWriter()
     
@@ -176,7 +176,7 @@ def fill_pdf_template_for_viewing(
     
     try:
         # Load PDF template from storage
-        pdf_data = db.storage.binary.get(template_key)
+        pdf_data = runtime.storage.binary.get(template_key)
         pdf_reader = PdfReader(BytesIO(pdf_data))
         
         # Clone from reader to preserve AcroForm structure
@@ -320,7 +320,7 @@ async def generate_certificate(
         if not preview_only:
             # Store filled PDF
             pdf_storage_key = f"certificates_{cert_data.certificate_number}.pdf"
-            db.storage.binary.put(pdf_storage_key, filled_pdf)
+            runtime.storage.binary.put(pdf_storage_key, filled_pdf)
         else:
             # For preview, return PDF as base64
             pdf_base64 = base64.b64encode(filled_pdf).decode()
@@ -399,7 +399,7 @@ async def get_certificate_by_token(verification_token: str) -> Optional[Dict[str
         
         # If PDF, load from storage
         if cert['pdf_storage_key']:
-            pdf_data = db.storage.binary.get(cert['pdf_storage_key'])
+            pdf_data = runtime.storage.binary.get(cert['pdf_storage_key'])
             cert['pdf_base64'] = base64.b64encode(pdf_data).decode()
         
         return cert

@@ -6,6 +6,7 @@ import { ThemeProvider } from "./internal-components/ThemeProvider";
 import { DEFAULT_THEME } from "./constants/default-theme";
 import { StackProvider} from "@stackframe/react";
 import { stackClientApp } from "./app/auth/stack";
+import DemoBanner from "components/DemoBanner";
 
 
 export const AppWrapper = () => {
@@ -15,6 +16,7 @@ export const AppWrapper = () => {
       <ThemeProvider defaultTheme={DEFAULT_THEME}>
         <RouterProvider router={router} />
         <Head />
+        <DemoBanner />
       </ThemeProvider>
       </StackProvider>
     </OuterErrorBoundary>

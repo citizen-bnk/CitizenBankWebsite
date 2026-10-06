@@ -4,7 +4,7 @@ import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
 
 export function Footer() {
-  const logoUrl = "https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/logo.png";
+  const logoUrl = "/brand/logo.png";
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [platform, setPlatform] = useState('');
 

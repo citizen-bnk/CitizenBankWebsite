@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional, List
-import databutton as db
+from app import runtime
 import httpx
 from app.auth import AuthorizedUser
 import os
@@ -71,7 +71,7 @@ async def upload_image(
     
     # Store in binary storage
     try:
-        db.storage.binary.put(storage_key, file_content)
+        runtime.storage.binary.put(storage_key, file_content)
         
         # Return URL to our serve endpoint
         serve_url = f"{get_api_base_url()}/image-management/serve/{storage_key}"
@@ -90,7 +90,7 @@ async def serve_image(file_path: str):
     """Serve an uploaded image from storage (public endpoint)"""
     try:
         # Get file from storage
-        file_content = db.storage.binary.get(file_path)
+        file_content = runtime.storage.binary.get(file_path)
         
         # Determine content type from file extension
         content_type = "image/jpeg"  # default
@@ -118,7 +118,7 @@ async def serve_profile_picture(storage_key: str):
     """Serve profile picture from storage (public endpoint)"""
     try:
         # Get file from storage
-        file_content = db.storage.binary.get(storage_key)
+        file_content = runtime.storage.binary.get(storage_key)
         
         # Determine content type from file extension
         content_type = "image/jpeg"  # default

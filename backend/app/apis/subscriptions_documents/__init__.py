@@ -8,7 +8,7 @@ from app.libs.rbac import check_user_has_any_role
 from app.libs.welcome_letter_generator import generate_welcome_letter
 from app.libs.receipt_generator import generate_receipt
 from fastapi.concurrency import run_in_threadpool
-import databutton as db
+from app import runtime
 
 router = APIRouter(prefix="/subscriptions/documents")
 

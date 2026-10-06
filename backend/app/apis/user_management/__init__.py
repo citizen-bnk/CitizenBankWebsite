@@ -2,7 +2,7 @@
 User Management API - Registration and Profile Management
 """
 from fastapi import APIRouter, HTTPException, Header, Query, Request, UploadFile, File
-import databutton as db
+from app import runtime
 import asyncpg
 import re
 from app.env import Mode, mode
@@ -654,7 +654,7 @@ async def upload_cv(file: UploadFile, user: AuthorizedUser):
         today = date.today().strftime("%Y%m%d")
         base_filename = f"{first_name}_{last_name}_CV_{today}"
         
-        existing_cvs = db.storage.binary.list()
+        existing_cvs = runtime.storage.binary.list()
         version = 1
         pattern = re.compile(rf"cv_uploads_{re.escape(user.sub)}_{re.escape(base_filename)}_V(\d+)\.")
         
@@ -673,7 +673,7 @@ async def upload_cv(file: UploadFile, user: AuthorizedUser):
         storage_key = f"cv_uploads_{user.sub}_{safe_filename}"
         
         try:
-            db.storage.binary.put(storage_key, content)
+            runtime.storage.binary.put(storage_key, content)
             print(f"✅ CV uploaded to storage: {storage_key} ({len(content)} bytes)")
         except Exception as e:
             print(f"❌ Failed to store CV: {str(e)}")
@@ -789,7 +789,7 @@ async def upload_profile_picture(file: UploadFile, user: AuthorizedUser):
         
         # Store in binary storage
         try:
-            db.storage.binary.put(storage_key, content)
+            runtime.storage.binary.put(storage_key, content)
             print(f"✅ Profile picture uploaded to storage: {storage_key} ({len(content)} bytes)")
         except Exception as e:
             print(f"❌ Failed to store profile picture: {str(e)}")

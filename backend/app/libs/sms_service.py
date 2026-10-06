@@ -3,7 +3,7 @@ import os
 
 import re
 from typing import Optional, Dict
-import databutton as db
+from app import runtime
 
 
 def format_phone_number(phone: str, default_country: str = "ZA") -> Optional[str]:
@@ -114,9 +114,9 @@ async def send_sms(phone_number: str, message: str, country_code: str = "ZA") ->
     # try:
     #     from twilio.rest import Client
     #     
-    #     account_sid = db.secrets.get("TWILIO_ACCOUNT_SID")
-    #     auth_token = db.secrets.get("TWILIO_AUTH_TOKEN")
-    #     from_number = db.secrets.get("TWILIO_PHONE_NUMBER")
+    #     account_sid = runtime.secrets.get("TWILIO_ACCOUNT_SID")
+    #     auth_token = runtime.secrets.get("TWILIO_AUTH_TOKEN")
+    #     from_number = runtime.secrets.get("TWILIO_PHONE_NUMBER")
     #     
     #     client = Client(account_sid, auth_token)
     #     
@@ -145,8 +145,8 @@ async def send_sms(phone_number: str, message: str, country_code: str = "ZA") ->
     # try:
     #     import africastalking
     #     
-    #     username = db.secrets.get("AFRICASTALKING_USERNAME")
-    #     api_key = db.secrets.get("AFRICASTALKING_API_KEY")
+    #     username = runtime.secrets.get("AFRICASTALKING_USERNAME")
+    #     api_key = runtime.secrets.get("AFRICASTALKING_API_KEY")
     #     
     #     africastalking.initialize(username, api_key)
     #     sms_client = africastalking.SMS
@@ -242,9 +242,9 @@ async def send_whatsapp_message(phone_number: str, message: str, country_code: s
     # try:
     #     from twilio.rest import Client
     #     
-    #     account_sid = db.secrets.get("TWILIO_ACCOUNT_SID")
-    #     auth_token = db.secrets.get("TWILIO_AUTH_TOKEN")
-    #     whatsapp_from = db.secrets.get("TWILIO_WHATSAPP_NUMBER")  # e.g., "whatsapp:+14155238886"
+    #     account_sid = runtime.secrets.get("TWILIO_ACCOUNT_SID")
+    #     auth_token = runtime.secrets.get("TWILIO_AUTH_TOKEN")
+    #     whatsapp_from = runtime.secrets.get("TWILIO_WHATSAPP_NUMBER")  # e.g., "whatsapp:+14155238886"
     #     
     #     client = Client(account_sid, auth_token)
     #     

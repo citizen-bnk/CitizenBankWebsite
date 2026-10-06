@@ -4,7 +4,7 @@ from typing import Optional
 import asyncpg
 from datetime import datetime, timedelta
 import secrets
-import databutton as db
+from app import runtime
 import re
 
 from app.auth import AuthorizedUser
@@ -23,9 +23,9 @@ router = APIRouter()
 async def get_db_connection():
     """Get database connection based on environment."""
     if mode == Mode.PROD:
-        conn_str = db.secrets.get("DATABASE_URL_PROD")
+        conn_str = runtime.secrets.get("DATABASE_URL_PROD")
     else:
-        conn_str = db.secrets.get("DATABASE_URL_DEV")
+        conn_str = runtime.secrets.get("DATABASE_URL_DEV")
     return await asyncpg.connect(conn_str)
 
 # ============ MODELS ============
@@ -351,7 +351,7 @@ async def upload_admin_payment_proof(
         storage_key = f"payment_proofs/{subscription_id}/{safe_filename}"
         
         # Store file
-        db.storage.binary.put(storage_key, file_content)
+        runtime.storage.binary.put(storage_key, file_content)
         
         # Update subscription record
         await conn.execute(

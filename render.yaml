@@ -36,7 +36,7 @@ services:
         generateValue: true
 
       # --- Login (Stack Auth) ---
-      - key: DATABUTTON_EXTENSIONS
+      - key: AUTH_PROVIDERS
         sync: false
       - key: STACK_SECRET_SERVER_KEY
         sync: false

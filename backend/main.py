@@ -18,12 +18,11 @@ dotenv.load_dotenv(env_file, override=True)
 
 print(f"Loaded environment: {environment}")
 
-from databutton_app.mw.auth_mw import AuthConfig, get_authorized_user
+from app.auth.middleware import AuthConfig, get_authorized_user
 
 
 def get_router_config() -> dict:
     try:
-        # Note: This file is not available to the agent
         cfg = json.loads(open("routers.json").read())
     except:
         return False
@@ -78,7 +77,7 @@ def import_api_routers() -> APIRouter:
 
 
 def get_firebase_config() -> dict | None:
-    extensions = os.environ.get("DATABUTTON_EXTENSIONS", "[]")
+    extensions = os.environ.get("AUTH_PROVIDERS", "[]")
     extensions = json.loads(extensions)
 
     for ext in extensions:
@@ -90,7 +89,7 @@ def get_firebase_config() -> dict | None:
 
 
 def get_stack_auth_config() -> dict | None:
-    extensions = os.environ.get("DATABUTTON_EXTENSIONS", "[]")
+    extensions = os.environ.get("AUTH_PROVIDERS", "[]")
     extensions = json.loads(extensions)
 
     for ext in extensions:
@@ -133,9 +132,7 @@ def parse_auth_configs() -> list[AuthConfig]:
 
 def create_app() -> FastAPI:
     """Create the app. This is called by uvicorn with the factory option to construct the app object."""
-    from app.libs import object_storage, scheduler
-
-    object_storage.install()
+    from app.libs import scheduler
 
     app = FastAPI()
     app.include_router(import_api_routers())

@@ -1,15 +1,13 @@
 [project]
 name = "app"
 version = "2.0.0"
-description = "Riff App"
-authors = [{ name = "Databutton", email = "hi@databutton.com" }]
+description = "Citizen Hub backend"
 
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = []
 
 [dependency-groups]
 base = [
-  "databutton==0.39.0",
   "uvicorn[standard]>=0.34.0",
   "fastapi>=0.115.7",
   "pydantic>=2.5.0",
@@ -21,8 +19,9 @@ base = [
   "dotenv>=0.9.9",
   "sqlalchemy>=1.4.0",
 ]
-dev = ["asyncpg-stubs>=0.30.2", "pytest>=8.4.2"]
+dev = ["asyncpg-stubs>=0.30.2", "pytest>=8.4.2", "pytest-asyncio>=0.24.0"]
 app = ["openai", "beautifulsoup4", "requests", "asyncpg", "reportlab", "resend", "qrcode", "google-auth", "google-auth-oauthlib", "google-auth-httplib2", "google-api-python-client", "PyPDF2", "python-docx", "slowapi", "pypdf", "pillow", "pdfrw", "anthropic == 0.75.0", "google-generativeai == 0.8.6", "icalendar == 6.3.2", "email-validator == 2.3.0"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+asyncio_mode = "auto"

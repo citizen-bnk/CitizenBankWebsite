@@ -14,7 +14,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from pypdf import PdfReader, PdfWriter
 import pdfrw
-import databutton as db
+from app import runtime
 
 
 def decode_base64_image(base64_string: str) -> bytes:
@@ -230,7 +230,7 @@ async def sign_certificate(
     # Get original certificate PDF from storage
     storage_key = f"certificates_{cert['certificate_number']}.pdf"
     try:
-        original_pdf_bytes = db.storage.binary.get(storage_key)
+        original_pdf_bytes = runtime.storage.binary.get(storage_key)
     except Exception as e:
         raise ValueError(f"Certificate PDF not found in storage: {e}")
     
@@ -242,12 +242,12 @@ async def sign_certificate(
     
     # Store signed PDF (replace original)
     signed_storage_key = f"certificates_{cert['certificate_number']}_signed.pdf"
-    db.storage.binary.put(signed_storage_key, signed_pdf_bytes)
+    runtime.storage.binary.put(signed_storage_key, signed_pdf_bytes)
     
     # Store signature image separately
     signature_bytes = decode_base64_image(signature_image_base64)
     signature_storage_key = f"signatures_{cert['certificate_number']}_signature.png"
-    db.storage.binary.put(signature_storage_key, signature_bytes)
+    runtime.storage.binary.put(signature_storage_key, signature_bytes)
     
     # Update certificate record
     signed_at = datetime.now()
@@ -272,7 +272,7 @@ async def sign_certificate(
     )
     
     # Also replace the main storage key with signed version
-    db.storage.binary.put(storage_key, signed_pdf_bytes)
+    runtime.storage.binary.put(storage_key, signed_pdf_bytes)
     
     # Log to audit trail
     await conn.execute("""

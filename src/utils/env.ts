@@ -1,18 +1,16 @@
 import { APP_BASE_PATH, mode, Mode } from "app";
 
 const FRONTEND_DOMAIN_PROD = window.location.origin;
-const FRONTEND_DOMAIN_DEV = "https://databutton.com";
-const FRONTEND_PATH_DEV = "_projects/4e911b3d-b027-4c6a-8f76-c90e63535892/dbtn/devx/ui";
+const FRONTEND_DOMAIN_DEV = window.location.origin; // `vite` dev server
 
 const API_DOMAIN_PROD = window.location.origin;
-const API_DOMAIN_DEV = "https://api.databutton.com";
-const API_PATH_DEV = "_projects/4e911b3d-b027-4c6a-8f76-c90e63535892/dbtn/devx/app/routes";
+const API_DOMAIN_DEV = "http://localhost:8000"; // local backend
 
 export function getFrontendBaseUrl(): string {
   if (mode === Mode.PROD) {
     return FRONTEND_DOMAIN_PROD;
   }
-  return `${FRONTEND_DOMAIN_DEV}/${FRONTEND_PATH_DEV}`;
+  return FRONTEND_DOMAIN_DEV;
 }
 
 export function getFrontendPath(path: string): string {
@@ -20,14 +18,14 @@ export function getFrontendPath(path: string): string {
   if (mode === Mode.PROD) {
     return `${FRONTEND_DOMAIN_PROD}${normalizedPath}`;
   }
-  return `${FRONTEND_DOMAIN_DEV}/${FRONTEND_PATH_DEV}${normalizedPath}`;
+  return `${FRONTEND_DOMAIN_DEV}${normalizedPath}`;
 }
 
 export function getApiBaseUrl(): string {
   if (mode === Mode.PROD) {
     return `${API_DOMAIN_PROD}/api`;
   }
-  return `${API_DOMAIN_DEV}/${API_PATH_DEV}`;
+  return `${API_DOMAIN_DEV}/api`;
 }
 
 export function getApiPath(path: string): string {
@@ -35,7 +33,7 @@ export function getApiPath(path: string): string {
   if (mode === Mode.PROD) {
     return `${API_DOMAIN_PROD}${normalizedPath}`;
   }
-  return `${API_DOMAIN_DEV}/${API_PATH_DEV}${normalizedPath}`;
+  return `${API_DOMAIN_DEV}/api${normalizedPath}`;
 }
 
 export function getShortLinkUrl(token: string): string {

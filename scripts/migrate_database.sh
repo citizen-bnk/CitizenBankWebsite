@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copy all data from the old Riff/Neon Postgres into the new Render Postgres.
+# Copy all data from the old Postgres into the new one.
 #
 # Usage:
 #   OLD_DATABASE_URL='postgresql://...neon...' \

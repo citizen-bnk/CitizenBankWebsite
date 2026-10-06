@@ -4,7 +4,7 @@ High-level email sending patterns with error handling, logging, and document att
 """
 from typing import Optional
 from app.libs.email_queue import enqueue_email
-import databutton as db
+from app import runtime
 
 
 class EmailSendResult:

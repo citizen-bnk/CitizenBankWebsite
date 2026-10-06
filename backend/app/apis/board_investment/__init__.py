@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import asyncpg
-import databutton as db
+from app import runtime
 import io
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -1313,7 +1313,7 @@ async def record_board_member_payment(
                         file_content = await proof_of_payment.read()
                         # Store in storage
                         file_key = f"payment_proofs_subscription_{subscription_id}_{int(payment_datetime.timestamp())}.{proof_of_payment.filename.split('.')[-1]}"
-                        db.storage.binary.put(file_key, file_content)
+                        runtime.storage.binary.put(file_key, file_content)
                         proof_url = file_key
                         print(f"Proof of payment uploaded: {proof_url}")
                     except Exception as e:
@@ -1364,7 +1364,7 @@ async def record_board_member_payment(
                 
                 # Store receipt in storage
                 receipt_key = f"receipts_subscription_{subscription_id}_receipt.pdf"
-                db.storage.binary.put(receipt_key, receipt_pdf)
+                runtime.storage.binary.put(receipt_key, receipt_pdf)
                 
                 # Send email if requested
                 email_sent = False
@@ -1374,7 +1374,7 @@ async def record_board_member_payment(
                         receipt_base64 = base64.b64encode(receipt_pdf).decode('utf-8')
                         
                         # Send email with receipt
-                        db.notify.email(
+                        runtime.notify.email(
                             to=member['email'],
                             subject=f"Payment Receipt - {subscription['share_class']} Shares",
                             content_html=f"""

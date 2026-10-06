@@ -10,7 +10,7 @@ import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
 import { getFrontendPath } from "utils/env";
 
-const logoUrl = "https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/logo.png";
+const logoUrl = "/brand/logo.png";
 
 export function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);

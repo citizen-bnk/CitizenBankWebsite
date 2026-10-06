@@ -11,83 +11,122 @@ from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_payment_receipt_email
 from app.libs.receipt_generator import generate_receipt
 from fastapi.concurrency import run_in_threadpool
-import databutton as db
+from app import runtime
 import json
 
 router = APIRouter(prefix="/subscriptions/payments")
 
 
+PAYMENT_RECORDING_ROLES = ["super_admin", "back_office"]
+
+
 @router.post("/record-payment")
 async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) -> PaymentResponse:
     """
-    Record a payment for a subscription.
-    Updates subscription status based on payment progress.
-    Automatically generates receipt and assigns investor role if fully paid.
+    Record a payment that finance has confirmed against bank evidence.
+    Updates subscription status based on payment progress, generates a receipt
+    and assigns the investor role once fully paid.
+
+    Requires: super_admin or back_office. Subscribers cannot record payments,
+    including for their own subscription; they upload proof for review instead.
     """
-    async with db_connection() as conn:
-        # Get subscription details
-        subscription = await conn.fetchrow("""
-            SELECT id, subscription_id, user_id, full_name, email, num_shares,
-                   total_amount, amount_paid, status
-            FROM share_subscriptions
-            WHERE subscription_id = $1
-        """, payment.subscription_id)
-        
-        if not subscription:
-            raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        if subscription['status'] == 'completed':
-            raise HTTPException(status_code=400, detail="Subscription already completed")
-        
-        if subscription['status'] == 'cancelled':
-            raise HTTPException(status_code=400, detail="Cannot pay for cancelled subscription")
-        
-        # Record payment in subscription_payments table
-        payment_date = payment.payment_date or datetime.now()
-        payment_row = await conn.fetchrow("""
-            INSERT INTO subscription_payments (
-                subscription_id, payment_reference, amount, payment_method,
-                payment_date, status, notes
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, payment_reference
-        """, 
-            subscription['id'],
-            payment.payment_reference, 
-            float(payment.amount),
-            payment.payment_method if hasattr(payment, 'payment_method') else 'bank-transfer',
-            payment_date,
-            'verified',
-            payment.notes if hasattr(payment, 'notes') else None
+    if not await check_user_has_any_role(user.sub, PAYMENT_RECORDING_ROLES):
+        raise HTTPException(
+            status_code=403,
+            detail="Only super admins and back office staff can record payments",
         )
-        
-        # Update subscription totals
-        total_amount = Decimal(str(subscription['total_amount']))
-        current_paid = Decimal(str(subscription['amount_paid']))
-        new_total_paid = current_paid + payment.amount
-        amount_remaining = total_amount - new_total_paid
-        
-        # Determine new status
-        if new_total_paid >= total_amount:
-            new_status = 'completed'
-            payment_status = 'paid'
-        elif new_total_paid > 0:
-            new_status = 'partial'
-            payment_status = 'partial'
-        else:
-            new_status = 'pending'
-            payment_status = 'pending'
-        
-        await conn.execute("""
-            UPDATE share_subscriptions
-            SET amount_paid = $1, status = $2, payment_status = $3
-            WHERE subscription_id = $4
-        """, float(new_total_paid), new_status, payment_status, payment.subscription_id)
-        
+
+    if payment.amount <= 0:
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
+
+    async with db_connection() as conn:
+        # Lock the subscription row so two concurrent payments cannot both
+        # read the same amount_paid and overwrite each other.
+        async with conn.transaction():
+            subscription = await conn.fetchrow("""
+                SELECT id, subscription_id, user_id, full_name, email, num_shares,
+                       total_amount, amount_paid, status
+                FROM share_subscriptions
+                WHERE subscription_id = $1
+                FOR UPDATE
+            """, payment.subscription_id)
+
+            if not subscription:
+                raise HTTPException(status_code=404, detail="Subscription not found")
+
+            if subscription['status'] == 'completed':
+                raise HTTPException(status_code=400, detail="Subscription already completed")
+
+            if subscription['status'] == 'cancelled':
+                raise HTTPException(status_code=400, detail="Cannot pay for cancelled subscription")
+
+            already_recorded = await conn.fetchval("""
+                SELECT 1 FROM subscription_payments
+                WHERE subscription_id = $1 AND payment_reference = $2
+            """, subscription['id'], payment.payment_reference)
+            if already_recorded:
+                raise HTTPException(
+                    status_code=409,
+                    detail="A payment with this reference is already recorded for this subscription",
+                )
+
+            total_amount = Decimal(str(subscription['total_amount']))
+            current_paid = Decimal(str(subscription['amount_paid']))
+            new_total_paid = current_paid + payment.amount
+            amount_remaining = total_amount - new_total_paid
+
+            if amount_remaining < 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Payment exceeds the outstanding balance of {total_amount - current_paid}",
+                )
+
+            payment_date = payment.payment_date or datetime.now()
+            payment_row = await conn.fetchrow("""
+                INSERT INTO subscription_payments (
+                    subscription_id, payment_reference, amount, payment_method,
+                    payment_date, status, verified_by, verified_at
+                )
+                VALUES ($1, $2, $3, $4, $5, 'verified', $6, NOW())
+                RETURNING id, payment_reference
+            """,
+                subscription['id'],
+                payment.payment_reference,
+                float(payment.amount),
+                'bank-transfer',
+                payment_date,
+                user.sub,
+            )
+
+            if new_total_paid >= total_amount:
+                new_status = 'completed'
+                payment_status = 'paid'
+            else:
+                new_status = 'partial'
+                payment_status = 'partial'
+
+            await conn.execute("""
+                UPDATE share_subscriptions
+                SET amount_paid = $1, status = $2, payment_status = $3
+                WHERE subscription_id = $4
+            """, float(new_total_paid), new_status, payment_status, payment.subscription_id)
+
+            await conn.execute("""
+                INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes, created_by)
+                VALUES ($1, $2, $3, $4, $5, $6)
+            """, user.sub, 'record_payment', 'share_subscription', payment.subscription_id,
+                json.dumps({
+                    "amount": str(payment.amount),
+                    "payment_reference": payment.payment_reference,
+                    "amount_paid": str(new_total_paid),
+                    "status": new_status,
+                }), user.sub)
+
         print(f"💰 Payment recorded: {payment.subscription_id} - M{payment.amount} - Status: {new_status}")
         
         # Generate receipt number
         receipt_number = f"RCP-{datetime.now().strftime('%Y%m%d')}-{payment_row['id']:06d}"
+        documents_generated: list[str] = []
         
         # Generate and send payment receipt PDF
         try:
@@ -106,8 +145,9 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             
             # Store receipt in storage
             receipt_storage_key = f"receipts/{payment.subscription_id}/{receipt_number}.pdf"
-            db.storage.binary.put(receipt_storage_key, receipt_pdf)
+            runtime.storage.binary.put(receipt_storage_key, receipt_pdf)
             print(f"📄 Receipt generated and stored: {receipt_number}")
+            documents_generated.append('receipt')
             
             # Queue email with receipt
             await enqueue_email(
@@ -149,14 +189,13 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
                 print(f"⚠️ Failed to assign investor role: {e}")
         
         return PaymentResponse(
-            payment_id=payment_row['id'],
             subscription_id=payment.subscription_id,
-            amount=payment.amount,
-            payment_reference=payment_row['payment_reference'],
-            status=new_status,
             amount_paid=new_total_paid,
+            total_paid=new_total_paid,
             amount_remaining=amount_remaining,
-            receipt_number=receipt_number
+            status=new_status,
+            updated_at=datetime.now(timezone.utc),
+            documents_generated=documents_generated,
         )
 
 
@@ -193,9 +232,9 @@ async def payments_upload_payment_proof(
         # Read file content
         file_content = await file.read()
         
-        # Store in Databutton storage
+        # Store in file storage
         storage_key = f"payment_proofs/{subscription_id}/{uuid.uuid4()}_{file.filename}"
-        db.storage.binary.put(storage_key, file_content)
+        runtime.storage.binary.put(storage_key, file_content)
         
         # Update subscription
         await conn.execute("""

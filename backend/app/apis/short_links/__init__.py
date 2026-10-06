@@ -2,6 +2,7 @@
 
 import secrets
 import asyncpg
+from app.libs.app_events import record_event
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -93,19 +94,13 @@ async def mint_short_link(body: MintShortLinkRequest) -> MintShortLinkResponse:
         short_url = build_short_url(token)
         
         # Emit analytics event
-        await conn.execute(
-            """
-            INSERT INTO databutton.events (type, data)
-            VALUES ('shortlink_created', $1::jsonb)
-            """,
-            {
+        await record_event(conn, "shortlink_created", {
                 "token": token,
                 "user_id": body.user_id,
                 "purpose": body.purpose,
                 "expires_at": expires_at.isoformat(),
                 "metadata": body.metadata,
-            },
-        )
+            })
         
         return MintShortLinkResponse(
             token=token,
@@ -145,37 +140,25 @@ async def redirect_short_link(token: str, request: Request):
         # Check if expired
         if row["expires_at"] < datetime.utcnow():
             # Emit analytics for expired link attempt
-            await conn.execute(
-                """
-                INSERT INTO databutton.events (type, data)
-                VALUES ('shortlink_expired_attempt', $1::jsonb)
-                """,
-                {
+            await record_event(conn, "shortlink_expired_attempt", {
                     "token": token,
                     "user_id": row["user_id"],
                     "purpose": row["purpose"],
                     "ip_address": request.client.host if request.client else None,
-                },
-            )
+                })
             raise HTTPException(status_code=410, detail="Link has expired")
         
         # Check max uses if set
         if row["max_uses"] is not None and row["use_count"] >= row["max_uses"]:
             # Emit analytics for max uses exceeded
-            await conn.execute(
-                """
-                INSERT INTO databutton.events (type, data)
-                VALUES ('shortlink_maxuses_exceeded', $1::jsonb)
-                """,
-                {
+            await record_event(conn, "shortlink_maxuses_exceeded", {
                     "token": token,
                     "user_id": row["user_id"],
                     "purpose": row["purpose"],
                     "max_uses": row["max_uses"],
                     "use_count": row["use_count"],
                     "ip_address": request.client.host if request.client else None,
-                },
-            )
+                })
             raise HTTPException(status_code=410, detail="Link usage limit exceeded")
         
         # Increment use count and set used_at if first use
@@ -191,12 +174,7 @@ async def redirect_short_link(token: str, request: Request):
         )
         
         # Emit analytics for successful redirect
-        await conn.execute(
-            """
-            INSERT INTO databutton.events (type, data)
-            VALUES ('shortlink_opened', $1::jsonb)
-            """,
-            {
+        await record_event(conn, "shortlink_opened", {
                 "token": token,
                 "user_id": row["user_id"],
                 "purpose": row["purpose"],
@@ -205,8 +183,7 @@ async def redirect_short_link(token: str, request: Request):
                 "use_count": row["use_count"] + 1,
                 "ip_address": request.client.host if request.client else None,
                 "user_agent": request.headers.get("user-agent"),
-            },
-        )
+            })
         
         # Redirect to target
         return RedirectResponse(url=row["target"], status_code=302)

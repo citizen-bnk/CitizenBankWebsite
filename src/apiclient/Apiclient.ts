@@ -1089,7 +1089,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Scheduled job to auto-escalate notifications based on age. Should be run daily via a cron job or scheduled task. Escalation Rules: - Info (7+ days) → Normal - Normal (3+ days) → Important - Important (4+ days) → Urgent - Urgent (7+ days) → Critical - Critical → No escalation (final level)
    *
-   * @tags dbtn/module:notification_escalation, dbtn/hasAuth
    * @name auto_escalate_notifications
    * @summary Auto Escalate Notifications
    * @request POST:/routes/notifications/auto-escalate
@@ -1104,7 +1103,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Scheduled job to reset daily popup dismiss counters. Should be run daily at midnight. This allows users to see popups again the next day if they haven't taken action.
    *
-   * @tags dbtn/module:notification_escalation, dbtn/hasAuth
    * @name reset_daily_popup_counters
    * @summary Reset Daily Popup Counters
    * @request POST:/routes/notifications/reset-popup-counters
@@ -1119,7 +1117,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get statistics about notification escalation. Useful for monitoring and debugging.
    *
-   * @tags dbtn/module:notification_escalation, dbtn/hasAuth
    * @name get_escalation_stats
    * @summary Get Escalation Stats
    * @request GET:/routes/notifications/escalation-stats
@@ -1134,7 +1131,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current exchange rates for all tracked currencies. Returns cached rates from database with intelligent fallback. No external API calls - uses database cache with automatic refresh.
    *
-   * @tags dbtn/module:exchange_rates, dbtn/hasAuth
    * @name get_current_rates
    * @summary Get Current Rates
    * @request GET:/routes/exchange-rates/current
@@ -1149,7 +1145,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get status of exchange rate fetching. Shows when rates were last updated and if they're outdated.
    *
-   * @tags dbtn/module:exchange_rates, dbtn/hasAuth
    * @name get_fetch_status
    * @summary Get Fetch Status
    * @request GET:/routes/exchange-rates/status
@@ -1164,7 +1159,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually trigger exchange rate fetch from API. Requires authentication (admin only in production).
    *
-   * @tags dbtn/module:exchange_rates, dbtn/hasAuth
    * @name fetch_exchange_rates
    * @summary Fetch Exchange Rates
    * @request POST:/routes/exchange-rates/fetch
@@ -1179,7 +1173,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually trigger exchange rate refresh from external APIs. Updates the database cache with latest rates. Requires authentication.
    *
-   * @tags dbtn/module:exchange_rates, dbtn/hasAuth
    * @name refresh_exchange_rates
    * @summary Refresh Exchange Rates
    * @request POST:/routes/exchange-rates/refresh
@@ -1194,7 +1187,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Convert an amount from one currency to another. Uses latest rate if no date specified.
    *
-   * @tags dbtn/module:exchange_rates, dbtn/hasAuth
    * @name convert_currency
    * @summary Convert Currency
    * @request POST:/routes/exchange-rates/convert
@@ -1211,7 +1203,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get historical exchange rates for a currency pair. Useful for charts and analysis.
    *
-   * @tags dbtn/module:exchange_rates, dbtn/hasAuth
    * @name get_rate_history
    * @summary Get Rate History
    * @request GET:/routes/exchange-rates/history
@@ -1227,7 +1218,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all leads currently at risk of stalling. Args: user: Authenticated user include_ai_analysis: Whether to run AI analysis (slower) Returns: List of at-risk leads assigned to the user
    *
-   * @tags dbtn/module:lead_monitoring
    * @name get_at_risk_leads
    * @summary Get At Risk Leads
    * @request GET:/routes/lead-monitoring/at-risk
@@ -1243,7 +1233,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get overall pipeline health dashboard for assigned leads. Returns: Health metrics and statistics
    *
-   * @tags dbtn/module:lead_monitoring
    * @name get_pipeline_health_report
    * @summary Get Pipeline Health Report
    * @request GET:/routes/lead-monitoring/health-report
@@ -1258,7 +1247,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Acknowledge an alert and record action taken. Args: lead_id: ID of the lead the alert is for body: Acknowledgment details user: Authenticated user Returns: Confirmation message
    *
-   * @tags dbtn/module:lead_monitoring
    * @name acknowledge_alert
    * @summary Acknowledge Alert
    * @request POST:/routes/lead-monitoring/acknowledge/{lead_id}
@@ -1279,7 +1267,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Daily job to monitor lead health and send alerts. Runs at 8 AM daily (before follow-up reminders). Process: 1. Scan all active leads 2. Detect stalled/at-risk leads 3. Run AI analysis for high-priority cases 4. Send alerts to assignees 5. Escalate critical cases to admins Args: authorization: Bearer token for scheduler security Returns: MonitoringRunResult with execution summary
    *
-   * @tags dbtn/module:lead_monitoring
    * @name process_daily_lead_monitoring
    * @summary Process Daily Lead Monitoring
    * @request POST:/routes/lead-monitoring/process-daily-monitoring
@@ -1294,7 +1281,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Health check for lead monitoring system.
    *
-   * @tags dbtn/module:lead_monitoring
    * @name lead_monitoring_health
    * @summary Lead Monitoring Health
    * @request GET:/routes/lead-monitoring/health
@@ -1309,7 +1295,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get Back Office dashboard statistics (super_admin and staff).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name get_dashboard_stats
    * @summary Get Dashboard Stats
    * @request GET:/routes/back-office/dashboard/stats
@@ -1324,7 +1309,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send an invitation to join as board member or investor.
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name create_invitation_endpoint
    * @summary Create Invitation Endpoint
    * @request POST:/routes/back-office/invitations/create
@@ -1341,7 +1325,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List invitations. Super admins see all, others see only invitations they created.
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name list_invitations
    * @summary List Invitations
    * @request GET:/routes/back-office/invitations
@@ -1357,7 +1340,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Cancel a pending invitation (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name cancel_invitation
    * @summary Cancel Invitation
    * @request DELETE:/routes/back-office/invitations/{invitation_id}
@@ -1372,7 +1354,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Resend the invitation email. Requires permission to invite for the role being invited.
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name resend_invitation_email
    * @summary Resend Invitation Email
    * @request POST:/routes/back-office/invitations/{invitation_id}/resend-email
@@ -1387,7 +1368,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually resend an invitation with reminder tracking (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name manual_resend_invitation
    * @summary Manual Resend Invitation
    * @request POST:/routes/back-office/invitations/{invitation_id}/resend
@@ -1402,7 +1382,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Sync pending invitations with existing board members by matching emails (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name sync_invitations_with_board_members
    * @summary Sync Invitations With Board Members
    * @request POST:/routes/back-office/invitations/sync-with-board-members
@@ -1417,7 +1396,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually appoint a board member or accept invitation and appoint (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name appoint_board_member_endpoint
    * @summary Appoint Board Member Endpoint
    * @request POST:/routes/back-office/board/appoint
@@ -1434,7 +1412,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all board members (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name list_board_members
    * @summary List Board Members
    * @request GET:/routes/back-office/board/members
@@ -1450,7 +1427,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a board member's details (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name update_board_member_endpoint
    * @summary Update Board Member Endpoint
    * @request PUT:/routes/back-office/board/members/{member_user_id}
@@ -1471,7 +1447,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Remove a board member (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name remove_board_member_endpoint
    * @summary Remove Board Member Endpoint
    * @request DELETE:/routes/back-office/board/members/{member_user_id}
@@ -1489,7 +1464,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Map a registered user to a pending board member appointment (super_admin only).
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name map_registered_user_to_board_member
    * @summary Map Registered User To Board Member
    * @request POST:/routes/back-office/board/map-user
@@ -1506,7 +1480,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Process pending invitations and send reminders where needed. Sends reminders every 36 hours until invitation is actioned. (super_admin only)
    *
-   * @tags dbtn/module:back_office_board, dbtn/hasAuth
    * @name process_invitation_reminders
    * @summary Process Invitation Reminders
    * @request POST:/routes/back-office/invitations/process-reminders
@@ -1521,7 +1494,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Initiate Google Drive OAuth flow by generating authorization URL.
    *
-   * @tags dbtn/module:google_drive_oauth
    * @name get_auth_url
    * @summary Get Auth Url
    * @request GET:/routes/data-room/admin/google-drive-oauth/auth-url
@@ -1536,7 +1508,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Handle OAuth callback from Google and exchange code for tokens.
    *
-   * @tags dbtn/module:google_drive_oauth
    * @name google_drive_callback
    * @summary Google Drive Callback
    * @request GET:/routes/data-room/admin/google-drive-oauth/callback
@@ -1552,7 +1523,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current Google Drive configuration with auto-refresh.
    *
-   * @tags dbtn/module:google_drive_oauth
    * @name get_config
    * @summary Get Config
    * @request GET:/routes/data-room/admin/google-drive-oauth/config
@@ -1567,7 +1537,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update Google Drive configuration settings.
    *
-   * @tags dbtn/module:google_drive_oauth
    * @name update_config
    * @summary Update Config
    * @request POST:/routes/data-room/admin/google-drive-oauth/config
@@ -1584,7 +1553,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Disconnect Google Drive integration by removing tokens.
    *
-   * @tags dbtn/module:google_drive_oauth
    * @name disconnect
    * @summary Disconnect
    * @request DELETE:/routes/data-room/admin/google-drive-oauth/disconnect
@@ -1599,7 +1567,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new short link for campaigns (email/SMS reminders). The link will redirect to the target path and can be configured with: - Expiry time (default 7 days) - Maximum uses (optional, for single-use links) - Custom metadata for analytics
    *
-   * @tags dbtn/module:short_links
    * @name mint_short_link
    * @summary Mint Short Link
    * @request POST:/routes/links/mint
@@ -1616,7 +1583,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Redirect handler for short links. Validates token, logs analytics, and redirects to target URL. Enforces expiry and max_uses constraints.
    *
-   * @tags dbtn/module:short_links
    * @name redirect_short_link
    * @summary Redirect Short Link
    * @request GET:/routes/l/{token}
@@ -1631,7 +1597,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all board members who don't have a valid user_id mapping. Only accessible by admin users.
    *
-   * @tags dbtn/module:board_mapping, dbtn/hasAuth
    * @name get_unmapped_board_members
    * @summary Get Unmapped Board Members
    * @request GET:/routes/board-mapping/unmapped-members
@@ -1647,7 +1612,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all registered users who could be mapped to board members. Only accessible by admin users.
    *
-   * @tags dbtn/module:board_mapping, dbtn/hasAuth
    * @name get_available_users
    * @summary Get Available Users
    * @request GET:/routes/board-mapping/available-users
@@ -1663,7 +1627,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually map a board member to a registered user. Only accessible by admin users.
    *
-   * @tags dbtn/module:board_mapping, dbtn/hasAuth
    * @name map_board_member_manually
    * @summary Map Board Member Manually
    * @request POST:/routes/board-mapping/map-manually
@@ -1685,7 +1648,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Automatically sync unmapped board members with registered users by matching email addresses. Can be called manually or scheduled daily. Only accessible by admin users.
    *
-   * @tags dbtn/module:board_mapping, dbtn/hasAuth
    * @name auto_sync_board_members
    * @summary Auto Sync Board Members
    * @request POST:/routes/board-mapping/auto-sync
@@ -1701,7 +1663,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if the logged-in user has an unmapped board member record and automatically map it. Called during profile completion flow. This handles the automatic sync for users who were added as board members before they registered in the system.
    *
-   * @tags dbtn/module:board_mapping, dbtn/hasAuth
    * @name map_board_member_on_login
    * @summary Map Board Member On Login
    * @request POST:/routes/board-mapping/map-on-login
@@ -1717,7 +1678,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all dividend payments for the authenticated user. Optionally filter by status (pending, paid, failed, cancelled) or year.
    *
-   * @tags dbtn/module:dividends, dbtn/hasAuth
    * @name get_my_dividends
    * @summary Get My Dividends
    * @request GET:/routes/my-dividends
@@ -1733,7 +1693,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get comprehensive dividend summary and tax report for the user. Includes current year totals and yearly breakdown for tax purposes.
    *
-   * @tags dbtn/module:dividends, dbtn/hasAuth
    * @name get_dividend_summary
    * @summary Get Dividend Summary
    * @request GET:/routes/summary
@@ -1748,7 +1707,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's current dividend reinvestment preferences.
    *
-   * @tags dbtn/module:dividends, dbtn/hasAuth
    * @name get_reinvest_settings
    * @summary Get Reinvest Settings
    * @request GET:/routes/reinvest-settings
@@ -1763,7 +1721,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update user's dividend reinvestment preferences. Allows users to enable auto-reinvestment, set risk tolerance, and configure notifications.
    *
-   * @tags dbtn/module:dividends, dbtn/hasAuth
    * @name update_reinvest_settings
    * @summary Update Reinvest Settings
    * @request POST:/routes/reinvest-settings
@@ -1780,7 +1737,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get available investment options for board members or invited board members.
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name get_investment_options
    * @summary Get Investment Options
    * @request GET:/routes/board/investment-options
@@ -1795,7 +1751,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a share subscription for board member or invited board member.
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name create_board_investment
    * @summary Create Board Investment
    * @request POST:/routes/board/invest
@@ -1812,7 +1767,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get logged-in board member's or invited board member's investment details.
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name get_my_investment
    * @summary Get My Investment
    * @request GET:/routes/board/my-investment
@@ -1827,7 +1781,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all board member investments (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name get_all_board_investments
    * @summary Get All Board Investments
    * @request GET:/routes/back-office/board/investments/all
@@ -1842,7 +1795,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a share subscription on behalf of a board member (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name create_investment_on_behalf
    * @summary Create Investment On Behalf
    * @request POST:/routes/back-office/board/investments/create
@@ -1859,7 +1811,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a board member's share subscription (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name update_board_investment
    * @summary Update Board Investment
    * @request PUT:/routes/back-office/board/investments/{subscription_id}/update
@@ -1880,7 +1831,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Transfer shares from one class to another for a board member (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name transfer_shares_between_classes
    * @summary Transfer Shares Between Classes
    * @request POST:/routes/back-office/board/investments/{subscription_id}/transfer-class
@@ -1901,7 +1851,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Transfer shares from one board member to another (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name transfer_shares_between_members
    * @summary Transfer Shares Between Members
    * @request POST:/routes/back-office/board/investments/{subscription_id}/transfer-member
@@ -1922,7 +1871,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Cancel a board member's subscription and return shares to pool (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name cancel_board_investment
    * @summary Cancel Board Investment
    * @request DELETE:/routes/back-office/board/investments/{subscription_id}/cancel
@@ -1937,7 +1885,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Record payment for a board investment and generate receipt (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name record_board_member_payment
    * @summary Record Board Member Payment
    * @request POST:/routes/back-office/board/investments/{subscription_id}/record-payment
@@ -1958,7 +1905,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Download receipt for a completed board investment (super_admin only).
    *
-   * @tags dbtn/module:board_investment, dbtn/hasAuth
    * @name download_receipt
    * @summary Download Receipt
    * @request GET:/routes/back-office/board/investments/{subscription_id}/download-receipt
@@ -1973,7 +1919,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's messages with pagination and filtering.
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name list_messages
    * @summary List Messages
    * @request GET:/routes/messages
@@ -1989,7 +1934,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get count of pending messages for user.
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name get_pending_count
    * @summary Get Pending Count
    * @request GET:/routes/pending-count
@@ -2004,7 +1948,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Execute the CTA action for a message (e.g., accept invitation, navigate to page).
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name execute_message_cta
    * @summary Execute Message Cta
    * @request POST:/routes/execute/{message_id}
@@ -2019,7 +1962,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Dismiss/archive a message.
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name dismiss_message
    * @summary Dismiss Message
    * @request POST:/routes/dismiss/{message_id}
@@ -2034,7 +1976,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a welcome message for new users to complete their profile.
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name create_welcome_message
    * @summary Create Welcome Message
    * @request POST:/routes/messages/create-welcome
@@ -2049,7 +1990,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create or update a profile completion reminder message for user.
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name create_profile_completion_reminder
    * @summary Create Profile Completion Reminder
    * @request POST:/routes/messages/create-profile-reminder
@@ -2064,7 +2004,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a comprehensive welcome message for new board members with onboarding guidance.
    *
-   * @tags dbtn/module:messages, dbtn/hasAuth
    * @name create_board_welcome_message
    * @summary Create Board Welcome Message
    * @request POST:/routes/messages/create-board-welcome
@@ -2079,7 +2018,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Provides the latest exchange rates with a 5% markup applied against LSL. The base currency is Lesotho Loti (LSL).
    *
-   * @tags dbtn/module:currency_exchange
    * @name get_all_rates
    * @summary Get All Rates
    * @request GET:/routes/exchange/rates
@@ -2094,7 +2032,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all issued certificates with advanced filtering (Back Office). Supports filtering by status, share class, and shareholder name.
    *
-   * @tags dbtn/module:certificate_management, dbtn/hasAuth
    * @name list_certificates
    * @summary List Certificates
    * @request GET:/routes/certificate-management/certificates
@@ -2110,7 +2047,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get certificate details by ID. Users can view their own certificates, back office can view any.
    *
-   * @tags dbtn/module:certificate_management, dbtn/hasAuth
    * @name get_certificate
    * @summary Get Certificate
    * @request GET:/routes/certificate-management/certificates/{certificate_id}
@@ -2125,7 +2061,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all certificates for a specific shareholder. Users can view their own certificates, back office can view any.
    *
-   * @tags dbtn/module:certificate_management, dbtn/hasAuth
    * @name get_shareholder_certificates
    * @summary Get Shareholder Certificates
    * @request GET:/routes/certificate-management/shareholder/{shareholder_id}/certificates
@@ -2143,7 +2078,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update certificate status (Back Office only). Used for revoking certificates or reactivating them.
    *
-   * @tags dbtn/module:certificate_management, dbtn/hasAuth
    * @name update_certificate_status
    * @summary Update Certificate Status
    * @request PATCH:/routes/certificate-management/certificates/{certificate_id}/status
@@ -2164,7 +2098,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Verify and view certificate by verification token (PUBLIC - no auth required). Used by QR code scanning and public verification.
    *
-   * @tags dbtn/module:certificate_management, dbtn/hasAuth
    * @name verify_certificate_by_token
    * @summary Verify Certificate By Token
    * @request GET:/routes/certificate-management/verify/{verification_token}
@@ -2182,7 +2115,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get certificate statistics for back office dashboard.
    *
-   * @tags dbtn/module:certificate_management, dbtn/hasAuth
    * @name get_certificate_statistics
    * @summary Get Certificate Statistics
    * @request GET:/routes/certificate-management/statistics
@@ -2197,7 +2129,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description User requests a certificate for their paid subscription. Only works for subscriptions they own and that are fully paid.
    *
-   * @tags dbtn/module:certificate_requests
    * @name request_certificate
    * @summary Request Certificate
    * @request POST:/routes/certificate-requests/request-certificate
@@ -2214,7 +2145,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all certificate requests for the current user.
    *
-   * @tags dbtn/module:certificate_requests
    * @name get_my_requests
    * @summary Get My Requests
    * @request GET:/routes/certificate-requests/my-requests
@@ -2229,7 +2159,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Cancel a pending certificate request. Users can only cancel their own pending requests.
    *
-   * @tags dbtn/module:certificate_requests
    * @name cancel_request
    * @summary Cancel Request
    * @request DELETE:/routes/certificate-requests/cancel-request/{request_id}
@@ -2244,7 +2173,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all pending certificate requests for back office processing. Includes subscription and shareholder details. Admin/back-office only.
    *
-   * @tags dbtn/module:certificate_requests
    * @name get_pending_queue
    * @summary Get Pending Queue
    * @request GET:/routes/certificate-requests/pending-queue
@@ -2259,7 +2187,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description View access logs with filters (admin only)
    *
-   * @tags dbtn/module:data_room_audit, dbtn/hasAuth
    * @name get_access_logs
    * @summary Get Access Logs
    * @request GET:/routes/data-room/audit/access-logs
@@ -2275,7 +2202,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description View all signed agreements (admin only)
    *
-   * @tags dbtn/module:data_room_audit, dbtn/hasAuth
    * @name get_all_agreements
    * @summary Get All Agreements
    * @request GET:/routes/data-room/audit/agreements
@@ -2291,7 +2217,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get users who haven't signed all agreements (admin only)
    *
-   * @tags dbtn/module:data_room_audit, dbtn/hasAuth
    * @name get_pending_agreements
    * @summary Get Pending Agreements
    * @request GET:/routes/data-room/audit/pending-agreements
@@ -2306,7 +2231,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get document access statistics (admin only)
    *
-   * @tags dbtn/module:data_room_audit, dbtn/hasAuth
    * @name get_document_stats
    * @summary Get Document Stats
    * @request GET:/routes/data-room/audit/document-stats
@@ -2321,7 +2245,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all Letter of Intent submissions (admin only)
    *
-   * @tags dbtn/module:data_room_audit, dbtn/hasAuth
    * @name get_loi_submissions
    * @summary Get Loi Submissions
    * @request GET:/routes/data-room/audit/loi-submissions
@@ -2337,7 +2260,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Review and approve/reject LOI submission (admin only)
    *
-   * @tags dbtn/module:data_room_audit, dbtn/hasAuth
    * @name review_loi_submission
    * @summary Review Loi Submission
    * @request PUT:/routes/data-room/audit/loi-submissions/{submission_id}/review
@@ -2358,7 +2280,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get subscription analytics (super_admin only)
    *
-   * @tags dbtn/module:subscriptions_analytics
    * @name analytics_get_subscription_analytics
    * @summary Analytics Get Subscription Analytics
    * @request GET:/routes/subscriptions/analytics/analytics
@@ -2373,7 +2294,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get public app configuration safe to expose to frontend. This endpoint is intentionally OPEN (no auth required) because: - These values are public and visible in the service worker anyway - Frontend needs access before user authentication - No sensitive data is exposed
    *
-   * @tags dbtn/module:app_config
    * @name get_public_config
    * @summary Get Public Config
    * @request GET:/routes/config/public
@@ -2388,7 +2308,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Record a payment for a subscription. Updates subscription status based on payment progress. Automatically generates receipt and assigns investor role if fully paid.
    *
-   * @tags dbtn/module:subscriptions_payments, dbtn/hasAuth
    * @name payments_record_payment
    * @summary Payments Record Payment
    * @request POST:/routes/subscriptions/payments/record-payment
@@ -2405,7 +2324,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload payment proof for a subscription. Stores file and marks subscription as awaiting verification.
    *
-   * @tags dbtn/module:subscriptions_payments, dbtn/hasAuth
    * @name payments_upload_payment_proof
    * @summary Payments Upload Payment Proof
    * @request POST:/routes/subscriptions/payments/upload-payment-proof
@@ -2427,7 +2345,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Verify uploaded payment proof (admin/back-office only). Approves or rejects the payment proof.
    *
-   * @tags dbtn/module:subscriptions_payments, dbtn/hasAuth
    * @name payments_verify_payment
    * @summary Payments Verify Payment
    * @request POST:/routes/subscriptions/payments/verify-payment
@@ -2443,7 +2360,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get payment history for a subscription. Shows all payments made towards the subscription.
    *
-   * @tags dbtn/module:subscriptions_payments, dbtn/hasAuth
    * @name payments_get_payment_history
    * @summary Payments Get Payment History
    * @request GET:/routes/subscriptions/payments/payment-history/{subscription_id}
@@ -2461,7 +2377,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Process payment deadline reminders. Sends reminders at: 24h after creation, 7 days before, 3 days before, 1 day before deadline. Includes both email and bell notifications. (super_admin only)
    *
-   * @tags dbtn/module:subscriptions_payments, dbtn/hasAuth
    * @name payments_process_payment_reminders
    * @summary Payments Process Payment Reminders
    * @request POST:/routes/subscriptions/payments/process-payment-reminders
@@ -2476,7 +2391,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Seed test users for development. This endpoint creates user profiles and assigns roles for test users that have been created in Stack Auth.
    *
-   * @tags dbtn/module:test_user_seed, dbtn/hasAuth
    * @name seed_test_users
    * @summary Seed Test Users
    * @request POST:/routes/dev-seed/seed-test-users
@@ -2491,7 +2405,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get information about test users. Returns the list of test users with their credentials.
    *
-   * @tags dbtn/module:test_user_seed, dbtn/hasAuth
    * @name get_test_user_info
    * @summary Get Test User Info
    * @request GET:/routes/dev-seed/test-user-info
@@ -2506,7 +2419,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Creates a profile for an authenticated test user based on their email. Called during automated test user setup.
    *
-   * @tags dbtn/module:test_user_seed, dbtn/hasAuth
    * @name create_profile_for_test_user
    * @summary Create Profile For Test User
    * @request POST:/routes/dev-seed/create-profile-for-test-user
@@ -2521,7 +2433,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get published achievements for public timeline (newest first)
    *
-   * @tags dbtn/module:achievements
    * @name get_timeline
    * @summary Get Timeline
    * @request GET:/routes/achievements/timeline
@@ -2537,7 +2448,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all achievements for back office management
    *
-   * @tags dbtn/module:achievements
    * @name list_all_achievements
    * @summary List All Achievements
    * @request GET:/routes/achievements/admin
@@ -2553,7 +2463,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new achievement
    *
-   * @tags dbtn/module:achievements
    * @name create_achievement
    * @summary Create Achievement
    * @request POST:/routes/achievements/admin
@@ -2570,7 +2479,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update an existing achievement
    *
-   * @tags dbtn/module:achievements
    * @name update_achievement
    * @summary Update Achievement
    * @request PUT:/routes/achievements/admin/{achievement_id}
@@ -2591,7 +2499,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete an achievement
    *
-   * @tags dbtn/module:achievements
    * @name delete_achievement
    * @summary Delete Achievement
    * @request DELETE:/routes/achievements/admin/{achievement_id}
@@ -2606,7 +2513,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload an image for an achievement
    *
-   * @tags dbtn/module:achievements
    * @name upload_achievement_image
    * @summary Upload Achievement Image
    * @request POST:/routes/achievements/admin/{achievement_id}/upload-image
@@ -2627,7 +2533,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Approve a low-confidence document and move it to category folder.
    *
-   * @tags dbtn/module:google_drive_documents
    * @name approve_document
    * @summary Approve Document
    * @request POST:/routes/data-room/admin/google-drive-documents/approve/{log_id}
@@ -2648,7 +2553,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually override AI categorization decision.
    *
-   * @tags dbtn/module:google_drive_documents
    * @name override_document
    * @summary Override Document
    * @request POST:/routes/data-room/admin/google-drive-documents/override/{log_id}
@@ -2669,7 +2573,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get processing statistics and metrics.
    *
-   * @tags dbtn/module:google_drive_documents
    * @name get_processing_stats
    * @summary Get Processing Stats
    * @request GET:/routes/data-room/admin/google-drive-documents/stats
@@ -2684,7 +2587,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send investment invitation to a lead. Creates a tracked invitation link and queues email. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_invitations
    * @name send_invitation
    * @summary Send Invitation
    * @request POST:/routes/investor-invitations/send
@@ -2701,7 +2603,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send invitations to multiple leads at once. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_invitations
    * @name bulk_send_invitations
    * @summary Bulk Send Invitations
    * @request POST:/routes/investor-invitations/bulk-send
@@ -2718,7 +2619,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all investor invitations with optional filtering. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_invitations
    * @name list_investor_invitations
    * @summary List Investor Invitations
    * @request POST:/routes/investor-invitations/list
@@ -2734,7 +2634,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Track when an invitation email is opened. This endpoint is called by embedding a tracking pixel in the email.
    *
-   * @tags dbtn/module:investor_invitations
    * @name track_investor_invitation_open
    * @summary Track Investor Invitation Open
    * @request POST:/routes/investor-invitations/track-open/{tracking_token}
@@ -2752,7 +2651,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Track when an invitation link is clicked. This should be called when the user clicks the subscription link.
    *
-   * @tags dbtn/module:investor_invitations
    * @name track_link_click
    * @summary Track Link Click
    * @request POST:/routes/investor-invitations/track-click/{tracking_token}
@@ -2767,7 +2665,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get invitation statistics and engagement metrics. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_invitations
    * @name get_invitation_stats
    * @summary Get Invitation Stats
    * @request GET:/routes/investor-invitations/stats
@@ -2782,7 +2679,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Scan dump folder and process new documents.
    *
-   * @tags dbtn/module:google_drive_processing
    * @name trigger_processing
    * @summary Trigger Processing
    * @request POST:/routes/data-room/admin/google-drive-processing/process
@@ -2797,7 +2693,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get documents in processing queue.
    *
-   * @tags dbtn/module:google_drive_processing
    * @name get_queue
    * @summary Get Queue
    * @request GET:/routes/data-room/admin/google-drive-processing/queue
@@ -2813,7 +2708,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get document processing history logs.
    *
-   * @tags dbtn/module:google_drive_processing
    * @name get_processing_logs
    * @summary Get Processing Logs
    * @request GET:/routes/data-room/admin/google-drive-processing/processing-logs
@@ -2829,7 +2723,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get customer dashboard overview
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name get_dashboard
    * @summary Get Dashboard
    * @request GET:/routes/customer-banking/dashboard
@@ -2844,7 +2737,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all customer accounts
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name list_accounts
    * @summary List Accounts
    * @request GET:/routes/customer-banking/accounts
@@ -2859,7 +2751,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get account details
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name get_account
    * @summary Get Account
    * @request GET:/routes/customer-banking/accounts/{account_id}
@@ -2874,7 +2765,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Search transactions with filters
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name search_transactions
    * @summary Search Transactions
    * @request POST:/routes/customer-banking/transactions/search
@@ -2891,7 +2781,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a transfer (internal, external, or international)
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name create_transfer
    * @summary Create Transfer
    * @request POST:/routes/customer-banking/transfers
@@ -2908,7 +2797,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all beneficiaries
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name list_beneficiaries
    * @summary List Beneficiaries
    * @request GET:/routes/customer-banking/beneficiaries
@@ -2923,7 +2811,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Add a new beneficiary
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name add_beneficiary
    * @summary Add Beneficiary
    * @request POST:/routes/customer-banking/beneficiaries
@@ -2940,7 +2827,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a beneficiary
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name delete_beneficiary
    * @summary Delete Beneficiary
    * @request DELETE:/routes/customer-banking/beneficiaries/{beneficiary_id}
@@ -2955,7 +2841,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a bill payment
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name create_bill_payment
    * @summary Create Bill Payment
    * @request POST:/routes/customer-banking/bill-payments
@@ -2972,7 +2857,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List bill payments
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name list_bill_payments
    * @summary List Bill Payments
    * @request GET:/routes/customer-banking/bill-payments
@@ -2988,7 +2872,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all loans
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name list_loans
    * @summary List Loans
    * @request GET:/routes/customer-banking/loans
@@ -3003,7 +2886,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get loan details
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name get_loan
    * @summary Get Loan
    * @request GET:/routes/customer-banking/loans/{loan_id}
@@ -3018,7 +2900,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Calculate loan payment
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name calculate_loan
    * @summary Calculate Loan
    * @request POST:/routes/customer-banking/loans/calculator
@@ -3035,7 +2916,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all cards
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name list_cards
    * @summary List Cards
    * @request GET:/routes/customer-banking/cards
@@ -3050,7 +2930,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Block or unblock a card
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name card_action
    * @summary Card Action
    * @request POST:/routes/customer-banking/cards/action
@@ -3067,7 +2946,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update card spending limits
    *
-   * @tags dbtn/module:customer_banking, dbtn/hasAuth
    * @name update_card_limits
    * @summary Update Card Limits
    * @request POST:/routes/customer-banking/cards/update-limits
@@ -3084,7 +2962,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually trigger 24-hour onboarding reminders for board members. Scans for board members with: - Incomplete onboarding (based on role assignment) - Last activity > 24 hours ago - No reminder sent in last 24 hours Sends reminders via: - Email (always enabled) - SMS (if Twilio configured) - WhatsApp (if Meta API configured) Returns counts and status per channel.
    *
-   * @tags dbtn/module:reminders, dbtn/hasAuth
    * @name run_onboarding_reminders
    * @summary Run Onboarding Reminders
    * @request POST:/routes/reminders/run-onboarding
@@ -3099,7 +2976,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Complete user registration after Stack Auth signup. Stores extended profile data in our database. Note: User must be authenticated via Stack Auth first.
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name register_user
    * @summary Register User
    * @request POST:/routes/users/register
@@ -3116,7 +2992,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get the current user's profile
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name get_user_profile
    * @summary Get User Profile
    * @request GET:/routes/users/profile
@@ -3131,7 +3006,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update the current user's profile with optimistic concurrency control
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name update_user_profile
    * @summary Update User Profile
    * @request PUT:/routes/users/profile
@@ -3148,7 +3022,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get comprehensive user details by user ID (admin use)
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name get_user_profile_by_id
    * @summary Get User Profile By Id
    * @request GET:/routes/users/profile/{user_id}
@@ -3163,7 +3036,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Record that the user dismissed the profile completion modal
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name dismiss_profile_completion
    * @summary Dismiss Profile Completion
    * @request POST:/routes/users/dismiss-profile-completion
@@ -3178,7 +3050,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if user's profile meets completeness requirements
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name check_profile_completeness
    * @summary Check Profile Completeness
    * @request POST:/routes/users/profile/completeness
@@ -3195,7 +3066,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload CV/Resume document for the user profile
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name upload_cv
    * @summary Upload Cv
    * @request POST:/routes/users/profile/upload-cv
@@ -3212,7 +3082,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload profile picture for the user
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name upload_profile_picture
    * @summary Upload Profile Picture
    * @request POST:/routes/users/profile/upload-profile-picture
@@ -3229,7 +3098,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Validate identity document and extract data (for SA IDs)
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name validate_identity
    * @summary Validate Identity
    * @request POST:/routes/users/validate-identity
@@ -3246,7 +3114,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all users with pagination and optional filtering. Super admin only. Includes role information for each user.
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name list_all_users
    * @summary List All Users
    * @request GET:/routes/users/admin/list
@@ -3262,7 +3129,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Search users by name, email, or phone. Super admin only.
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name search_users
    * @summary Search Users
    * @request GET:/routes/users/admin/search
@@ -3278,7 +3144,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Suspend a user account. Super admin only. Cannot suspend yourself.
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name suspend_user
    * @summary Suspend User
    * @request POST:/routes/users/admin/{user_id}/suspend
@@ -3295,7 +3160,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Reactivate a suspended user account. Super admin only.
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name reactivate_user
    * @summary Reactivate User
    * @request POST:/routes/users/admin/{user_id}/reactivate
@@ -3310,7 +3174,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send profile completion reminder to a user. Super admin only.
    *
-   * @tags dbtn/module:user_management, dbtn/hasAuth
    * @name send_profile_completion_reminder
    * @summary Send Profile Completion Reminder
    * @request POST:/routes/users/admin/{user_id}/send-profile-reminder
@@ -3328,7 +3191,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get comprehensive portfolio dashboard with all metrics, allocations, and performance data. Includes investment summary, asset allocation, dividend metrics, and historical performance.
    *
-   * @tags dbtn/module:portfolio
    * @name get_portfolio_dashboard
    * @summary Get Portfolio Dashboard
    * @request GET:/routes/dashboard
@@ -3343,7 +3205,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get AI-based investment recommendations based on portfolio composition and risk profile. Analyzes diversification, allocation, and provides actionable suggestions.
    *
-   * @tags dbtn/module:portfolio
    * @name get_investment_recommendations
    * @summary Get Investment Recommendations
    * @request GET:/routes/recommendations
@@ -3358,7 +3219,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get comprehensive portfolio risk assessment and analysis. Evaluates risk score, diversification, concentration, and provides suggestions.
    *
-   * @tags dbtn/module:portfolio
    * @name get_risk_assessment
    * @summary Get Risk Assessment
    * @request GET:/routes/risk-assessment
@@ -3373,7 +3233,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get the current user's roles. This is used by the frontend to determine what the user can access.
    *
-   * @tags dbtn/module:role_management, dbtn/hasAuth
    * @name get_my_roles
    * @summary Get My Roles
    * @request GET:/routes/roles/my-roles
@@ -3388,7 +3247,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all available roles in the system. This is an open endpoint for displaying available roles.
    *
-   * @tags dbtn/module:role_management, dbtn/hasAuth
    * @name list_all_roles
    * @summary List All Roles
    * @request GET:/routes/roles/all
@@ -3403,7 +3261,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Assign a role to a user. Only super_admin users can assign roles. Auto-activates user when customer role is assigned.
    *
-   * @tags dbtn/module:role_management, dbtn/hasAuth
    * @name assign_role
    * @summary Assign Role
    * @request POST:/routes/roles/assign
@@ -3420,7 +3277,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Remove a role from a user. Only super_admin users can remove roles. Auto-suspends user when customer role is removed and no other active roles exist.
    *
-   * @tags dbtn/module:role_management, dbtn/hasAuth
    * @name remove_role
    * @summary Remove Role
    * @request POST:/routes/roles/remove
@@ -3437,7 +3293,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get roles for a specific user. Only super_admin users can view other users' roles.
    *
-   * @tags dbtn/module:role_management, dbtn/hasAuth
    * @name get_user_roles_by_id
    * @summary Get User Roles By Id
    * @request GET:/routes/roles/user/{user_id}
@@ -3452,7 +3307,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if the logged-in user has any pending invitations and auto-accept them. This is called when a user logs in to automatically complete invitation acceptance.
    *
-   * @tags dbtn/module:role_management, dbtn/hasAuth
    * @name check_and_accept_pending_invitations
    * @summary Check And Accept Pending Invitations
    * @request POST:/routes/roles/check-pending-invitations
@@ -3467,7 +3321,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Log a single onboarding analytics event for the authenticated user.
    *
-   * @tags dbtn/module:onboarding_analytics, dbtn/hasAuth
    * @name log_onboarding_event
    * @summary Log Onboarding Event
    * @request POST:/routes/analytics/onboarding/event
@@ -3484,7 +3337,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Basic summary for admins to understand onboarding funnel. Requires super_admin.
    *
-   * @tags dbtn/module:onboarding_analytics, dbtn/hasAuth
    * @name get_onboarding_summary
    * @summary Get Onboarding Summary
    * @request GET:/routes/analytics/onboarding/summary
@@ -3499,7 +3351,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Webhook endpoint for daily payment reminder processing. **Authentication:** Requires SCHEDULER_WEBHOOK_TOKEN in Authorization header. **Schedule:** Should be called daily at 9 AM Lesotho time (CAT/SAST). **What it does:** - Sends email + bell notifications for payment deadlines - Marks expired subscriptions - Logs all processing activity **Example cURL:** ```bash curl -X POST "<YOUR_DOMAIN>/api/scheduler/daily-payment-reminders"       -H "Authorization: Bearer YOUR_WEBHOOK_TOKEN" ```
    *
-   * @tags dbtn/module:scheduler, dbtn/hasAuth
    * @name daily_payment_reminders
    * @summary Daily Payment Reminders
    * @request POST:/routes/scheduler/daily-payment-reminders
@@ -3514,7 +3365,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Webhook endpoint for monthly debit order processing. **Authentication:** Requires SCHEDULER_WEBHOOK_TOKEN in Authorization header. **Schedule:** Should be called on the 1st of each month at 6 AM Lesotho time (CAT/SAST). **What it does:** - Processes all active debit orders due for the current month - Creates transaction records - Sends confirmation emails for successful debits - Handles failed debits with retry logic - Updates subscription payment status - Creates bell notifications **Example cURL:** ```bash curl -X POST "<YOUR_DOMAIN>/api/scheduler/monthly-debit-orders"       -H "Authorization: Bearer YOUR_WEBHOOK_TOKEN" ```
    *
-   * @tags dbtn/module:scheduler, dbtn/hasAuth
    * @name monthly_debit_orders
    * @summary Monthly Debit Orders
    * @request POST:/routes/scheduler/monthly-debit-orders
@@ -3529,7 +3379,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Health check endpoint for monitoring.
    *
-   * @tags dbtn/module:scheduler, dbtn/hasAuth
    * @name scheduler_health
    * @summary Scheduler Health
    * @request GET:/routes/scheduler/health
@@ -3544,7 +3393,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Generate an AI-powered professional bio for any user. Uses OpenAI to create a contextual introduction based on comprehensive profile data.
    *
-   * @tags dbtn/module:bio_generation
    * @name generate_bio_for_user
    * @summary Generate Bio For User
    * @request POST:/routes/bio/generate
@@ -3559,7 +3407,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Start a new AI conversation for lead creation. Creates a new conversation session and returns an initial AI greeting.
    *
-   * @tags Lead Chat, dbtn/module:lead_chat
+   * @tags Lead Chat
    * @name start_conversation
    * @summary Start Conversation
    * @request POST:/routes/lead-chat/start
@@ -3574,7 +3422,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send a message in the conversation and get AI response. The AI will extract information and ask follow-up questions.
    *
-   * @tags Lead Chat, dbtn/module:lead_chat
+   * @tags Lead Chat
    * @name send_message
    * @summary Send Message
    * @request POST:/routes/lead-chat/message
@@ -3591,7 +3439,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Complete conversation and create lead from extracted data. This creates the lead, assignment, follow-up, and story.
    *
-   * @tags Lead Chat, dbtn/module:lead_chat
+   * @tags Lead Chat
    * @name complete_conversation_and_create_lead
    * @summary Complete Conversation And Create Lead
    * @request POST:/routes/lead-chat/complete
@@ -3608,7 +3456,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get full conversation history. Returns all messages and metadata for a conversation.
    *
-   * @tags Lead Chat, dbtn/module:lead_chat
+   * @tags Lead Chat
    * @name get_conversation
    * @summary Get Conversation
    * @request GET:/routes/lead-chat/conversation/{conversation_id}
@@ -3623,7 +3471,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get lead story with conversation context. Returns the full story including transcript, summary, assignee, and follow-up.
    *
-   * @tags Lead Chat, dbtn/module:lead_chat
+   * @tags Lead Chat
    * @name get_lead_story_endpoint
    * @summary Get Lead Story Endpoint
    * @request GET:/routes/lead-chat/story/{lead_id}
@@ -3638,7 +3486,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all email templates.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name list_email_templates
    * @summary List Email Templates
    * @request GET:/routes/email-templates/list
@@ -3653,7 +3500,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new email template.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name create_email_template
    * @summary Create Email Template
    * @request POST:/routes/email-templates/create
@@ -3670,7 +3516,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update an email template.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name update_email_template
    * @summary Update Email Template
    * @request PUT:/routes/email-templates/{template_id}
@@ -3691,7 +3536,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send email from template to one or more recipients using queue system.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name send_email_from_template
    * @summary Send Email From Template
    * @request POST:/routes/email-templates/send
@@ -3708,7 +3552,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get email sending history with optional filters.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name get_email_history
    * @summary Get Email History
    * @request GET:/routes/email-templates/history
@@ -3723,7 +3566,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get email queue statistics.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name get_email_queue_status
    * @summary Get Email Queue Status
    * @request GET:/routes/email-templates/queue/status
@@ -3738,7 +3580,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually trigger email queue processing. Useful for testing or forcing immediate delivery.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name process_email_queue_endpoint
    * @summary Process Email Queue Endpoint
    * @request POST:/routes/email-templates/queue/process
@@ -3753,7 +3594,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually retry a failed email.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name retry_failed_email_endpoint
    * @summary Retry Failed Email Endpoint
    * @request POST:/routes/email-templates/queue/retry/{queue_id}
@@ -3768,7 +3608,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send a test payment instructions email using real bank/crypto details. Does not create a subscription - for testing email delivery only.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name send_test_payment_email
    * @summary Send Test Payment Email
    * @request POST:/routes/email-templates/test/payment-instructions
@@ -3785,7 +3624,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all email templates from registry (hardcoded + dynamic). Includes full metadata for management and visibility.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name list_template_registry
    * @summary List Template Registry
    * @request GET:/routes/email-templates/registry/list
@@ -3800,7 +3638,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send a test email using template with sample or custom data. Works for both hardcoded and dynamic templates.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name test_template_from_registry
    * @summary Test Template From Registry
    * @request POST:/routes/email-templates/registry/test
@@ -3817,7 +3654,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Generate HTML preview of template with sample data. Returns rendered HTML for display in browser.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name preview_template_from_registry
    * @summary Preview Template From Registry
    * @request POST:/routes/email-templates/registry/preview
@@ -3834,7 +3670,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Activate or deactivate a template. Deactivated templates won't be used for sending emails.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name toggle_template_active_status
    * @summary Toggle Template Active Status
    * @request POST:/routes/email-templates/registry/toggle-active/{template_id}
@@ -3852,7 +3687,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get usage statistics for a specific template. Shows recent sends and success rates.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name get_template_usage_stats
    * @summary Get Template Usage Stats
    * @request GET:/routes/email-templates/registry/usage/{template_id}
@@ -3867,7 +3701,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List sent emails with filters and search. Combines email_queue and email_history for comprehensive tracking.
    *
-   * @tags dbtn/module:email_templates, dbtn/hasAuth
    * @name list_sent_emails
    * @summary List Sent Emails
    * @request POST:/routes/email-templates/sent-items/list
@@ -3884,7 +3717,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Generate a 6-digit verification code for invitation acceptance. Sends code via email, expires in 90 seconds. User can resend once (2 total sends). Admins can override this limit.
    *
-   * @tags dbtn/module:board_portal, dbtn/hasAuth
    * @name generate_verification_code
    * @summary Generate Verification Code
    * @request POST:/routes/invitations/generate-code
@@ -3901,7 +3733,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Verify the 6-digit code and accept the invitation. Assigns role, creates board member record if needed, and completes acceptance.
    *
-   * @tags dbtn/module:board_portal, dbtn/hasAuth
    * @name verify_code_and_accept
    * @summary Verify Code And Accept
    * @request POST:/routes/invitations/verify-code-and-accept
@@ -3918,7 +3749,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if user has signed all required agreements
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name check_access
    * @summary Check Access
    * @request GET:/routes/data-room/investor/check-access
@@ -3933,7 +3763,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List available documents for investors (requires signed agreements)
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name list_investor_documents
    * @summary List Investor Documents
    * @request GET:/routes/data-room/investor/documents
@@ -3948,7 +3777,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Download a document (logs access with reason)
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name access_document
    * @summary Access Document
    * @request POST:/routes/data-room/investor/document/{document_id}/access
@@ -3969,7 +3797,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current NCNDA template
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name get_current_ncnda
    * @summary Get Current Ncnda
    * @request GET:/routes/data-room/investor/agreements/ncnda/current
@@ -3984,7 +3811,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Sign NCNDA digitally
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name sign_ncnda
    * @summary Sign Ncnda
    * @request POST:/routes/data-room/investor/agreements/sign-ncnda
@@ -4001,7 +3827,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Accept terms & conditions
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name sign_terms
    * @summary Sign Terms
    * @request POST:/routes/data-room/investor/agreements/sign-terms
@@ -4018,7 +3843,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Agree to provide Letter of Intent with investment details
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name agree_to_loi
    * @summary Agree To Loi
    * @request POST:/routes/data-room/investor/agreements/agree-loi
@@ -4035,7 +3859,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's agreement status
    *
-   * @tags dbtn/module:data_room_investor, dbtn/hasAuth
    * @name get_my_agreement_status
    * @summary Get My Agreement Status
    * @request GET:/routes/data-room/investor/agreements/my-status
@@ -4050,7 +3873,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send OTP code to email or mobile number. Rate limited to 3 requests per 10 minutes.
    *
-   * @tags dbtn/module:otp_verification
    * @name send_otp
    * @summary Send Otp
    * @request POST:/routes/otp/send
@@ -4067,7 +3889,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Verify OTP code and update user profile verification status.
    *
-   * @tags dbtn/module:otp_verification
    * @name verify_otp
    * @summary Verify Otp
    * @request POST:/routes/otp/verify
@@ -4084,7 +3905,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Set up a new debit order for recurring share subscription payments. Creates a debit order mandate and sends confirmation email with mandate details.
    *
-   * @tags dbtn/module:debit_orders, dbtn/hasAuth
    * @name setup_debit_order
    * @summary Setup Debit Order
    * @request POST:/routes/debit-orders/setup
@@ -4101,7 +3921,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all debit orders for the authenticated user.
    *
-   * @tags dbtn/module:debit_orders, dbtn/hasAuth
    * @name get_my_debit_orders
    * @summary Get My Debit Orders
    * @request GET:/routes/debit-orders/my-orders
@@ -4116,7 +3935,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Pause an active debit order.
    *
-   * @tags dbtn/module:debit_orders, dbtn/hasAuth
    * @name pause_debit_order
    * @summary Pause Debit Order
    * @request PUT:/routes/debit-orders/{debit_order_id}/pause
@@ -4131,7 +3949,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Resume a paused debit order.
    *
-   * @tags dbtn/module:debit_orders, dbtn/hasAuth
    * @name resume_debit_order
    * @summary Resume Debit Order
    * @request PUT:/routes/debit-orders/{debit_order_id}/resume
@@ -4146,7 +3963,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Cancel a debit order permanently.
    *
-   * @tags dbtn/module:debit_orders, dbtn/hasAuth
    * @name cancel_debit_order
    * @summary Cancel Debit Order
    * @request DELETE:/routes/debit-orders/{debit_order_id}
@@ -4162,7 +3978,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get transaction history for a specific debit order.
    *
-   * @tags dbtn/module:debit_orders, dbtn/hasAuth
    * @name get_debit_order_transactions
    * @summary Get Debit Order Transactions
    * @request GET:/routes/debit-orders/{debit_order_id}/transactions
@@ -4180,7 +3995,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current user's notification preferences. Creates default preferences if none exist. **Anti-storm design:** This endpoint is called once per user session. Preferences are cached client-side and only refreshed when user updates them.
    *
-   * @tags dbtn/module:notification_preferences
    * @name get_my_preferences
    * @summary Get My Preferences
    * @request GET:/routes/notification-preferences/my-preferences
@@ -4195,7 +4009,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update current user's notification preferences. Only updates fields that are provided (partial update).
    *
-   * @tags dbtn/module:notification_preferences
    * @name update_my_preferences
    * @summary Update My Preferences
    * @request PUT:/routes/notification-preferences/my-preferences
@@ -4212,7 +4025,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Register a device for push notifications. Idempotent - updates existing device if already registered. **Anti-storm design:** Called once per browser/device, not per page load. Frontend should cache device_hwid and only re-register if token changes.
    *
-   * @tags dbtn/module:notification_preferences
    * @name register_device
    * @summary Register Device
    * @request POST:/routes/notification-preferences/register-device
@@ -4229,7 +4041,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all registered devices for current user. **Anti-storm design:** Called only when user views settings page.
    *
-   * @tags dbtn/module:notification_preferences
    * @name get_my_devices
    * @summary Get My Devices
    * @request GET:/routes/notification-preferences/my-devices
@@ -4244,7 +4055,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Remove a registered device (soft delete - marks as inactive).
    *
-   * @tags dbtn/module:notification_preferences
    * @name remove_device
    * @summary Remove Device
    * @request DELETE:/routes/notification-preferences/my-devices/{device_id}
@@ -4259,7 +4069,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get preferences for multiple users at once. **Anti-storm design:** Allows fetching 50+ user preferences in one call instead of 50+ individual API calls. Use case: Admin viewing list of users with their notification settings.
    *
-   * @tags dbtn/module:notification_preferences
    * @name get_batch_preferences
    * @summary Get Batch Preferences
    * @request POST:/routes/notification-preferences/batch-preferences
@@ -4276,7 +4085,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get high-level analytics overview. Shows: - Total notifications sent/delivered/failed - Success rate by channel - Success rate by notification type - Recent activity timeline Args: days: Number of days to include in analysis (default: 7)
    *
-   * @tags dbtn/module:notification_analytics
    * @name get_analytics_overview
    * @summary Get Analytics Overview
    * @request GET:/routes/notification-analytics/overview
@@ -4292,7 +4100,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get paginated delivery logs with filtering. Args: page: Page number (1-indexed) page_size: Items per page notification_type: Filter by notification type user_identifier: Filter by user email/phone status: Filter by 'success' or 'failed' days: Number of days to query (default: 30)
    *
-   * @tags dbtn/module:notification_analytics
    * @name get_delivery_logs
    * @summary Get Delivery Logs
    * @request GET:/routes/notification-analytics/delivery-logs
@@ -4308,7 +4115,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get channel performance statistics over time. Returns daily stats for each channel, useful for charting trends. Args: days: Number of days to query (default: 30) channel: Filter by specific channel (sms, email, push) notification_type: Filter by notification type
    *
-   * @tags dbtn/module:notification_analytics
    * @name get_channel_stats
    * @summary Get Channel Stats
    * @request GET:/routes/notification-analytics/channel-stats
@@ -4324,7 +4130,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of all notification types that have been sent. Useful for dropdown filters in the UI.
    *
-   * @tags dbtn/module:notification_analytics
    * @name get_notification_types
    * @summary Get Notification Types
    * @request GET:/routes/notification-analytics/notification-types
@@ -4339,7 +4144,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all invitation permissions (super_admin only). Shows which roles can invite which other roles.
    *
-   * @tags dbtn/module:invitation_permissions, dbtn/hasAuth
    * @name list_invitation_permissions
    * @summary List Invitation Permissions
    * @request GET:/routes/admin/invitation-permissions
@@ -4354,7 +4158,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create or update invitation permissions for a role (super_admin only). Allows configuring which roles a given role can invite.
    *
-   * @tags dbtn/module:invitation_permissions, dbtn/hasAuth
    * @name update_invitation_permission
    * @summary Update Invitation Permission
    * @request POST:/routes/admin/invitation-permissions
@@ -4371,7 +4174,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get invitation permissions for a specific role. Users can view their own role's permissions, super_admin can view all.
    *
-   * @tags dbtn/module:invitation_permissions, dbtn/hasAuth
    * @name get_invitation_permission
    * @summary Get Invitation Permission
    * @request GET:/routes/admin/invitation-permissions/{role_name}
@@ -4386,7 +4188,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if the current user can invite someone to the target_role. Returns {can_invite: bool, reason: str}
    *
-   * @tags dbtn/module:invitation_permissions, dbtn/hasAuth
    * @name check_can_invite_role
    * @summary Check Can Invite Role
    * @request GET:/routes/invitation-permissions/check/{target_role}
@@ -4401,7 +4202,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all email automation rules and their configurations.
    *
-   * @tags dbtn/module:email_automation
    * @name get_automation_rules
    * @summary Get Automation Rules
    * @request GET:/routes/email-automation/rules
@@ -4416,7 +4216,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update an automation rule configuration.
    *
-   * @tags dbtn/module:email_automation
    * @name update_automation_rule
    * @summary Update Automation Rule
    * @request PUT:/routes/email-automation/rules/{rule_id}
@@ -4437,7 +4236,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Manually trigger an automation action. Can be run on specific emails or all eligible emails.
    *
-   * @tags dbtn/module:email_automation
    * @name execute_automation_action
    * @summary Execute Automation Action
    * @request POST:/routes/email-automation/execute
@@ -4454,7 +4252,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get statistics about automation executions.
    *
-   * @tags dbtn/module:email_automation
    * @name get_automation_stats
    * @summary Get Automation Stats
    * @request GET:/routes/email-automation/stats
@@ -4469,7 +4266,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get login history for a specific user. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:user_activity_tracking
    * @name get_user_login_history
    * @summary Get User Login History
    * @request GET:/routes/user-activity/login-history/{user_id}
@@ -4484,7 +4280,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get suspension history for a specific user. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:user_activity_tracking
    * @name get_user_suspension_history
    * @summary Get User Suspension History
    * @request GET:/routes/user-activity/suspension-history/{user_id}
@@ -4499,7 +4294,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get role assignment/removal history for a specific user. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:user_activity_tracking
    * @name get_user_role_history
    * @summary Get User Role History
    * @request GET:/routes/user-activity/role-history/{user_id}
@@ -4514,7 +4308,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new board meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name create_meeting
    * @summary Create Meeting
    * @request POST:/routes/board-meetings/create
@@ -4531,7 +4324,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all board meetings with optional filtering.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name list_meetings
    * @summary List Meetings
    * @request GET:/routes/board-meetings/list
@@ -4547,7 +4339,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get a single meeting by ID.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name get_meeting
    * @summary Get Meeting
    * @request GET:/routes/board-meetings/{meeting_id}
@@ -4562,7 +4353,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name update_meeting
    * @summary Update Meeting
    * @request PUT:/routes/board-meetings/{meeting_id}
@@ -4583,7 +4373,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a meeting (soft delete by setting status to cancelled).
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name delete_meeting
    * @summary Delete Meeting
    * @request DELETE:/routes/board-meetings/{meeting_id}
@@ -4598,7 +4387,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Add an agenda item to a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name add_agenda_item
    * @summary Add Agenda Item
    * @request POST:/routes/board-meetings/{meeting_id}/agenda
@@ -4619,7 +4407,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all agenda items for a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name get_agenda
    * @summary Get Agenda
    * @request GET:/routes/board-meetings/{meeting_id}/agenda
@@ -4634,7 +4421,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Record minutes for a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name record_minutes
    * @summary Record Minutes
    * @request POST:/routes/board-meetings/{meeting_id}/minutes
@@ -4651,7 +4437,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get the latest minutes for a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name get_minutes
    * @summary Get Minutes
    * @request GET:/routes/board-meetings/{meeting_id}/minutes
@@ -4666,7 +4451,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Approve the latest minutes for a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name approve_minutes
    * @summary Approve Minutes
    * @request PUT:/routes/board-meetings/{meeting_id}/minutes/approve
@@ -4681,7 +4465,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Mark attendance for a board member.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name mark_attendance
    * @summary Mark Attendance
    * @request POST:/routes/board-meetings/{meeting_id}/attendance
@@ -4702,7 +4485,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get attendance records for a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name get_attendance
    * @summary Get Attendance
    * @request GET:/routes/board-meetings/{meeting_id}/attendance
@@ -4717,7 +4499,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create an action item from a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name create_action_item
    * @summary Create Action Item
    * @request POST:/routes/board-meetings/{meeting_id}/action-items
@@ -4738,7 +4519,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List action items for a specific meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name list_meeting_action_items
    * @summary List Meeting Action Items
    * @request GET:/routes/board-meetings/{meeting_id}/action-items
@@ -4753,7 +4533,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all action items across meetings.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name list_all_action_items
    * @summary List All Action Items
    * @request GET:/routes/board-meetings/action-items/all
@@ -4769,7 +4548,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update an action item.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name update_action_item
    * @summary Update Action Item
    * @request PUT:/routes/board-meetings/action-items/{action_item_id}
@@ -4790,7 +4568,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Invite board members to a meeting and send email invitations.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name invite_members
    * @summary Invite Members
    * @request POST:/routes/board-meetings/{meeting_id}/invite
@@ -4811,7 +4588,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of invitees for a meeting.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name get_meeting_invitees
    * @summary Get Meeting Invitees
    * @request GET:/routes/board-meetings/{meeting_id}/invitees
@@ -4826,7 +4602,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update RSVP status for a meeting invitation.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name update_rsvp
    * @summary Update Rsvp
    * @request PUT:/routes/board-meetings/{meeting_id}/rsvp
@@ -4843,7 +4618,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Process and send scheduled meeting reminders (called by scheduler).
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name send_meeting_reminders
    * @summary Send Meeting Reminders
    * @request POST:/routes/board-meetings/send-reminders
@@ -4858,7 +4632,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Resend meeting invitations to selected recipients.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name resend_meeting_invitations
    * @summary Resend Meeting Invitations
    * @request POST:/routes/board-meetings/{meeting_id}/resend-invitations
@@ -4879,7 +4652,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of active board members available for meeting invitations.
    *
-   * @tags dbtn/module:board_meetings, dbtn/hasAuth
    * @name get_board_members_for_invitation
    * @summary Get Board Members For Invitation
    * @request GET:/routes/board-meetings/board-members
@@ -4894,7 +4666,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload an image file and return the public URL (admin only)
    *
-   * @tags dbtn/module:image_management
    * @name upload_image
    * @summary Upload Image
    * @request POST:/routes/image-management/upload
@@ -4911,7 +4682,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Serve an uploaded image from storage (public endpoint)
    *
-   * @tags dbtn/module:image_management
    * @name serve_image
    * @summary Serve Image
    * @request GET:/routes/image-management/serve/{file_path}
@@ -4926,7 +4696,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Serve profile picture from storage (public endpoint)
    *
-   * @tags dbtn/module:image_management
    * @name serve_profile_picture
    * @summary Serve Profile Picture
    * @request GET:/routes/image-management/profile-picture/{storage_key}
@@ -4941,7 +4710,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Search for images on Unsplash (open endpoint for image browsing)
    *
-   * @tags dbtn/module:image_management
    * @name search_images
    * @summary Search Images
    * @request GET:/routes/image-management/search
@@ -4957,7 +4725,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Track when an Unsplash image is downloaded/used (required by Unsplash API guidelines)
    *
-   * @tags dbtn/module:image_management
    * @name track_unsplash_download
    * @summary Track Unsplash Download
    * @request POST:/routes/image-management/track-download/{photo_id}
@@ -4972,7 +4739,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Main scheduled job endpoint that: 1. Sends consolidated daily reminders for missing/rejected documents 2. Sends expiry warnings for documents expiring soon 3. Creates escalations for overdue critical documents This endpoint should be called by an external cron service (e.g., daily).
    *
-   * @tags dbtn/module:board_document_reminders, dbtn/hasAuth
    * @name process_reminders
    * @summary Process Reminders
    * @request POST:/routes/board-document-reminders/process-reminders
@@ -4987,7 +4753,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get statistics about reminder activity.
    *
-   * @tags dbtn/module:board_document_reminders, dbtn/hasAuth
    * @name get_reminder_stats
    * @summary Get Reminder Stats
    * @request GET:/routes/board-document-reminders/stats
@@ -5002,7 +4767,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all document categories (admin only)
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name list_categories
    * @summary List Categories
    * @request GET:/routes/data-room/admin/categories
@@ -5017,7 +4781,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new document category (admin only)
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name create_category
    * @summary Create Category
    * @request POST:/routes/data-room/admin/categories
@@ -5034,7 +4797,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a document category (admin only)
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name update_category
    * @summary Update Category
    * @request PUT:/routes/data-room/admin/categories/{category_id}
@@ -5055,7 +4817,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a document category (admin only) - only if no documents are in it
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name delete_category
    * @summary Delete Category
    * @request DELETE:/routes/data-room/admin/categories/{category_id}
@@ -5070,7 +4831,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload a document to the data room (admin only)
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name upload_data_room_document
    * @summary Upload Data Room Document
    * @request POST:/routes/data-room/admin/documents
@@ -5087,7 +4847,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all documents (admin only)
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name list_documents
    * @summary List Documents
    * @request GET:/routes/data-room/admin/documents
@@ -5103,7 +4862,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update document metadata (admin only)
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name update_document
    * @summary Update Document
    * @request PUT:/routes/data-room/admin/documents/{document_id}
@@ -5124,7 +4882,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a document (admin only) - soft delete by setting status to 'deleted'
    *
-   * @tags dbtn/module:data_room_admin, dbtn/hasAuth
    * @name delete_data_room_document
    * @summary Delete Data Room Document
    * @request DELETE:/routes/data-room/admin/documents/{document_id}
@@ -5139,7 +4896,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Track user login and update last login timestamp. Also logs detailed login history with IP address and location. Should be called automatically when user successfully logs in.
    *
-   * @tags dbtn/module:auth_tracking
    * @name track_login
    * @summary Track Login
    * @request POST:/routes/auth/track-login
@@ -5154,7 +4910,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Allow admins to create share subscriptions on behalf of investors. Automatically creates investor invitation if user doesn't exist. Requires: super_admin or admin role
    *
-   * @tags dbtn/module:admin_subscriptions
    * @name create_subscription_on_behalf
    * @summary Create Subscription On Behalf
    * @request POST:/routes/create-on-behalf
@@ -5171,7 +4926,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload payment proof for an admin-created subscription. Requires: super_admin or admin role
    *
-   * @tags dbtn/module:admin_subscriptions
    * @name upload_admin_payment_proof
    * @summary Upload Admin Payment Proof
    * @request POST:/routes/upload-admin-payment-proof/{subscription_id}
@@ -5192,7 +4946,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all subscriptions created by the current admin. Requires: super_admin or admin role
    *
-   * @tags dbtn/module:admin_subscriptions
    * @name get_my_created_subscriptions
    * @summary Get My Created Subscriptions
    * @request GET:/routes/my-created-subscriptions
@@ -5207,7 +4960,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update the payment status of an admin-created subscription. Valid statuses: pending, verified, completed, failed Requires: super_admin or admin role
    *
-   * @tags dbtn/module:admin_subscriptions
    * @name update_payment_status
    * @summary Update Payment Status
    * @request PUT:/routes/update-payment-status/{subscription_id}
@@ -5228,7 +4980,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Record a payment made by admin on behalf of a subscriber. Updates amount_paid and creates payment history entry. Requires: super_admin or admin role
    *
-   * @tags dbtn/module:admin_subscriptions
    * @name record_payment
    * @summary Record Payment
    * @request POST:/routes/record-payment/{subscription_id}
@@ -5249,7 +5000,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Add or update payment notes for an admin-created subscription. Requires: super_admin or admin role
    *
-   * @tags dbtn/module:admin_subscriptions
    * @name add_payment_notes
    * @summary Add Payment Notes
    * @request POST:/routes/add-payment-notes/{subscription_id}
@@ -5265,7 +5015,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current share configuration. Public endpoint - anyone can view share prices.
    *
-   * @tags dbtn/module:shares_management
    * @name get_share_config
    * @summary Get Share Config
    * @request GET:/routes/config
@@ -5280,7 +5029,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all share classes with current pricing from database. Public endpoint.
    *
-   * @tags dbtn/module:shares_management
    * @name get_all_share_classes
    * @summary Get All Share Classes
    * @request GET:/routes/share-classes
@@ -5295,7 +5043,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all share classes with full admin details. Requires: super_admin or admin role.
    *
-   * @tags dbtn/module:shares_management
    * @name get_share_classes_admin
    * @summary Get Share Classes Admin
    * @request GET:/routes/share-classes/admin
@@ -5310,7 +5057,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a specific share class configuration. Requires: super_admin or admin role.
    *
-   * @tags dbtn/module:shares_management
    * @name update_share_class
    * @summary Update Share Class
    * @request PUT:/routes/share-classes/{class_name}
@@ -5331,7 +5077,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update share price and configuration. Requires: super_admin or admin role.
    *
-   * @tags dbtn/module:shares_management
    * @name update_share_price
    * @summary Update Share Price
    * @request PUT:/routes/update-price
@@ -5348,7 +5093,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Transfer shares from one investor to another. Admin only - creates new subscription for recipient and updates source.
    *
-   * @tags dbtn/module:subscriptions_transfers, dbtn/hasAuth
    * @name transfers_transfer_shares
    * @summary Transfers Transfer Shares
    * @request POST:/routes/subscriptions/transfers/transfer-shares
@@ -5365,7 +5109,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Convert shares from one class to another. Admin only - updates subscription and issues new certificate.
    *
-   * @tags dbtn/module:subscriptions_transfers, dbtn/hasAuth
    * @name transfers_convert_share_class
    * @summary Transfers Convert Share Class
    * @request POST:/routes/subscriptions/transfers/convert-share-class
@@ -5382,7 +5125,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get transfer and conversion history for a subscription. User must own the subscription or be admin.
    *
-   * @tags dbtn/module:subscriptions_transfers, dbtn/hasAuth
    * @name transfers_get_history
    * @summary Transfers Get History
    * @request GET:/routes/subscriptions/transfers/transfer-history/{subscription_id}
@@ -5397,7 +5139,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Admin utility to fix subscription-user mappings and data inconsistencies. Scans all subscriptions and fixes common issues.
    *
-   * @tags dbtn/module:subscriptions_transfers, dbtn/hasAuth
    * @name transfers_fix_mappings
    * @summary Transfers Fix Mappings
    * @request POST:/routes/subscriptions/transfers/admin/fix-subscription-mappings
@@ -5412,7 +5153,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Auto-link pending notifications and messages to user on login.
    *
-   * @tags dbtn/module:notifications, dbtn/hasAuth
    * @name link_pending_notifications
    * @summary Link Pending Notifications
    * @request POST:/routes/link-pending
@@ -5427,7 +5167,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's notifications with pagination.
    *
-   * @tags dbtn/module:notifications, dbtn/hasAuth
    * @name list_notifications
    * @summary List Notifications
    * @request GET:/routes/notifications
@@ -5443,7 +5182,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get count of unread notifications for user.
    *
-   * @tags dbtn/module:notifications, dbtn/hasAuth
    * @name get_unread_count
    * @summary Get Unread Count
    * @request GET:/routes/unread-count
@@ -5458,7 +5196,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Mark one or more notifications as read.
    *
-   * @tags dbtn/module:notifications, dbtn/hasAuth
    * @name mark_notifications_read
    * @summary Mark Notifications Read
    * @request POST:/routes/mark-read
@@ -5475,7 +5212,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Mark all unread notifications as read for user.
    *
-   * @tags dbtn/module:notifications, dbtn/hasAuth
    * @name mark_all_notifications_read
    * @summary Mark All Notifications Read
    * @request POST:/routes/mark-all-read
@@ -5490,7 +5226,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a notification.
    *
-   * @tags dbtn/module:notifications, dbtn/hasAuth
    * @name delete_notification
    * @summary Delete Notification
    * @request DELETE:/routes/{notification_id}
@@ -5505,7 +5240,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Provides geolocation information, including currency, for a given IP address. If ip_address is empty, auto-detects the client's IP from the request.
    *
-   * @tags dbtn/module:geolocation
    * @name lookup_ip
    * @summary Lookup Ip
    * @request GET:/routes/geolocation/lookup
@@ -5521,7 +5255,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new governance session (AGM vote, board resolution, or meeting)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name create_session
    * @summary Create Session
    * @request POST:/routes/governance/sessions
@@ -5538,7 +5271,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List governance sessions with filtering
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name list_sessions
    * @summary List Sessions
    * @request GET:/routes/governance/sessions
@@ -5554,7 +5286,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Add voting items to an AGM session
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name add_voting_items
    * @summary Add Voting Items
    * @request POST:/routes/governance/sessions/{session_id}/items
@@ -5575,7 +5306,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update voting items for a session (only allowed when session is in draft status)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name update_voting_items
    * @summary Update Voting Items
    * @request PATCH:/routes/governance/sessions/{session_id}/items
@@ -5596,7 +5326,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of sessions for document upload selection dropdown. Includes active sessions and the default 'Unlinked Documents' holding session.
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name list_sessions_for_selection
    * @summary List Sessions For Selection
    * @request GET:/routes/governance/sessions/for-selection
@@ -5611,7 +5340,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get detailed information about a session
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_session_details
    * @summary Get Session Details
    * @request GET:/routes/governance/sessions/{session_id}
@@ -5626,7 +5354,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update session details (only allowed when session is in draft status)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name update_session
    * @summary Update Session
    * @request PATCH:/routes/governance/sessions/{session_id}
@@ -5647,7 +5374,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a governance session. Only the creator or super_admin can delete sessions. All related data (votes, documents, voting items) will be cascade deleted.
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name delete_session
    * @summary Delete Session
    * @request DELETE:/routes/governance/sessions/{session_id}
@@ -5662,7 +5388,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Cast a vote on an AGM item or board resolution
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name cast_vote
    * @summary Cast Vote
    * @request POST:/routes/governance/vote
@@ -5679,7 +5404,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get voting results for a session
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_vote_results
    * @summary Get Vote Results
    * @request GET:/routes/governance/sessions/{session_id}/results
@@ -5694,7 +5418,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update session status (open voting, close voting, finalize, reopen)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name update_session_status
    * @summary Update Session Status
    * @request PATCH:/routes/governance/sessions/{session_id}/status
@@ -5715,7 +5438,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload a document (minutes, agenda, attachment)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name upload_governance_document
    * @summary Upload Governance Document
    * @request POST:/routes/governance/documents
@@ -5732,7 +5454,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Approve minutes, RSVP to meeting, or approve resolution
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name approve_item
    * @summary Approve Item
    * @request POST:/routes/governance/approve
@@ -5749,7 +5470,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Assign proxy voting rights to another user
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name create_proxy_assignment
    * @summary Create Proxy Assignment
    * @request POST:/routes/governance/proxy
@@ -5766,7 +5486,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Revoke a proxy assignment
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name revoke_proxy
    * @summary Revoke Proxy
    * @request DELETE:/routes/governance/proxy/{proxy_id}
@@ -5781,7 +5500,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's active proxy assignments (both given and received)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_my_proxy_assignments
    * @summary Get My Proxy Assignments
    * @request GET:/routes/governance/my-proxy-assignments
@@ -5796,7 +5514,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all pending actions requiring user's attention
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_pending_actions
    * @summary Get Pending Actions
    * @request GET:/routes/governance/pending-actions
@@ -5811,7 +5528,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's voting and participation history
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_voting_history
    * @summary Get Voting History
    * @request GET:/routes/governance/history
@@ -5827,7 +5543,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Link/move a document from one session to another. Allows moving documents from 'Unlinked Documents' to specific sessions.
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name link_document_to_session
    * @summary Link Document To Session
    * @request POST:/routes/governance/documents/link
@@ -5844,7 +5559,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all documents in the 'Unlinked Documents' holding area. Useful for session editing UI to show available documents to link.
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_unlinked_documents
    * @summary Get Unlinked Documents
    * @request GET:/routes/governance/documents/unlinked
@@ -5859,7 +5573,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a governance document. Only the uploader or super_admin can delete documents.
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name delete_document
    * @summary Delete Document
    * @request DELETE:/routes/governance/documents/{document_id}
@@ -5874,7 +5587,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of board members who can be notified about the session
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name get_board_members_for_notification
    * @summary Get Board Members For Notification
    * @request GET:/routes/governance/sessions/{session_id}/board-members-for-notification
@@ -5892,7 +5604,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Preview the governance session notification email for a specific recipient
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name preview_governance_session_email
    * @summary Preview Governance Session Email
    * @request GET:/routes/governance/sessions/{session_id}/email-preview
@@ -5911,7 +5622,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Queue governance session notifications for selected board members
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name send_governance_session_notification
    * @summary Send Governance Session Notification
    * @request POST:/routes/governance/sessions/{session_id}/send-notifications
@@ -5932,7 +5642,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List queued emails with optional filters
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name list_email_queue
    * @summary List Email Queue
    * @request GET:/routes/governance/email-queue
@@ -5948,7 +5657,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Cancel a pending email in the queue
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name cancel_queued_email
    * @summary Cancel Queued Email
    * @request DELETE:/routes/governance/email-queue/{email_id}
@@ -5963,7 +5671,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Process pending emails in the queue (called by scheduler)
    *
-   * @tags dbtn/module:governance, dbtn/hasAuth
    * @name process_email_queue
    * @summary Process Email Queue
    * @request POST:/routes/governance/email-queue/process
@@ -5978,7 +5685,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description View certificate by scanning QR code - PUBLIC ACCESS. Returns PDF certificate with filled template. No authentication required - secured by verification code.
    *
-   * @tags dbtn/module:public_certificates
    * @name view_certificate_public
    * @summary View Certificate Public
    * @request GET:/routes/certificates/{cert_number}/{verification_code}
@@ -5996,7 +5702,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description View latest version of certificate - REQUIRES verification code in database. This endpoint is for backward compatibility with older QR codes.
    *
-   * @tags dbtn/module:public_certificates
    * @name view_latest_certificate_public
    * @summary View Latest Certificate Public
    * @request GET:/routes/certificates/{cert_number}
@@ -6014,7 +5719,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Process and send pending profile completion reminders. This endpoint is called by the scheduler. Returns: Summary of processing results
    *
-   * @tags dbtn/module:profile_completion_reminder_scheduler
    * @name process_profile_completion_reminders
    * @summary Process Profile Completion Reminders
    * @request POST:/routes/process-reminders
@@ -6029,7 +5733,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get statistics about profile completion reminders. Returns: Stats on pending, sent, cancelled, and failed reminders
    *
-   * @tags dbtn/module:profile_completion_reminder_scheduler
    * @name get_reminder_stats2
    * @summary Get Reminder Stats
    * @request GET:/routes/reminder-stats
@@ -6046,7 +5749,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a document request for a board member. Only accessible by back office staff.
    *
-   * @tags dbtn/module:document_requests, dbtn/hasAuth
    * @name create_document_request
    * @summary Create Document Request
    * @request POST:/routes/document-requests/create
@@ -6063,7 +5765,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all document requests for the logged-in board member.
    *
-   * @tags dbtn/module:document_requests, dbtn/hasAuth
    * @name get_my_document_requests
    * @summary Get My Document Requests
    * @request GET:/routes/document-requests/my-requests
@@ -6078,7 +5779,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all document requests (back office view).
    *
-   * @tags dbtn/module:document_requests, dbtn/hasAuth
    * @name get_all_document_requests
    * @summary Get All Document Requests
    * @request GET:/routes/document-requests/all
@@ -6093,7 +5793,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Mark a document request as completed. Called when board member uploads the requested document.
    *
-   * @tags dbtn/module:document_requests, dbtn/hasAuth
    * @name complete_document_request
    * @summary Complete Document Request
    * @request POST:/routes/document-requests/complete
@@ -6110,7 +5809,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Webhook endpoint for Resend email events. Receives real-time updates about email delivery status. Event types: - email.sent: Email accepted by Resend - email.delivered: Email successfully delivered - email.bounced: Email bounced - email.complained: Recipient marked as spam - email.opened: Email opened by recipient - email.clicked: Link clicked in email
    *
-   * @tags dbtn/module:webhooks
    * @name resend_webhook
    * @summary Resend Webhook
    * @request POST:/routes/webhooks/resend
@@ -6125,7 +5823,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Test endpoint to verify webhook configuration.
    *
-   * @tags dbtn/module:webhooks
    * @name test_resend_webhook
    * @summary Test Resend Webhook
    * @request GET:/routes/webhooks/resend/test
@@ -6140,7 +5837,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all published timeline items ordered by date
    *
-   * @tags dbtn/module:progress_timeline
    * @name list_public_timeline_items
    * @summary List Public Timeline Items
    * @request GET:/routes/progress-timeline/public
@@ -6155,7 +5851,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all timeline items for admin (including unpublished)
    *
-   * @tags dbtn/module:progress_timeline
    * @name list_all_timeline_items
    * @summary List All Timeline Items
    * @request GET:/routes/progress-timeline/admin/list
@@ -6170,7 +5865,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new timeline item (admin only)
    *
-   * @tags dbtn/module:progress_timeline
    * @name create_timeline_item
    * @summary Create Timeline Item
    * @request POST:/routes/progress-timeline/admin/create
@@ -6187,7 +5881,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a timeline item (admin only)
    *
-   * @tags dbtn/module:progress_timeline
    * @name update_timeline_item
    * @summary Update Timeline Item
    * @request PUT:/routes/progress-timeline/admin/{item_id}
@@ -6208,7 +5901,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a timeline item (admin only)
    *
-   * @tags dbtn/module:progress_timeline
    * @name delete_timeline_item
    * @summary Delete Timeline Item
    * @request DELETE:/routes/progress-timeline/admin/{item_id}
@@ -6223,7 +5915,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all approved comments for a timeline item
    *
-   * @tags dbtn/module:progress_timeline
    * @name get_timeline_comments
    * @summary Get Timeline Comments
    * @request GET:/routes/progress-timeline/{item_id}/comments
@@ -6238,7 +5929,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Add a comment to a timeline item
    *
-   * @tags dbtn/module:progress_timeline
    * @name add_timeline_comment
    * @summary Add Timeline Comment
    * @request POST:/routes/progress-timeline/comment
@@ -6255,7 +5945,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a comment (admin only)
    *
-   * @tags dbtn/module:progress_timeline
    * @name delete_comment
    * @summary Delete Comment
    * @request DELETE:/routes/progress-timeline/admin/comment/{comment_id}
@@ -6270,7 +5959,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all active document requirements (admin/back office overview).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name list_requirements
    * @summary List Requirements
    * @request GET:/routes/board-documents/requirements
@@ -6285,7 +5973,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new document requirement. Only super_admin and back_office_staff allowed.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name create_requirement
    * @summary Create Requirement
    * @request POST:/routes/board-documents/requirements
@@ -6302,7 +5989,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update fields on a requirement. Only super_admin and back_office_staff allowed.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name update_requirement
    * @summary Update Requirement
    * @request PUT:/routes/board-documents/requirements/{requirement_id}
@@ -6323,7 +6009,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Soft-delete a requirement. Only super_admin and back_office_staff allowed.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name delete_requirement
    * @summary Delete Requirement
    * @request DELETE:/routes/board-documents/requirements/{requirement_id}
@@ -6338,7 +6023,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload a template file for a requirement. Only super_admin and back_office_staff allowed.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name upload_template
    * @summary Upload Template
    * @request POST:/routes/board-documents/requirements/{requirement_id}/upload-template
@@ -6359,7 +6043,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update template description. Only super_admin and back_office_staff allowed.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name update_template_description
    * @summary Update Template Description
    * @request PUT:/routes/board-documents/requirements/{requirement_id}/template-description
@@ -6378,7 +6061,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a template file. Only super_admin and back_office_staff allowed.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name delete_template
    * @summary Delete Template
    * @request DELETE:/routes/board-documents/requirements/{requirement_id}/template
@@ -6393,7 +6075,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Download template file for a requirement (accessible to board members and back office).
    *
-   * @tags stream, dbtn/module:board_documents, dbtn/hasAuth
+   * @tags stream
    * @name download_template
    * @summary Download Template
    * @request GET:/routes/board-documents/requirements/{requirement_id}/download-template
@@ -6408,7 +6090,7 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Download an uploaded board member document (accessible to document owner and back office).
    *
-   * @tags stream, dbtn/module:board_documents, dbtn/hasAuth
+   * @tags stream
    * @name download_document
    * @summary Download Document
    * @request GET:/routes/board-documents/documents/{document_id}/download
@@ -6423,7 +6105,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get jurisdiction-specific checklist merged with member's submission status. Accessible to inactive and active board members.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name get_checklist
    * @summary Get Checklist
    * @request GET:/routes/board-documents/checklist
@@ -6439,7 +6120,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get document completion summary for current board member.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name get_my_status
    * @summary Get My Status
    * @request GET:/routes/board-documents/my-status
@@ -6454,7 +6134,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get aggregated document status for the current board member.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name get_my_document_status
    * @summary Get My Document Status
    * @request GET:/routes/board-documents/board-documents/my-status
@@ -6469,7 +6148,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload a document for a specific requirement. Only accessible to active board members (not inactive).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name upload_document
    * @summary Upload Document
    * @request POST:/routes/board-documents/upload
@@ -6487,7 +6165,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Resubmit a previously rejected document with a new file.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name resubmit_document
    * @summary Resubmit Document
    * @request PUT:/routes/board-documents/{document_id}/resubmit
@@ -6508,7 +6185,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Approve or reject a submitted document (Back Office only).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name review_document
    * @summary Review Document
    * @request PUT:/routes/board-documents/review/{document_id}
@@ -6529,7 +6205,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get overview of all board members' document compliance status (Back Office).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name get_all_members_status
    * @summary Get All Members Status
    * @request GET:/routes/board-documents/all-members-status
@@ -6544,7 +6219,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of documents pending review (Back Office).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name get_review_queue
    * @summary Get Review Queue
    * @request GET:/routes/board-documents/review-queue
@@ -6559,7 +6233,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get license readiness report by jurisdiction (Back Office).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name get_readiness_report
    * @summary Get Readiness Report
    * @request GET:/routes/board-documents/readiness-report
@@ -6574,7 +6247,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Broadcast document requests to multiple board members (Back Office). If board_member_ids is None or empty, broadcasts to all active members. Supports multiple channels: email, sms, whatsapp
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name broadcast_document_request
    * @summary Broadcast Document Request
    * @request POST:/routes/board-documents/broadcast-document-request
@@ -6591,7 +6263,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all document requirement settings (Back Office).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name list_requirement_settings
    * @summary List Requirement Settings
    * @request GET:/routes/board-documents/settings
@@ -6606,7 +6277,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update notification settings for a document requirement (Back Office).
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name update_requirement_settings
    * @summary Update Requirement Settings
    * @request PUT:/routes/board-documents/settings/{requirement_id}
@@ -6627,7 +6297,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send document request notifications to a specific board member. Only super_admin and back_office_staff can send individual requests.
    *
-   * @tags dbtn/module:board_documents, dbtn/hasAuth
    * @name send_individual_document_request
    * @summary Send Individual Document Request
    * @request POST:/routes/board-documents/send-individual-document-request
@@ -6644,7 +6313,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new media release (admin only)
    *
-   * @tags dbtn/module:media_releases
    * @name create_media_release
    * @summary Create Media Release
    * @request POST:/routes/media-releases/create
@@ -6661,7 +6329,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all media releases (public for published, protected for drafts)
    *
-   * @tags dbtn/module:media_releases
    * @name list_media_releases
    * @summary List Media Releases
    * @request GET:/routes/media-releases/list
@@ -6677,7 +6344,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get published media releases for public viewing
    *
-   * @tags dbtn/module:media_releases
    * @name list_published_releases
    * @summary List Published Releases
    * @request GET:/routes/media-releases/published
@@ -6693,7 +6359,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get a media release by slug and increment view count
    *
-   * @tags dbtn/module:media_releases
    * @name get_media_release_by_slug
    * @summary Get Media Release By Slug
    * @request GET:/routes/media-releases/by-slug/{slug}
@@ -6708,7 +6373,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get a specific media release by ID (admin only)
    *
-   * @tags dbtn/module:media_releases
    * @name get_media_release
    * @summary Get Media Release
    * @request GET:/routes/media-releases/{release_id}
@@ -6723,7 +6387,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a media release (admin only)
    *
-   * @tags dbtn/module:media_releases
    * @name update_media_release
    * @summary Update Media Release
    * @request PUT:/routes/media-releases/{release_id}
@@ -6744,7 +6407,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a media release (admin only)
    *
-   * @tags dbtn/module:media_releases
    * @name delete_media_release
    * @summary Delete Media Release
    * @request DELETE:/routes/media-releases/{release_id}
@@ -6759,7 +6421,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Publish a media release, send newsletter to board members, and create bell notifications. This endpoint: 1. Updates the release status to 'published' 2. Sends email newsletter to all active board members 3. Creates in-app bell notifications with CTA to read the article 4. (Future) Sends SMS notifications to board members with phone numbers
    *
-   * @tags dbtn/module:media_releases
    * @name publish_media_release
    * @summary Publish Media Release
    * @request POST:/routes/media-releases/{release_id}/publish
@@ -6774,7 +6435,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Generate and download welcome letter for a completed subscription. User must own the subscription or be admin.
    *
-   * @tags dbtn/module:subscriptions_documents, dbtn/hasAuth
    * @name documents_generate_welcome_letter
    * @summary Documents Generate Welcome Letter
    * @request GET:/routes/subscriptions/documents/welcome-letter/{subscription_id}
@@ -6792,7 +6452,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get comprehensive subscription summary with all related documents. User must own the subscription or be admin.
    *
-   * @tags dbtn/module:subscriptions_documents, dbtn/hasAuth
    * @name documents_subscription_summary
    * @summary Documents Subscription Summary
    * @request GET:/routes/subscriptions/documents/subscription-summary/{subscription_id}
@@ -6810,7 +6469,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Generate consolidated payment receipt for all verified payments. User must own the subscription or be admin.
    *
-   * @tags dbtn/module:subscriptions_documents, dbtn/hasAuth
    * @name documents_payment_receipt
    * @summary Documents Payment Receipt
    * @request GET:/routes/subscriptions/documents/payment-receipt/{subscription_id}
@@ -6828,7 +6486,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send complete welcome package via email (welcome letter, certificate, receipt). Admin only - for completed subscriptions.
    *
-   * @tags dbtn/module:subscriptions_documents, dbtn/hasAuth
    * @name documents_send_welcome_package
    * @summary Documents Send Welcome Package
    * @request POST:/routes/subscriptions/documents/send-welcome-package/{subscription_id}
@@ -6846,7 +6503,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all bank accounts.
    *
-   * @tags dbtn/module:bank_accounts, dbtn/hasAuth
    * @name list_bank_accounts
    * @summary List Bank Accounts
    * @request GET:/routes/bank-accounts/list-bank-accounts
@@ -6861,7 +6517,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get the default bank account for a currency.
    *
-   * @tags dbtn/module:bank_accounts, dbtn/hasAuth
    * @name get_default_bank_account
    * @summary Get Default Bank Account
    * @request GET:/routes/bank-accounts/get-default-bank-account
@@ -6877,7 +6532,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new bank account.
    *
-   * @tags dbtn/module:bank_accounts, dbtn/hasAuth
    * @name create_bank_account
    * @summary Create Bank Account
    * @request POST:/routes/bank-accounts/create-bank-account
@@ -6894,7 +6548,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a bank account.
    *
-   * @tags dbtn/module:bank_accounts, dbtn/hasAuth
    * @name update_bank_account
    * @summary Update Bank Account
    * @request PUT:/routes/bank-accounts/update-bank-account/{account_id}
@@ -6915,7 +6568,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a bank account.
    *
-   * @tags dbtn/module:bank_accounts, dbtn/hasAuth
    * @name delete_bank_account
    * @summary Delete Bank Account
    * @request DELETE:/routes/bank-accounts/delete-bank-account/{account_id}
@@ -6930,7 +6582,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Seed the default FNB bank account if no accounts exist. This is idempotent - only creates if table is empty.
    *
-   * @tags dbtn/module:bank_accounts, dbtn/hasAuth
    * @name seed_bank_account
    * @summary Seed Bank Account
    * @request POST:/routes/bank-accounts/bank-accounts/seed
@@ -6945,7 +6596,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Issue a share certificate for a completed subscription. Only accessible by admin and back-office roles.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_issue_certificate
    * @summary Certificates Issue Certificate
    * @request POST:/routes/subscriptions/certificates/issue-certificate
@@ -6962,7 +6612,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description View certificate details using certificate number and verification code. Public endpoint - no authentication required.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_view_certificate
    * @summary Certificates View Certificate
    * @request GET:/routes/subscriptions/certificates/certificate/{cert_number}/{verification_code}
@@ -6980,7 +6629,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Download certificate PDF. Requires verification code for public access, or admin role.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_download_certificate
    * @summary Certificates Download Certificate
    * @request GET:/routes/subscriptions/certificates/certificate/{cert_number}/download
@@ -6999,7 +6647,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all certificates for the current user. Shows certificates from all completed subscriptions.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_get_my_certificates
    * @summary Certificates Get My Certificates
    * @request GET:/routes/subscriptions/certificates/my-certificates
@@ -7014,7 +6661,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Revoke a certificate (admin only). Marks certificate as revoked and logs the action.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_revoke_certificate
    * @summary Certificates Revoke Certificate
    * @request POST:/routes/subscriptions/certificates/certificate/{cert_id}/revoke
@@ -7033,7 +6679,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Regenerate certificate PDF (admin only). Creates new PDF with same certificate number.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_regenerate_certificate
    * @summary Certificates Regenerate Certificate
    * @request POST:/routes/subscriptions/certificates/certificate/{cert_id}/regenerate
@@ -7051,7 +6696,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Sign a certificate with digital signature (admin only). Creates final non-editable PDF with embedded signature.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_sign_certificate
    * @summary Certificates Sign Certificate
    * @request POST:/routes/subscriptions/certificates/certificate/{cert_id}/sign
@@ -7072,7 +6716,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Resend certificate email to shareholder (admin only).
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_resend_email
    * @summary Certificates Resend Email
    * @request POST:/routes/subscriptions/certificates/certificate/{cert_id}/resend-email
@@ -7087,7 +6730,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Bulk issue certificates for all completed subscriptions without certificates. Admin only - processes all eligible subscriptions.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_bulk_issue
    * @summary Certificates Bulk Issue
    * @request POST:/routes/subscriptions/certificates/bulk-issue-certificates
@@ -7102,7 +6744,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Preview certificate for a subscription using PDF template. Returns the actual certificate PDF file. Requires authentication - user must own the subscription.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_preview_certificate
    * @summary Certificates Preview Certificate
    * @request GET:/routes/subscriptions/certificates/subscription/{subscription_id}/preview-certificate
@@ -7120,7 +6761,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Resend the QR code email for a certificate. Only accessible by admin and back-office roles.
    *
-   * @tags dbtn/module:subscriptions_certificates, dbtn/hasAuth
    * @name certificates_resend_qr
    * @summary Certificates Resend Qr
    * @request POST:/routes/subscriptions/certificates/certificate/{cert_number}/resend-qr
@@ -7135,7 +6775,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Initialize the first super administrator. This endpoint can only be used once when no super admin exists, or is protected by a setup token stored in secrets.
    *
-   * @tags dbtn/module:admin_setup, dbtn/hasAuth
    * @name initialize_super_admin
    * @summary Initialize Super Admin
    * @request POST:/routes/admin/initialize-super-admin
@@ -7152,7 +6791,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new super admin or staff user. Only existing super admins can create new admins.
    *
-   * @tags dbtn/module:admin_setup, dbtn/hasAuth
    * @name create_admin
    * @summary Create Admin
    * @request POST:/routes/admin/create-admin
@@ -7169,7 +6807,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if super admin has been set up. Public endpoint to determine if initial setup is needed.
    *
-   * @tags dbtn/module:admin_setup, dbtn/hasAuth
    * @name check_setup_status
    * @summary Check Setup Status
    * @request GET:/routes/admin/check-setup-status
@@ -7184,7 +6821,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Log a user activity for AI context tracking. Tracks page views, clicks, downloads, form submissions, and searches to provide context to the AI chatbot.
    *
-   * @tags dbtn/module:activity_tracking
    * @name log_activity
    * @summary Log Activity
    * @request POST:/routes/log-activity
@@ -7201,7 +6837,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get recent activities for the current user. Returns the most recent N activities (default 5) for AI context.
    *
-   * @tags dbtn/module:activity_tracking
    * @name get_recent_activities
    * @summary Get Recent Activities
    * @request GET:/routes/recent-activities
@@ -7217,7 +6852,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get recent activities for a specific user (admin/AI use). This endpoint is used by AI chatbot to understand user context. Only accessible by admins or the AI system.
    *
-   * @tags dbtn/module:activity_tracking
    * @name get_activities_for_user
    * @summary Get Activities For User
    * @request GET:/routes/activities-for-user/{user_id}
@@ -7233,7 +6867,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all board portal dashboard data in a single request. Combines profile, onboarding status, approvals, notifications, and document summary. Access Requirements: - User must have 'board_member' role Auto-creates board_members record if user has role but no record exists.
    *
-   * @tags dbtn/module:board_dashboard, dbtn/hasAuth
    * @name get_board_dashboard
    * @summary Get Board Dashboard
    * @request GET:/routes/board/dashboard
@@ -7248,7 +6881,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Validate an invitation token (public endpoint - no authentication required).
    *
-   * @tags dbtn/module:public_invitations
    * @name validate_invitation
    * @summary Validate Invitation
    * @request GET:/routes/invitations/validate/{token}
@@ -7263,7 +6895,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Check if user has any pending popups to show. Returns highest severity unread popup respecting DND and frequency limits.
    *
-   * @tags dbtn/module:popups, dbtn/hasAuth
    * @name check_pending_popups
    * @summary Check Pending Popups
    * @request POST:/routes/popups/check-popups
@@ -7278,7 +6909,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Dismiss a popup notification. Optionally snooze instead of permanently dismissing.
    *
-   * @tags dbtn/module:popups, dbtn/hasAuth
    * @name dismiss_popup
    * @summary Dismiss Popup
    * @request PUT:/routes/popups/{notification_id}/dismiss
@@ -7299,7 +6929,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get user's notification preferences.
    *
-   * @tags dbtn/module:popups, dbtn/hasAuth
    * @name get_notification_preferences
    * @summary Get Notification Preferences
    * @request GET:/routes/popups/preferences
@@ -7314,7 +6943,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update user's notification preferences.
    *
-   * @tags dbtn/module:popups, dbtn/hasAuth
    * @name update_notification_preferences
    * @summary Update Notification Preferences
    * @request PUT:/routes/popups/preferences
@@ -7331,7 +6959,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all pending invitations for the logged-in user.
    *
-   * @tags dbtn/module:user_invitations
    * @name get_current_user_pending_invitations
    * @summary Get Current User Pending Invitations
    * @request GET:/routes/user/invitations/pending
@@ -7346,7 +6973,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Accept an invitation for the logged-in user.
    *
-   * @tags dbtn/module:user_invitations
    * @name accept_my_invitation
    * @summary Accept My Invitation
    * @request POST:/routes/user/invitations/accept
@@ -7363,7 +6989,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all board positions ordered by hierarchy.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name list_board_positions
    * @summary List Board Positions
    * @request GET:/routes/board-positions
@@ -7378,7 +7003,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new board position. Requires admin.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name create_board_position
    * @summary Create Board Position
    * @request POST:/routes/board-positions
@@ -7395,7 +7019,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update a board position. Requires admin.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name update_board_position
    * @summary Update Board Position
    * @request PUT:/routes/board-positions/{position_id}
@@ -7416,7 +7039,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Assign a position to a board member. Requires admin. Ends any current position assignment for this member. Checks investment requirements and sends reminder if needed.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name appoint_board_member
    * @summary Appoint Board Member
    * @request POST:/routes/board-positions/members/{member_id}/assign
@@ -7437,7 +7059,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current board composition with all members and their positions.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name get_current_board_composition
    * @summary Get Current Board Composition
    * @request GET:/routes/board-positions/current
@@ -7452,7 +7073,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get position assignment history.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name get_position_history
    * @summary Get Position History
    * @request GET:/routes/board-positions/history
@@ -7468,7 +7088,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all current board members with their investment compliance status, profile completion, and document compliance. Shows if they meet the minimum investment requirement for their position.
    *
-   * @tags dbtn/module:board_position_management, dbtn/hasAuth
    * @name get_board_members_with_investment_status
    * @summary Get Board Members With Investment Status
    * @request GET:/routes/board-positions/members-with-investment
@@ -7483,7 +7102,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get current share availability and fundraising progress. Shows real-time data on available shares and amount raised.
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_get_share_availability
    * @summary Core Get Share Availability
    * @request GET:/routes/subscriptions/core/availability
@@ -7498,7 +7116,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Submit a share subscription application. Validates availability and creates subscription record. Stores currency used and exchange rate at time of purchase.
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_create_subscription
    * @summary Core Create Subscription
    * @request POST:/routes/subscriptions/core/subscribe
@@ -7515,7 +7132,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get the current status of a subscription. Shows payment progress and remaining balance.
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_get_subscription_status
    * @summary Core Get Subscription Status
    * @request GET:/routes/subscriptions/core/subscription/{subscription_id}
@@ -7533,7 +7149,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all subscriptions with summary statistics. For admin/monitoring purposes.
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_list_all_subscriptions
    * @summary Core List All Subscriptions
    * @request GET:/routes/subscriptions/core/subscriptions
@@ -7548,7 +7163,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all share subscriptions for the current authenticated user. Public endpoint - accessible by any logged-in user to view their own subscriptions.
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_get_my_public_subscriptions
    * @summary Core Get My Public Subscriptions
    * @request GET:/routes/subscriptions/core/my-public-subscriptions
@@ -7563,7 +7177,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all share subscriptions for the current user. Accessible by board members, admin and back-office roles. Regular public investors access certificates via QR codes.
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_get_my_subscriptions
    * @summary Core Get My Subscriptions
    * @request GET:/routes/subscriptions/core/my-subscriptions
@@ -7578,7 +7191,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get detailed subscription info with payment history and certificate
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_get_subscription_details
    * @summary Core Get Subscription Details
    * @request GET:/routes/subscriptions/core/subscription/{subscription_id}/details
@@ -7596,7 +7208,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get subscription system configuration
    *
-   * @tags dbtn/module:subscriptions_core, dbtn/hasAuth
    * @name core_get_subscription_config
    * @summary Core Get Subscription Config
    * @request GET:/routes/subscriptions/core/config
@@ -7611,7 +7222,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Send a message in the AI chat. If conversation_id is null, starts a new conversation. Returns both the user message and AI response.
    *
-   * @tags dbtn/module:investor_chat
    * @name send_investor_message
    * @summary Send Investor Message
    * @request POST:/routes/send-message
@@ -7628,7 +7238,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get a full conversation with all messages.
    *
-   * @tags dbtn/module:investor_chat
    * @name get_investor_conversation
    * @summary Get Investor Conversation
    * @request GET:/routes/conversation/{conversation_id}
@@ -7646,7 +7255,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all conversations for the current user.
    *
-   * @tags dbtn/module:investor_chat
    * @name list_my_conversations
    * @summary List My Conversations
    * @request GET:/routes/my-conversations
@@ -7661,7 +7269,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update follow-up details. Allows updating the next contact date, notes, and status.
    *
-   * @tags dbtn/module:lead_follow_ups
    * @name update_follow_up
    * @summary Update Follow Up
    * @request POST:/routes/lead-follow-ups/update/{follow_up_id}
@@ -7682,7 +7289,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Snooze a follow-up for a specified number of days. Moves the next contact date forward by the specified number of days.
    *
-   * @tags dbtn/module:lead_follow_ups
    * @name snooze_follow_up
    * @summary Snooze Follow Up
    * @request POST:/routes/lead-follow-ups/snooze/{follow_up_id}
@@ -7703,7 +7309,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Mark a follow-up as completed. Updates the follow-up status and lead status based on the outcome.
    *
-   * @tags dbtn/module:lead_follow_ups
    * @name complete_follow_up
    * @summary Complete Follow Up
    * @request POST:/routes/lead-follow-ups/complete/{follow_up_id}
@@ -7724,7 +7329,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get all pending follow-ups assigned to the current user. Returns overdue, due today, and upcoming follow-ups.
    *
-   * @tags dbtn/module:lead_follow_ups
    * @name get_my_pending_follow_ups
    * @summary Get My Pending Follow Ups
    * @request GET:/routes/lead-follow-ups/my-pending
@@ -7739,7 +7343,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Process daily follow-up reminders for all due leads. This endpoint is called by a scheduled job daily at 9 AM. Process: 1. Find all follow-ups due today (next_contact_date <= today, status = pending) 2. Group by assignee 3. Send multi-channel notifications to each assignee 4. Update last_reminder_sent_at 5. Track delivery statistics Args: authorization: Bearer token for scheduler security Returns: DailyReminderResult with execution summary
    *
-   * @tags dbtn/module:lead_follow_ups
    * @name process_daily_follow_up_reminders
    * @summary Process Daily Follow Up Reminders
    * @request POST:/routes/lead-follow-ups/process-daily-reminders
@@ -7754,7 +7357,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all investor leads with filtering and pagination. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name list_leads
    * @summary List Leads
    * @request GET:/routes/investor-leads/list
@@ -7770,7 +7372,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create a new investor lead. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name create_lead
    * @summary Create Lead
    * @request POST:/routes/investor-leads/create
@@ -7787,7 +7388,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get detailed information about a specific lead. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name get_lead_details
    * @summary Get Lead Details
    * @request GET:/routes/investor-leads/details/{lead_id}
@@ -7802,7 +7402,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Update an existing lead. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name update_lead
    * @summary Update Lead
    * @request PUT:/routes/investor-leads/update/{lead_id}
@@ -7819,7 +7418,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a lead (soft delete by marking as deleted in activity log). Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name delete_lead
    * @summary Delete Lead
    * @request DELETE:/routes/investor-leads/delete/{lead_id}
@@ -7834,7 +7432,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Add a note to a lead. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name add_note_to_lead
    * @summary Add Note To Lead
    * @request POST:/routes/investor-leads/add-note/{lead_id}
@@ -7851,7 +7448,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get activity history for a lead. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name get_lead_activity
    * @summary Get Lead Activity
    * @request GET:/routes/investor-leads/activity/{lead_id}
@@ -7866,7 +7462,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Bulk import leads from CSV file. Expected columns: full_name, email, phone, company, country, lead_source, investment_interest_amount, preferred_share_class, notes Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name bulk_import_leads
    * @summary Bulk Import Leads
    * @request POST:/routes/investor-leads/bulk-import
@@ -7883,7 +7478,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get analytics and metrics for investor leads. Requires super_admin or back_office role.
    *
-   * @tags dbtn/module:investor_leads
    * @name get_analytics
    * @summary Get Analytics
    * @request GET:/routes/investor-leads/analytics
@@ -7898,7 +7492,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all certificate templates (admin only)
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name list_templates
    * @summary List Templates
    * @request GET:/routes/certificate-templates/list
@@ -7913,7 +7506,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get a specific template by ID (admin only)
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name get_template
    * @summary Get Template
    * @request GET:/routes/certificate-templates/{template_id}
@@ -7928,7 +7520,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a template (cannot delete active template)
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name delete_certificate_template
    * @summary Delete Certificate Template
    * @request DELETE:/routes/certificate-templates/{template_id}
@@ -7946,7 +7537,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get the currently active template
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name get_active_template
    * @summary Get Active Template
    * @request GET:/routes/certificate-templates/active/current
@@ -7961,7 +7551,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Upload a PDF fillable form certificate template (admin only)
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name upload_pdf_template
    * @summary Upload Pdf Template
    * @request POST:/routes/certificate-templates/upload
@@ -7978,7 +7567,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get fillable field names from a PDF template
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name get_pdf_fields
    * @summary Get Pdf Fields
    * @request GET:/routes/certificate-templates/pdf-fields/{template_id}
@@ -7993,7 +7581,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Download a PDF template file
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name download_certificate_template
    * @summary Download Certificate Template
    * @request GET:/routes/certificate-templates/download/{template_id}
@@ -8011,7 +7598,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Set a template as active (deactivates all others)
    *
-   * @tags dbtn/module:certificate_templates, dbtn/hasAuth
    * @name activate_template
    * @summary Activate Template
    * @request POST:/routes/certificate-templates/{template_id}/activate
@@ -8026,7 +7612,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description List all crypto wallets (super_admin only)
    *
-   * @tags dbtn/module:crypto_wallets, dbtn/hasAuth
    * @name list_crypto_wallets
    * @summary List Crypto Wallets
    * @request GET:/routes/back-office/crypto-wallets
@@ -8041,7 +7626,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Create or update a crypto wallet (super_admin only) Uses UPSERT - if crypto_type exists, updates it; otherwise creates new
    *
-   * @tags dbtn/module:crypto_wallets, dbtn/hasAuth
    * @name create_or_update_wallet
    * @summary Create Or Update Wallet
    * @request POST:/routes/back-office/crypto-wallets
@@ -8058,7 +7642,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Delete a crypto wallet (super_admin only)
    *
-   * @tags dbtn/module:crypto_wallets, dbtn/hasAuth
    * @name delete_wallet
    * @summary Delete Wallet
    * @request DELETE:/routes/back-office/crypto-wallets/{crypto_type}
@@ -8073,7 +7656,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get list of active crypto payment options Public endpoint - shows which crypto types are available
    *
-   * @tags dbtn/module:crypto_wallets, dbtn/hasAuth
    * @name get_available_wallets
    * @summary Get Available Wallets
    * @request GET:/routes/crypto-wallets/available
@@ -8088,7 +7670,6 @@ export class Apiclient<SecurityDataType = unknown> extends HttpClient<SecurityDa
   /**
    * @description Get wallet details for a specific crypto type (authenticated users only) Returns wallet address and info for making payment
    *
-   * @tags dbtn/module:crypto_wallets, dbtn/hasAuth
    * @name get_wallet_details
    * @summary Get Wallet Details
    * @request GET:/routes/crypto-wallets/{crypto_type}/details

@@ -28,7 +28,7 @@ PREREQUISITES:
 STEPS:
 
 Step 1: Get Your Setup Token
-  1. Navigate to your app's secrets management (in Databutton workspace)
+  1. Navigate to your app's secrets management (in your hosting provider's environment settings)
   2. Find the secret named: SUPER_ADMIN_SETUP_TOKEN
   3. Copy this value - you'll need it in Step 3
 

@@ -3,7 +3,7 @@ from typing import Optional
 from app.libs.email_queue import enqueue_email
 from app.libs.url_helpers import get_frontend_path
 
-LOGO_URL = "https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/logo.png"
+LOGO_URL = "https://citizenbank.co.ls/brand/logo.png"
 BRAND_COLOR = "#00563B"
 
 

@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any
 from fastapi import HTTPException, Response
 from fastapi.responses import HTMLResponse
 from fastapi.concurrency import run_in_threadpool
-import databutton as db
+from app import runtime
 import secrets
 from app.libs.share_subscription import (
     generate_certificate_number,
@@ -122,7 +122,7 @@ async def issue_certificate_for_subscription(
         if template['template_type'] == 'pdf':
             # PDF already stored by generator
             storage_key = f"certificates_{cert_number}.pdf"
-            pdf_bytes = db.storage.binary.get(storage_key)
+            pdf_bytes = runtime.storage.binary.get(storage_key)
         else:
             html_content = result.get('html_content')
         
@@ -147,7 +147,7 @@ async def issue_certificate_for_subscription(
         
         # Store PDF in storage
         storage_key = f"certificates/{cert_number}.pdf"
-        db.storage.binary.put(storage_key, pdf_bytes)
+        runtime.storage.binary.put(storage_key, pdf_bytes)
     
     # Upload to Google Drive (if configured)
     drive_file_id = None
@@ -317,7 +317,7 @@ async def download_certificate_pdf(
     # Retrieve PDF from storage
     storage_key = f"certificates/{certificate_number}.pdf"
     try:
-        return db.storage.binary.get(storage_key)
+        return runtime.storage.binary.get(storage_key)
     except Exception as e:
         print(f"❌ Failed to retrieve certificate: {e}")
         raise HTTPException(status_code=404, detail="Certificate file not found")
@@ -535,7 +535,7 @@ async def regenerate_certificate_with_new_data(
     
     # Store PDF
     storage_key = f"certificates/{new_cert_number}.pdf"
-    db.storage.binary.put(storage_key, pdf_bytes)
+    runtime.storage.binary.put(storage_key, pdf_bytes)
     
     print(f"🔄 Certificate regenerated: {certificate_number} → {new_cert_number}")
     
