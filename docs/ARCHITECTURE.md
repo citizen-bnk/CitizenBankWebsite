@@ -3,6 +3,21 @@
 Status: proposed design, 6 October 2026. Nothing here is deployed. It builds on the
 launch plan and integration specification (INT-01 to INT-14).
 
+## 0. Product scope (confirmed 6 October 2026)
+
+| Product | Host | Audience | Covers |
+|---|---|---|---|
+| Citizen Bank website | `citizenbank.co.ls` | Everyone | Public information and the single front door. Sign-in and the service switcher lead to the three products below. |
+| Citizen Hub | `hub.citizenbank.co.ls` | Investors, shareholders, board members, staff, super admin | Investor and shareholder workspaces, plus the **back office**: banking licence application, banking governance, board and reporting |
+| Citizen Bank (internet banking) | `banking.citizenbank.co.ls` | Customers on desktop | Banking business on desktop devices (demo until licensed) |
+| Citizen Bank App | `app.citizenbank.co.ls` | Customers on mobile and portable devices | Banking services as an installable PWA (demo until licensed) |
+
+Two workspaces share the Hub host but not their permissions: the member side (investor,
+shareholder) and the back office (staff, super admin). Back-office routes require a
+privileged role, MFA and a recheck of the role on each sensitive action. If audit or risk
+needs stronger separation later, move the back office to its own host (for example
+`admin.citizenbank.co.ls`) without changing the data model.
+
 ## 1. Hostnames
 
 | Host | What it is | Runtime | Source repo |
