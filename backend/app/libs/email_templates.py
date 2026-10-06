@@ -9,7 +9,7 @@ BRAND_PINK = "#FB0066"
 BRAND_GRADIENT = "linear-gradient(to right, #FB0066, #A600FF, #FB6B00)"
 
 # Logo URL (static asset)
-LOGO_URL = "https://citizenbank.co.ls/brand/logo.png"
+LOGO_URL = "https://citizenbank.co.ls/brand/logo-sm.png"
 
 
 def get_base_url() -> str:
@@ -744,18 +744,18 @@ def create_board_invitation_email(
     # HappyCitizen images from landing page carousel - same images rotating on the hero section
     happy_citizens_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%201.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%201.jpg" 
              alt="Citizen Bank Team" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.jpg" 
              alt="Citizen Bank Community" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
     <div style="margin: 10px 0 30px 0; text-align: center;">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%204.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%204.jpg" 
              alt="Citizen Bank Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.jpg" 
              alt="Citizen Bank Growth" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
@@ -1049,10 +1049,10 @@ def create_investor_invitation_email(
     # HappyCitizen images from landing page - showing success and community
     happy_investors_html = """
     <div style="margin: 30px 0; text-align: center;">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%207.jpg" 
              alt="Investor Success" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.png" 
+        <img src="https://citizenbank.co.ls/brand/HappyCitizen%203.jpg" 
              alt="Growing Together" 
              style="max-width: 48%; margin: 4px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
     </div>
