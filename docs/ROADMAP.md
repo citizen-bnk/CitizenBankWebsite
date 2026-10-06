@@ -22,6 +22,26 @@ What is real, from the pull requests: an isolated demo Neon database was migrate
 5. **Nothing is tested end to end** on real Vercel, Neon and Stack Auth with all seven demo accounts.
 6. **Known limits carried over:** 4.5 MB upload ceiling on Vercel functions, Vercel Pro needed for the every-minute cron, production still on Render, existing uploads not yet copied to R2, brand images missing, keys leaked in the old Hub repository history not yet rotated.
 
+## Update, 6 October evening: Phase 0 status and what the other platform has done
+
+**Phase 0 (converge): done on branches, not merged.** Each of these is a new branch containing `main` plus both streams, tested, and nothing is merged to `main`:
+
+| Repo | Branch | Contains | Checks run |
+|---|---|---|---|
+| CitizenBankCore | `claude/integration` | `main` + KYC/passkeys + single sign-on + website database migrations | typecheck, 39 unit and 4 integration tests (including the KYC HTTP flow and new migration tests), build |
+| CitizenInternetBanking | `claude/integration` | `main` + voice + KYC/passkeys + single sign-on | tests, typecheck, build, browser check of `/login` |
+| CitizenBankApp | `claude/integration` | same | same |
+| CitizenBankWebsite | `claude/practical-volta-tqe0qk` (PR 1) | unchanged since the last report | CI green, mergeable |
+
+Resolutions worth knowing:
+- **Migration hazard found and fixed.** Drizzle skips any migration older than the newest one applied, so a database that had already run the sign-in migration would have silently never received the KYC tables (reproduced). The sign-in migration is now `0003_sso` (content unchanged, so the same hash) and `db/catch-up.ts` applies anything skipped. Tested from a fresh database and from the sign-in-first state.
+- **D1 applied.** `/login` offers one-tap explore, passkey, and "Sign in with your Citizen account" (shown when `NEXT_PUBLIC_SIGN_IN_URL` is set). `/login` and `/register` are no longer redirected. The old `SIGN_IN_URL` setting is replaced by `NEXT_PUBLIC_SIGN_IN_URL`.
+- `drizzle-kit generate` still has no snapshots for the KYC migrations (they were written by hand); regenerate the snapshot before the next schema change.
+
+**The other platform's demo work** (reported by the owner): a recreated demo database managed by Core's migrations, the seven fictional demo logins created in Stack Auth, 14 role grants, two board memberships and three subscriptions seeded, and website and Hub builds running on Vercel at `citizen-website-demo` and `citizen-hub-demo`. Still pending on the owner: approving those two exact hostnames as Stack Auth callback domains (right scope: exact hosts only, no wildcard on `vercel.app`, which is a public suffix) and replacing the storage credential. I could not see these deployments.
+
+**D2 needs a fresh decision.** I recommended that the website repository own the website schema. The other platform has meanwhile put the same schema in Core and applied it to the demo database, with its own history table. I checked that a database built from that schema works with this repository's demo seeder (seven accounts, run twice, no duplicates), and parked a Python runner and tests for the website repository outside the repo. Two homes would be worse than either one, so nothing is committed here. Options: (a) keep it in Core as built (fastest, already applied; the website then depends on Core's repository for its own schema), or (b) move it here later, with a one-time step that adopts the existing history table.
+
 ## 2. Decisions needed from the owner
 
 | # | Decision | Recommendation |
