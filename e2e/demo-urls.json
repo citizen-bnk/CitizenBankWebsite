@@ -1,5 +1,5 @@
 {
-  "_note": "Public addresses only, no secrets. Pushing a change to this file runs the Demo smoke test. Banking and app addresses are optional: the test finds them from the website's launcher. (Last changed to re-run after the first full pass.)",
+  "_note": "Public addresses only, no secrets. Pushing a change to this file runs the Demo smoke test. Banking and app addresses are optional: the test finds them from the website's launcher. (Last changed to re-run after merging the integration pull requests.)",
   "website_url": "https://citizen-website-demo.vercel.app",
   "hub_url": "https://citizen-hub-demo.vercel.app",
   "banking_url": "",

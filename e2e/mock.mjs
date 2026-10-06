@@ -77,9 +77,9 @@ export async function start(mode = "good") {
       const finance = roles.some((r) => ["super_admin", "back_office"].includes(r));
       return finance || (mode === "payments-open" && who.key === "investor") ? send(res, 404, { detail: "unknown" }) : send(res, 403, { detail: "no" });
     }
-    if (p === "/api/subscriptions/my-subscriptions") {
+    if (p === "/api/subscriptions/core/my-public-subscriptions") {
       const has = ["investor", "shareholder", "combined"].includes(who.key) && !(mode === "lost-subscription" && who.key === "combined");
-      return send(res, 200, has ? [{ subscription_id: "S1" }] : []);
+      return send(res, 200, { summary: {}, subscriptions: has ? [{ subscription_id: "S1" }] : [] });
     }
     if (p === "/api/platform/handoff") {
       if (!roles.includes("customer")) return send(res, 403, { detail: "no" });

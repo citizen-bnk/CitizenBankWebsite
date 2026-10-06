@@ -232,6 +232,8 @@ page; signing out and opening a banking address returns to `/demo`; an old banki
 - On your own computer: `WEBSITE_URL=https://citizen-website-demo.vercel.app node --test e2e/demo-smoke.test.mjs` (Node 22 or newer, no installation).
 - `node e2e/selftest.mjs` proves the test itself still fails when something is wrong (eleven scenarios).
 
+**Website database migrations (the demo's investor screens).** The demo website database is built and kept up to date by Core's runner, which is never run by a deploy: with the demo website database's *unpooled* address, `DEMO_MODE=true WEBSITE_DATABASE_URL=<address> npm run db:website:migrate` in the CitizenBankCore repository. It applies only what is new. After a change to those migrations, run it, then re-run the smoke test. If *My investments* shows an error or the smoke test's investment checks fail with a 500, this is the first thing to check.
+
 ## If something is wrong
 
 | You see | Likely cause and fix |

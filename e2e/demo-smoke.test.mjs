@@ -187,8 +187,8 @@ describe("use case: one sign-in reaches the same person's bank accounts on both 
   test("combined: the same sign-in also holds an investment on the website side", async () => {
     const account = accounts.find((a) => a.key === "combined");
     const auth = { authorization: `Bearer ${await signIn(stack, account.email, password)}` };
-    const subs = await json(`${WEBSITE}/api/subscriptions/my-subscriptions`, { headers: auth });
-    assert.equal(subs.status, 200, `my-subscriptions returned ${subs.status}`);
+    const subs = await json(`${WEBSITE}/api/subscriptions/core/my-public-subscriptions`, { headers: auth });
+    assert.equal(subs.status, 200, `my-public-subscriptions returned ${subs.status}`);
     const list = Array.isArray(subs.body) ? subs.body : subs.body?.subscriptions;
     assert.ok(Array.isArray(list) && list.length >= 1, "the combined account has no investment on the website");
   });
@@ -196,7 +196,7 @@ describe("use case: one sign-in reaches the same person's bank accounts on both 
   test("an investor who is not a customer has an investment but no bank profile", async () => {
     const account = accounts.find((a) => a.key === "investor");
     const auth = { authorization: `Bearer ${await signIn(stack, account.email, password)}` };
-    const subs = await json(`${WEBSITE}/api/subscriptions/my-subscriptions`, { headers: auth });
+    const subs = await json(`${WEBSITE}/api/subscriptions/core/my-public-subscriptions`, { headers: auth });
     const list = Array.isArray(subs.body) ? subs.body : subs.body?.subscriptions;
     assert.ok(Array.isArray(list) && list.length >= 1, "the investor has no investment");
     if (BANKING) {
