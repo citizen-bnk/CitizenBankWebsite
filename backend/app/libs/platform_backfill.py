@@ -92,6 +92,33 @@ def _norm_email(email: str | None) -> str:
     return (email or "").strip().lower()
 
 
+async def create_person_for_subject(
+    conn: asyncpg.Connection, subject: str, profile: asyncpg.Record | None, source: str
+) -> str:
+    """Create a person and the Stack Auth mapping for one subject. Caller checks it has none yet."""
+    person_id = await conn.fetchval(
+        "INSERT INTO platform.person (display_name, primary_email) VALUES ($1, $2) RETURNING id",
+        (profile["full_name"] or None) if profile else None,
+        (_norm_email(profile["email"]) or None) if profile else None,
+    )
+    await conn.execute(
+        """INSERT INTO platform.identity_mapping (person_id, provider, subject, source)
+           VALUES ($1, $2, $3, $4)""",
+        person_id, PROVIDER, subject, source,
+    )
+    return person_id
+
+
+async def grant_membership(conn: asyncpg.Connection, person_id: str, role: str, source: str) -> bool:
+    """Insert-only. Returns True if a new membership row was created."""
+    status = await conn.execute(
+        """INSERT INTO platform.membership (person_id, role, source)
+           VALUES ($1, $2, $3) ON CONFLICT (person_id, role) DO NOTHING""",
+        person_id, role, source,
+    )
+    return status.endswith(" 1")
+
+
 async def _backfill(conn: asyncpg.Connection) -> Report:
     report = Report()
     reviews: dict[tuple[str, str], dict] = {}
@@ -144,16 +171,8 @@ async def _backfill(conn: asyncpg.Connection) -> Report:
             review("role_without_profile", uid)
         elif not _norm_email(profile["email"]):
             review("missing_email", uid)
-        person_id = await conn.fetchval(
-            "INSERT INTO platform.person (display_name, primary_email) VALUES ($1, $2) RETURNING id",
-            (profile["full_name"] or None) if profile else None,
-            (_norm_email(profile["email"]) or None) if profile else None,
-        )
-        await conn.execute(
-            """INSERT INTO platform.identity_mapping (person_id, provider, subject, source)
-               VALUES ($1, $2, $3, $4)""",
-            person_id, PROVIDER, uid,
-            "backfill:user_profiles" if profile else "backfill:user_roles_only",
+        person_id = await create_person_for_subject(
+            conn, uid, profile, "backfill:user_profiles" if profile else "backfill:user_roles_only"
         )
         person_by_subject[uid] = person_id
         report.persons_created += 1
@@ -167,13 +186,7 @@ async def _backfill(conn: asyncpg.Connection) -> Report:
         if role not in known_roles:
             review("unknown_role", f"{uid}:{role}", subject_id=uid, role=role)
             continue
-        status = await conn.execute(
-            """INSERT INTO platform.membership (person_id, role, source)
-               VALUES ($1, $2, 'backfill:user_roles')
-               ON CONFLICT (person_id, role) DO NOTHING""",
-            person_by_subject[uid], role,
-        )
-        if status.endswith(" 1"):
+        if await grant_membership(conn, person_by_subject[uid], role, "backfill:user_roles"):
             report.memberships_created += 1
         else:
             report.memberships_existing += 1
