@@ -1,5 +1,7 @@
 # Step B runbook: domains, hosting and provider settings
 
+> **Hosting update (6 October 2026):** everything now moves to Vercel, with Neon for Postgres. Where this document says Render, read the matching Vercel project or Neon database; see `ECOSYSTEM.md` and `DEMO_DEPLOY_RUNBOOK.md`.
+
 Status: 6 October 2026. Gate for step B: **TLS valid on all four hosts, redirect allowlists set.**
 Most of this is done in provider consoles (registrar, Render, Vercel, Stack Auth), so it needs a person
 with login access to each. Do not paste secrets into this repo.

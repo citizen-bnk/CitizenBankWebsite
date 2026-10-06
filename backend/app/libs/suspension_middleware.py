@@ -1,5 +1,5 @@
 """Suspension Middleware - Blocks suspended users from accessing certain features"""
-import databutton as db
+from app import runtime
 import asyncpg
 from app.env import Mode, mode
 from fastapi import HTTPException, Request

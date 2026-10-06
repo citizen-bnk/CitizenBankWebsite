@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-import databutton as db
+from app import runtime
 from app.auth import AuthorizedUser
 from datetime import datetime
 import asyncpg
@@ -83,9 +83,9 @@ class LOIReviewRequest(BaseModel):
 # async def get_db_connection():
 #     from app.env import Mode, mode
 #     if mode == Mode.PROD:
-#         database_url = db.secrets.get("DATABASE_URL_PROD")
+#         database_url = runtime.secrets.get("DATABASE_URL_PROD")
 #     else:
-#         database_url = db.secrets.get("DATABASE_URL_DEV")
+#         database_url = runtime.secrets.get("DATABASE_URL_DEV")
 #     return await asyncpg.connect(database_url)
 
 # ============= Access Logs Endpoints =============

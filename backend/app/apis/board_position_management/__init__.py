@@ -3,7 +3,7 @@
 
 """Board Position Management API - Manage board positions and assignments"""
 from fastapi import APIRouter, HTTPException
-import databutton as db
+from app import runtime
 import asyncpg
 from app.env import Mode, mode
 from app.auth import AuthorizedUser

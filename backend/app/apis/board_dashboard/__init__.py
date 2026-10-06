@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from app.auth import AuthorizedUser
-import databutton as db
+from app import runtime
 import asyncpg
 from app.libs.rbac import check_user_has_role
 from app.env import Mode, mode

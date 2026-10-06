@@ -1,7 +1,7 @@
 """Board management library with helper functions for board member operations."""
 
 import asyncpg
-import databutton as db
+from app import runtime
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 import uuid

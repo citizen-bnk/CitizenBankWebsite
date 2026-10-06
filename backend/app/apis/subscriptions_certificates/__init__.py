@@ -17,6 +17,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.utils import ImageReader
 import hashlib
 from app.libs.email_queue import enqueue_email
+from app import runtime
 from app.env import Mode, mode
 from app.libs.url_helpers import get_api_base_url
 import json
@@ -104,7 +105,7 @@ async def certificates_issue_certificate(
         
         # Store PDF in storage
         storage_key = f"certificates/{cert_number}.pdf"
-        db.storage.binary.put(storage_key, pdf_bytes)
+        runtime.storage.binary.put(storage_key, pdf_bytes)
         
         # Create certificate record
         await conn.execute("""
@@ -209,7 +210,7 @@ async def certificates_download_certificate(cert_number: str, verification_code:
         # Check if PDF exists in storage
         storage_key = f"certificates/{cert_number}.pdf"
         try:
-            pdf_bytes = db.storage.binary.get(storage_key)
+            pdf_bytes = runtime.storage.binary.get(storage_key)
             return Response(
                 content=pdf_bytes,
                 media_type="application/pdf",
@@ -336,7 +337,7 @@ async def certificates_regenerate_certificate(cert_id: int, user: AuthorizedUser
         
         # Store new PDF
         storage_key = f"certificates/{cert['certificate_number']}_regenerated.pdf"
-        db.storage.binary.put(storage_key, pdf_bytes)
+        runtime.storage.binary.put(storage_key, pdf_bytes)
         
         # Log action
         await conn.execute("""
@@ -488,7 +489,7 @@ async def certificates_bulk_issue(user: AuthorizedUser):
                 
                 # Store PDF
                 storage_key = f"certificates/{cert_number}.pdf"
-                db.storage.binary.put(storage_key, pdf_bytes)
+                runtime.storage.binary.put(storage_key, pdf_bytes)
                 
                 # Create certificate record
                 await conn.execute("""

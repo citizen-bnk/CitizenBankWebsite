@@ -1,5 +1,7 @@
 # Citizen Bank platform architecture: four hostnames, one source of truth
 
+> **Hosting update (6 October 2026):** everything now moves to Vercel, with Neon for Postgres. Where this document says Render, read the matching Vercel project or Neon database; see `ECOSYSTEM.md` and `DEMO_DEPLOY_RUNBOOK.md`.
+
 Status: proposed design, 6 October 2026. Nothing here is deployed. It builds on the
 launch plan and integration specification (INT-01 to INT-14).
 
@@ -22,7 +24,7 @@ needs stronger separation later, move the back office to its own host (for examp
 
 | Host | What it is | Runtime | Source repo |
 |---|---|---|---|
-| `citizenbank.co.ls` (+ `www`) | Public website | Render service `citizenhub` | CitizenHub (this repo) |
+| `citizenbank.co.ls` (+ `www`) | Public website | Vercel project (was Render service `citizenhub`) | CitizenHub (this repo) |
 | `hub.citizenbank.co.ls` | Citizen Hub: investor, shareholder, board, staff and admin workspaces | Frontend in its own repo (proposed: Vercel, `/api/*` rewrite to the Render API). Data and business logic stay in the Hub API on Render. | `citizen-hub` (new; see `REPO_MAP.md`) |
 | `banking.citizenbank.co.ls` | Internet Banking (demo) | Vercel | CitizenInternetBanking |
 | `app.citizenbank.co.ls` | Banking PWA (demo) | Vercel | CitizenBankApp |
@@ -38,7 +40,7 @@ banking frontends already use for Core, so no cross-origin cookie handling is ne
 
 ## 2. One source of truth
 
-One Postgres cluster (Render Postgres `citizenhub-db`), three schemas, one owning service per schema.
+One Postgres cluster (Neon; currently Render Postgres `citizenhub-db`), three schemas, one owning service per schema.
 
 | Schema | Owns | Written by | Notes |
 |---|---|---|---|

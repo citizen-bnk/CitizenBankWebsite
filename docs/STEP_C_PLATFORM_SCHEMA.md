@@ -1,5 +1,7 @@
 # Step C: platform schema and person backfill
 
+> **Hosting update (6 October 2026):** everything now moves to Vercel, with Neon for Postgres. Where this document says Render, read the matching Vercel project or Neon database; see `ECOSYSTEM.md` and `DEMO_DEPLOY_RUNBOOK.md`.
+
 Status: code written and tested locally on 6 October 2026. **Not run against production.**
 
 ## What it does

@@ -11,7 +11,7 @@ from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_payment_receipt_email
 from app.libs.receipt_generator import generate_receipt
 from fastapi.concurrency import run_in_threadpool
-import databutton as db
+from app import runtime
 import json
 
 router = APIRouter(prefix="/subscriptions/payments")
@@ -145,7 +145,7 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             
             # Store receipt in storage
             receipt_storage_key = f"receipts/{payment.subscription_id}/{receipt_number}.pdf"
-            db.storage.binary.put(receipt_storage_key, receipt_pdf)
+            runtime.storage.binary.put(receipt_storage_key, receipt_pdf)
             print(f"📄 Receipt generated and stored: {receipt_number}")
             documents_generated.append('receipt')
             
@@ -232,9 +232,9 @@ async def payments_upload_payment_proof(
         # Read file content
         file_content = await file.read()
         
-        # Store in Databutton storage
+        # Store in file storage
         storage_key = f"payment_proofs/{subscription_id}/{uuid.uuid4()}_{file.filename}"
-        db.storage.binary.put(storage_key, file_content)
+        runtime.storage.binary.put(storage_key, file_content)
         
         # Update subscription
         await conn.execute("""

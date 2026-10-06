@@ -18,15 +18,11 @@ dotenv.load_dotenv(env_file, override=True)
 
 print(f"Loaded environment: {environment}")
 
-from databutton_app.mw.auth_mw import AuthConfig, get_authorized_user
-from app.internal.config import Config as InternalConfig
-from app.internal.extensions.auth import AuthConfig as InternalAuthConfig
-from app.internal.state import AppState, set_app_state
+from app.auth.middleware import AuthConfig, get_authorized_user
 
 
 def get_router_config() -> dict:
     try:
-        # Note: This file is not available to the agent
         cfg = json.loads(open("routers.json").read())
     except:
         return False
@@ -80,33 +76,8 @@ def import_api_routers() -> APIRouter:
     return routes
 
 
-def _audit(message: str) -> None:
-    """Auth log: failures only, so there is no line per request and no user ids in the logs."""
-    if message.startswith("Failed"):
-        print(f"[auth] {message}")
-
-
-def build_app_state(auth_configs: list[AuthConfig]) -> AppState:
-    """The application state the AuthorizedUser dependency (app/internal/mw/auth_mw.py) reads.
-
-    The old platform's own entry point created it; this entry point did not, so every signed-in request that
-    reached an endpoint using AuthorizedUser failed with a 500. The settings are fixed to the secure values: a
-    production environment (no insecure debug options) and no MCP token bypass.
-    """
-    state = AppState()
-    state.cfg = InternalConfig(
-        ENVIRONMENT="production",
-        DATABUTTON_SERVICE_TYPE=os.environ.get("DATABUTTON_SERVICE_TYPE", ""),
-        ENABLE_MCP=False,
-        INTERNAL_MCP_TOKEN="",
-    )
-    state.auth_configs = [InternalAuthConfig(**c.model_dump()) for c in auth_configs]
-    state.audit_log = _audit
-    return state
-
-
 def get_firebase_config() -> dict | None:
-    extensions = os.environ.get("DATABUTTON_EXTENSIONS", "[]")
+    extensions = os.environ.get("AUTH_PROVIDERS", "[]")
     extensions = json.loads(extensions)
 
     for ext in extensions:
@@ -118,7 +89,7 @@ def get_firebase_config() -> dict | None:
 
 
 def get_stack_auth_config() -> dict | None:
-    extensions = os.environ.get("DATABUTTON_EXTENSIONS", "[]")
+    extensions = os.environ.get("AUTH_PROVIDERS", "[]")
     extensions = json.loads(extensions)
 
     for ext in extensions:
@@ -161,9 +132,7 @@ def parse_auth_configs() -> list[AuthConfig]:
 
 def create_app() -> FastAPI:
     """Create the app. This is called by uvicorn with the factory option to construct the app object."""
-    from app.libs import object_storage, scheduler
-
-    object_storage.install()
+    from app.libs import scheduler
 
     app = FastAPI()
     app.include_router(import_api_routers())
@@ -185,8 +154,6 @@ def create_app() -> FastAPI:
     else:
         print(f"Found {len(auth_configs)} auth config(s)")
         app.state.auth_configs = auth_configs
-
-    set_app_state(app, build_app_state(auth_configs))
 
     mount_frontend(app)
 

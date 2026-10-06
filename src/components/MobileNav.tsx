@@ -78,7 +78,7 @@ export function MobileNav() {
           <SheetTitle className="text-left">
             <Link to="/" onClick={handleLinkClick} className="flex items-center gap-2">
               <img 
-                src="https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/logo.png" 
+                src="/brand/logo.png" 
                 alt="Citizen Bank" 
                 className="h-8 w-auto" 
               />

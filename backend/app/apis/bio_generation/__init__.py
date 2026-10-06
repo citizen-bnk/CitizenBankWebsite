@@ -4,7 +4,7 @@ import asyncpg
 import os
 from openai import OpenAI
 from app.auth import AuthorizedUser
-import databutton as db
+from app import runtime
 import io
 from PyPDF2 import PdfReader
 from docx import Document
@@ -30,7 +30,7 @@ async def extract_cv_text(user_id: str) -> str | None:
     """
     try:
         # List all CV files for this user
-        cv_files = db.storage.binary.list()
+        cv_files = runtime.storage.binary.list()
         user_cv_prefix = f"cv_uploads_{user_id}_"
         
         # Find the most recent CV for this user
@@ -43,7 +43,7 @@ async def extract_cv_text(user_id: str) -> str | None:
         cv_key = latest_cv.name
         
         # Download the CV content
-        cv_content = db.storage.binary.get(cv_key)
+        cv_content = runtime.storage.binary.get(cv_key)
         if not cv_content:
             return None
         

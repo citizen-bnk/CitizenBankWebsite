@@ -1,9 +1,8 @@
 """The deployed entry point (main.py) must serve signed-in requests.
 
-Endpoints declare AuthorizedUser from app.auth, whose middleware reads the application state that the old
-platform's own entry point created. main.py never created it, so every signed-in request that reached such an
-endpoint failed with a 500 (KeyError: databutton_app_state) while signed-out requests still correctly got 401.
-These tests build the app exactly as main.py does and call it with real signed tokens.
+Endpoints declare AuthorizedUser from app.auth; routers not marked disableAuth in routers.json get the same check.
+These tests build the app exactly as main.py does and call it with real signed tokens: signed-in requests must reach
+the handler, and signed-out, expired, wrong-audience, wrong-issuer and wrongly signed ones must be 401, never 500.
 """
 import json
 import time
@@ -30,17 +29,14 @@ def token(key=KEY, **over):
 
 @pytest.fixture
 def client(monkeypatch):
-    import app.internal.mw.auth_mw as mw
-    import databutton_app.mw.auth_mw as router_mw
+    import app.auth.middleware as mw
     import main
 
     ext = [{"name": "stack-auth", "version": "0.0.0",
             "config": {"projectId": PROJECT, "jwksUrl": "https://stack.example.test/jwks", "publishableClientKey": "k"}}]
-    monkeypatch.setenv("DATABUTTON_EXTENSIONS", json.dumps(ext))
+    monkeypatch.setenv("AUTH_PROVIDERS", json.dumps(ext))
     # Verify against our own test key instead of fetching Stack's keys over the network.
-    # (main.py checks routers with databutton_app's copy, endpoints with app.internal's: stub both.)
-    for module in (mw, router_mw):
-        monkeypatch.setattr(module, "get_signing_key", lambda url, tok: (KEY.public_key(), "ES256"))
+    monkeypatch.setattr(mw, "get_signing_key", lambda url, tok: (KEY.public_key(), "ES256"))
     return TestClient(main.create_app(), raise_server_exceptions=False)
 
 
@@ -101,10 +97,6 @@ def test_bad_tokens_are_401(client, monkeypatch, label, tok):
     import app.apis.platform as platform_api
 
     fake_db(monkeypatch, platform_api)
-    if label == "signed by another key":
-        import app.internal.mw.auth_mw as mw
-        # keep the verifier on the real key: a token from another key must fail the signature check
-        monkeypatch.setattr(mw, "get_signing_key", lambda url, t: (KEY.public_key(), "ES256"))
     assert client.get("/api/platform/me", headers=bearer(tok())).status_code == 401, label
 
 
@@ -113,14 +105,11 @@ def test_public_platform_endpoints_stay_public(client):
     assert client.get("/api/platform/jwks.json").status_code in (200, 503)  # 503 only because no key is set here
 
 
-def test_the_insecure_debug_bypass_is_off_in_the_deployed_app(client, monkeypatch):
-    """The state must say production, so query parameters like ?disable-verify cannot weaken checks."""
-    from app.internal.state import get_app_state
-
-    state = get_app_state(client.app)
-    assert state.cfg.ENVIRONMENT == "production"
-    assert state.cfg.ENABLE_MCP is False and state.cfg.INTERNAL_MCP_TOKEN == ""
+def test_there_is_no_debug_bypass_in_the_deployed_app(client, monkeypatch):
+    """Query parameters like ?disable-verify, or environment switches, must not weaken the checks."""
     monkeypatch.setenv("INSECURE_AUTH_BYPASS_ENABLED", "true")
     monkeypatch.setenv("ENVIRONMENT", "development")
     r = client.get("/api/platform/me?disable-verify=1&disable-aud=1&disable-exp=1", headers=bearer("not.a.token"))
+    assert r.status_code == 401
+    r = client.get("/api/platform/me?disable-verify=1", headers=bearer(token(exp=int(time.time()) - 60)))
     assert r.status_code == 401

@@ -1,15 +1,13 @@
 [project]
 name = "app"
 version = "2.0.0"
-description = "Riff App"
-authors = [{ name = "Databutton", email = "hi@databutton.com" }]
+description = "Citizen Hub backend"
 
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = []
 
 [dependency-groups]
 base = [
-  "databutton==0.39.0",
   "uvicorn[standard]>=0.34.0",
   "fastapi>=0.115.7",
   "pydantic>=2.5.0",

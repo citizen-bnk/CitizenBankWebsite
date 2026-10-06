@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 import asyncpg
 from app.env import Mode, mode
-import databutton as db
+from app import runtime
 from datetime import datetime
 from app.libs.certificate_generator import fill_pdf_template_for_viewing
 import os
@@ -75,7 +75,7 @@ async def view_certificate_public(cert_number: str, verification_code: str) -> R
         pdf_bytes = None
         
         try:
-            pdf_bytes = db.storage.binary.get(storage_key)
+            pdf_bytes = runtime.storage.binary.get(storage_key)
             print(f"✅ Retrieved signed certificate from storage: {storage_key}")
         except Exception as e:
             print(f"⚠️ Signed PDF not found in storage, generating from template: {e}")

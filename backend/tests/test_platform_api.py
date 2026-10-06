@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from urllib.parse import parse_qs, urlparse
 
 import app.apis.platform as api
-from app.internal.mw.auth_mw import User
+from app.auth.middleware import User
 from app.libs import platform_tokens as t
 
 ISS = "https://demo-site.example.test"

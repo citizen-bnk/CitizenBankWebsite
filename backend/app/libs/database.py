@@ -5,7 +5,7 @@ Provides connection management, context managers, and common database patterns.
 import asyncpg
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
-import databutton as db
+from app import runtime
 from app.env import Mode, mode
 import os
 

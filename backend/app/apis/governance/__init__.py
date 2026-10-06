@@ -8,7 +8,7 @@ from typing import Optional, List, Any
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import json
-import databutton as db
+from app import runtime
 from app.auth import AuthorizedUser
 from app.libs.governance_models import (
     SessionType, SessionStatus, VoteValue, VoterType,
@@ -1579,7 +1579,6 @@ async def process_email_queue() -> dict:
     """Process pending emails in the queue (called by scheduler)"""
     
     try:
-        from app.integrations import get_integration_access_token
         import requests
         
         conn_str = os.environ.get("DATABASE_URL")
@@ -1602,7 +1601,7 @@ async def process_email_queue() -> dict:
         failed_count = 0
         
         # Get Resend API key
-        resend_api_key = get_integration_access_token("resend", "resend")
+        resend_api_key = os.environ["RESEND_API_KEY"]
         
         for email in pending_emails:
             email_id = email["id"]

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 import asyncpg
-import databutton as db
+from app import runtime
 from app.env import Mode, mode
 from app.auth import AuthorizedUser
 from app.libs.rbac import check_user_has_role
@@ -162,7 +162,7 @@ async def upload_pdf_template(
     storage_key = f"certificate_templates/{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     
     # Store PDF
-    db.storage.binary.put(storage_key, pdf_content)
+    runtime.storage.binary.put(storage_key, pdf_content)
     
     # Save to database
     conn = await get_db_connection()
@@ -204,7 +204,7 @@ async def get_pdf_fields(template_id: int, user: AuthorizedUser) -> PDFFieldMapp
             raise HTTPException(status_code=400, detail="Template is not a PDF")
         
         # Load PDF from storage
-        pdf_data = db.storage.binary.get(template['pdf_storage_key'])
+        pdf_data = runtime.storage.binary.get(template['pdf_storage_key'])
         pdf = PdfReader(BytesIO(pdf_data))
         fields = pdf.get_form_text_fields()
         
@@ -234,7 +234,7 @@ async def download_certificate_template(template_id: int, user: AuthorizedUser):
             raise HTTPException(status_code=400, detail="Template is not a PDF")
         
         # Load PDF from storage
-        pdf_data = db.storage.binary.get(template['pdf_storage_key'])
+        pdf_data = runtime.storage.binary.get(template['pdf_storage_key'])
         
         return Response(
             content=pdf_data,
@@ -309,7 +309,7 @@ async def delete_certificate_template(template_id: int, user: AuthorizedUser) ->
         # Delete PDF from storage if exists
         if template['pdf_storage_key']:
             try:
-                db.storage.binary.delete(template['pdf_storage_key'])
+                runtime.storage.binary.delete(template['pdf_storage_key'])
             except Exception as e:
                 print(f"⚠️ Warning: Could not delete PDF from storage: {str(e)}")
         

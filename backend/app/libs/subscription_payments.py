@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
-import databutton as db
+from app import runtime
 from app.env import Mode, mode
 from app.libs.subscription_models import PaymentRequest, PaymentResponse
 from app.libs.email_queue import enqueue_email
@@ -108,7 +108,7 @@ async def record_payment_for_subscription(
         
         # Store receipt
         receipt_storage_key = f"receipts/{payment.subscription_id}/{receipt_number}.pdf"
-        db.storage.binary.put(receipt_storage_key, receipt_pdf)
+        runtime.storage.binary.put(receipt_storage_key, receipt_pdf)
         print(f"📄 Receipt generated and stored: {receipt_number}")
         documents_generated.append('receipt')
         

@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
-import databutton as db
+from app import runtime
 from app.env import Mode, mode
 from app.libs.welcome_letter_generator import generate_welcome_letter as gen_welcome_letter_pdf
 from app.libs.receipt_generator import generate_receipt
@@ -166,7 +166,7 @@ async def generate_payment_receipt_document(
     
     # Store receipt in storage
     receipt_storage_key = f"receipts/{subscription['subscription_id']}/{receipt_number}.pdf"
-    db.storage.binary.put(receipt_storage_key, receipt_pdf)
+    runtime.storage.binary.put(receipt_storage_key, receipt_pdf)
     print(f"📄 Receipt generated and stored: {receipt_number}")
     
     # Upload to Google Drive (optional)
@@ -231,7 +231,7 @@ async def get_receipt_from_storage(
     receipt_storage_key = f"receipts/{subscription_id}/{receipt_number}.pdf"
     
     try:
-        return db.storage.binary.get(receipt_storage_key)
+        return runtime.storage.binary.get(receipt_storage_key)
     except Exception as e:
         print(f"❌ Failed to retrieve receipt from storage: {e}")
         raise HTTPException(
@@ -255,7 +255,7 @@ async def get_welcome_letter_from_storage(
     storage_key = f"welcome_letters/{subscription_id}.pdf"
     
     try:
-        return db.storage.binary.get(storage_key)
+        return runtime.storage.binary.get(storage_key)
     except Exception as e:
         print(f"❌ Failed to retrieve welcome letter from storage: {e}")
         raise HTTPException(

@@ -1,5 +1,7 @@
 # Repo map and weaving plan
 
+> **Hosting update (6 October 2026):** everything now moves to Vercel, with Neon for Postgres. Where this document says Render, read the matching Vercel project or Neon database; see `ECOSYSTEM.md` and `DEMO_DEPLOY_RUNBOOK.md`.
+
 Status: proposed, 6 October 2026. Companion to `ARCHITECTURE.md`. Based on a read of the
 repos at the commits below; no authenticated workflow or live deployment was tested.
 

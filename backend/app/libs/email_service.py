@@ -1,10 +1,10 @@
 """
 Centralized email service using Resend API.
-Replaces db.notify.email for production email delivery.
+Replaces runtime.notify.email for production email delivery.
 """
 
 import resend
-import databutton as db
+from app import runtime
 from typing import Dict, Any
 from app.libs.email_config import get_sender, format_sender
 import os

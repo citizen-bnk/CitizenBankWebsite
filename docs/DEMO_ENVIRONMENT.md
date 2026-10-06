@@ -17,8 +17,8 @@ local `launcher.mjs` demo is not in any repository), and run it as a **separate 
   Hub screens (subscriptions, board portal, back office) therefore need Stack Auth users. The existing seeder
   (`backend/app/apis/test_user_seed`) is built for this: create users in a Stack Auth project, then seed profiles
   and roles in the database. The demo reuses all of that instead of rebuilding the Hub screens.
-- Banking runs on Bank Core, which has its own session. The demo hosts will be on `onrender.com` and
-  `vercel.app`, both public suffixes, so they cannot share a cookie. Instead the website hands the signed-in
+- Banking runs on Bank Core, which has its own session. The demo hosts will all be on
+  `vercel.app`, a public suffix, so they cannot share a cookie. Instead the website hands the signed-in
   person to Core with a **one-time signed token** (the redirect-exchange design in `ARCHITECTURE.md`). This is also
   the path production will use for hosts that cannot share a cookie.
 
@@ -59,16 +59,16 @@ Emails use `@demo.citizenbank.test`. The demo seeder creates profiles, roles and
 | 3 | CitizenInternetBanking, CitizenBankApp | `/sso` route, sign-in redirect to the website, demo banner | Local run against local Core |
 | 4 | CitizenHub (frontend) | Open-banking launcher, demo banner, demo sign-in page listing the accounts | Local build and run |
 | 5 | CitizenHub (backend) | Demo seeder for the seven accounts and sample data, blocked outside demo mode | Tests against local Postgres |
-| 6 | CitizenHub | `render-demo.yaml` blueprint, demo environment variable list, deploy runbook | Reviewed by the owner |
+| 6 | CitizenHub | `vercel.json`, `api/index.py` (Vercel function), cron endpoint, demo environment variable list, deploy runbook | Reviewed by the owner |
 | 7 | all | End-to-end test of each account across the four hosts against the demo | Run in the demo environment |
 
 WP 1 to 5 can be built and tested here. WP 6 and 7 need the provider accounts.
 
 ## 6. What the owner provides
 
-1. A **separate Stack Auth project** for the demo and its keys, set in the demo Render service. Seven users created
+1. A **separate Stack Auth project** for the demo and its keys, set in the demo Vercel project. Seven users created
    in it (emails above, one shared demo password).
-2. A **second Render service and database** for the demo website (from `render-demo.yaml`), and **three more Vercel
+2. A **Vercel project and Neon database** for the demo website, and **three more Vercel
    projects** from the existing banking repos (Core, Internet Banking, App) with their own Neon database.
 3. Permission for me to push branches to CitizenBankCore, CitizenInternetBanking and CitizenBankApp. They are
    read-only for me today. I would push a branch to each and not open pull requests unless asked.
@@ -91,8 +91,8 @@ WP 1 to 5 can be built and tested here. WP 6 and 7 need the provider accounts.
 | 3 Banking frontends `/sso`, sign-in redirect, demo banner | Built and tested | Branch `claude/demo-sso` in CitizenInternetBanking and CitizenBankApp (pushed, no PRs, `main` untouched) |
 | 4 Website launcher, banner, demo sign-in page | Built and tested | This branch: `/demo` (public), `/demo/launch` (signed in), banner, `/api/platform/config` and `/demo-accounts` |
 | 5 Demo seeder for the seven accounts | Built and tested | This branch: `backend/app/libs/demo_seed.py`, `backend/scripts/seed_demo_accounts.py` |
-| 6 Demo blueprint and deploy runbook | Not started | |
-| 7 End-to-end per account on the deployed demo | Not started | |
+| 6 Demo blueprint and deploy runbook | Written and tested as far as possible here | `vercel.json`, `api/index.py`, `scripts/clone_schema_for_demo.sh`, `docs/DEMO_DEPLOY_RUNBOOK.md`, Dockerfile build argument |
+| 7 End-to-end per account on the deployed demo | Not started: needs the deployment (see the runbook, Step 9) | |
 
 Nothing is merged: review and merge the three `claude/demo-sso` branches yourself. Core's migration `0001_sso` is additive
 (a nullable column and a new table) and runs on its next build.
@@ -106,7 +106,7 @@ there and the seeder does the rest.
    `combined@demo.citizenbank.test` with one shared demo password. `python scripts/seed_demo_accounts.py --list`
    prints them with their roles.
 2. Copy each user's User ID into a JSON file (format in the script's help).
-3. In the demo service's Render Shell: `python scripts/seed_demo_accounts.py --ids demo_ids.json` (dry run), then
+3. From your computer (Vercel has no shell), with the demo database URL: `python scripts/seed_demo_accounts.py --ids demo_ids.json` (dry run), then
    add `--apply`. Add `--create-missing-roles` if the roles table has no `shareholder`, and `--reset-demo-data` to put
    the sample subscriptions back to their start.
 
@@ -128,10 +128,23 @@ investor screens key off that role; the admin account is `admin` and `super_admi
 - **Banner:** a small tab on every page of the demo; nothing on a normal site.
 - Set `SIGN_IN_URL` on Internet Banking and the App to `<website>/demo` so a refused or expired link comes back here.
 
+### Deploying it (WP 6)
+
+`docs/DEMO_DEPLOY_RUNBOOK.md` takes you from nothing to four public links in nine steps, with the exact value for every
+setting and a smoke test per account. Two things in it exist because of problems found while writing it:
+
+- **The demo database starts empty and the table definitions are not in the repository.** `scripts/clone_schema_for_demo.sh`
+  copies the structure and only `roles` and `share_classes` rows, refuses to run against a database that is not new and
+  empty or is the source, and never copies personal tables. The existing `migrate_database.sh` copies every real record
+  and must not be used for the demo.
+- **The frontend bakes its Stack Auth project in at build time, and the Dockerfile did not accept it.** A new service with
+  its own Stack project would have built a frontend that signs in against the built-in default project. The Dockerfile now
+  declares the build argument and prints which case it is in the build log.
+
 ### Two existing problems found and fixed on the way
 
 1. **Signed-in requests failed on the deployed app.** About 68 modules use `AuthorizedUser`, whose middleware needs
-   application state that only the old platform's own entry point created; the root `main.py` used on Render never
+   application state that only the old platform's own entry point created; the root `main.py` never
    did, so any signed-in request reaching such an endpoint returned a 500. Signed-out requests were still a correct
    401, which hid it. `main.py` now builds the state with secure fixed settings. Found by calling the running app
    with a validly signed token; 12 tests keep it fixed.
@@ -160,7 +173,7 @@ investor screens key off that role; the admin account is `admin` and `super_admi
   against the real backend and built app, the launcher in a harness with the platform API mocked, because a signed-in
   Stack session cannot be produced here. The step from the launcher's button through the website's real handoff
   endpoint to a real banking host is therefore only covered in two halves.
-- Any real deployment: Render fetching and serving keys, Vercel reaching them, Neon, TLS and `Secure` cookies on the real hosts.
+- Any real deployment: Vercel serving keys and Core reaching them, Neon, TLS and `Secure` cookies on the real hosts.
 - The remaining Hub screens with the seven accounts (WP 5 and 7).
 - Next's development mode does not work with the apps' strict Content Security Policy (it needs `eval`). Use a production
   build to try them locally.
@@ -171,8 +184,8 @@ None of these values go in a repository.
 
 | Service | Variable | Value |
 |---|---|---|
-| Website (Render, demo) | `PLATFORM_SIGNING_KEY` | A new P-256 private key. Generate with `openssl ecparam -name prime256v1 -genkey -noout \| openssl pkcs8 -topk8 -nocrypt`. A multi-line value or a single line with `\n` both work. Keep it secret; never reuse it for production. |
-| | `PLATFORM_ISSUER` | The demo website's public address, for example `https://citizenhub-demo.onrender.com` |
+| Website (Vercel, demo) | `PLATFORM_SIGNING_KEY` | A new P-256 private key. Generate with `openssl ecparam -name prime256v1 -genkey -noout \| openssl pkcs8 -topk8 -nocrypt`. A multi-line value or a single line with `\n` both work. Keep it secret; never reuse it for production. |
+| | `PLATFORM_ISSUER` | The demo website's public address, for example `https://citizenhub-demo.vercel.app` |
 | | `BANKING_URL`, `APP_URL` | Addresses of the demo Internet Banking and App |
 | | `DEMO_MODE` | `true` |
 | | `DEMO_PASSWORD_DISPLAY` | The shared demo password, exactly as set for the seven users in the demo Stack Auth project. It is shown publicly on `/demo`, so use a password made for this demo only. |

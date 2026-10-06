@@ -12,7 +12,7 @@ from app.libs.rbac import (
     check_user_has_role
 )
 import asyncpg
-import databutton as db
+from app import runtime
 from app.env import Mode, mode
 from app.libs.email_service import send_email
 import os

@@ -10,7 +10,7 @@ import pytest
 from fastapi import HTTPException
 
 import app.apis.subscriptions_payments as payments
-from app.internal.mw.auth_mw import User
+from app.auth.middleware import User
 from app.libs.subscription_models import PaymentRecord
 
 SUB_ID = "SUB-0001"
@@ -95,7 +95,7 @@ def harness(monkeypatch):
     monkeypatch.setattr(payments, "check_user_has_any_role", fake_has_role)
     monkeypatch.setattr(payments, "generate_receipt", lambda **kw: b"%PDF-fake")
     monkeypatch.setattr(payments, "enqueue_email", fake_enqueue)
-    monkeypatch.setattr(payments.db.storage.binary, "put", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(payments.runtime.storage.binary, "put", lambda *a, **k: None, raising=False)
     return state
 
 

@@ -6,9 +6,10 @@ Supports multi-channel delivery (email, SMS, WhatsApp).
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict
-import databutton as db
+from app import runtime
 from datetime import datetime, timedelta
 import asyncpg
+from app.libs.app_events import record_event
 import secrets
 import os
 from app.libs.url_helpers import get_short_link_url
@@ -92,16 +93,9 @@ async def get_eligible_board_members() -> List[Dict]:
 
 
 async def track_event(conn: asyncpg.Connection, event_type: str, user_id: str, metadata: dict):
-    """Track analytics event to databutton.events table."""
+    """Track an analytics event in the app_events table."""
     try:
-        await conn.execute(
-            """
-            INSERT INTO databutton.events (type, data)
-            VALUES ($1, $2::jsonb)
-            """,
-            event_type,
-            {"user_id": user_id, **metadata}
-        )
+        await record_event(conn, event_type, {"user_id": user_id, **metadata})
     except Exception as e:
         print(f"Failed to track event {event_type}: {str(e)}")
 

@@ -1,7 +1,7 @@
 """Admin Setup and Super Admin Management"""
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
-import databutton as db
+from app import runtime
 import asyncpg
 from datetime import datetime
 from app.auth import AuthorizedUser

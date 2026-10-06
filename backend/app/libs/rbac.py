@@ -1,5 +1,5 @@
 """Role-Based Access Control (RBAC) helpers and utilities"""
-import databutton as db
+from app import runtime
 import asyncpg
 from app.env import Mode, mode
 from typing import List, Optional

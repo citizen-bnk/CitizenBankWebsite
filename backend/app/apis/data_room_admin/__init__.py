@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List
-import databutton as db
+from app import runtime
 from app.auth import AuthorizedUser
 from datetime import datetime, timezone
 from app.libs.database import db_connection
@@ -238,7 +238,7 @@ async def upload_data_room_document(
     print(f"DEBUG - CamelCase name: {camel_case_name}")
     print(f"DEBUG - Storage key: {storage_key}")
     
-    db.storage.binary.put(storage_key, file_content)
+    runtime.storage.binary.put(storage_key, file_content)
     
     # Storage key IS the file URL - no get_url() method exists
     file_url = storage_key

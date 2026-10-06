@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date, datetime
 from decimal import Decimal
-import databutton as db
+from app import runtime
 from app.auth import AuthorizedUser
 import asyncpg
 import os
@@ -16,7 +16,7 @@ router = APIRouter()
 
 async def get_db_connection():
     """Get database connection using asyncpg."""
-    database_url = os.environ.get("DATABASE_URL_DEV") if db.env.mode == db.env.Mode.DEV else os.environ.get("DATABASE_URL_PROD")
+    database_url = os.environ.get("DATABASE_URL_DEV") if runtime.env.mode == runtime.env.Mode.DEV else os.environ.get("DATABASE_URL_PROD")
     return await asyncpg.connect(database_url)
 
 # ============================================================================

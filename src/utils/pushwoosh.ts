@@ -52,7 +52,7 @@ class PushwooshManager {
           applicationCode: config.applicationCode,
           safariWebsitePushID: config.safariWebsitePushID,
           defaultNotificationTitle: 'Citizen Hub',
-          defaultNotificationImage: 'https://static.databutton.com/public/4e911b3d-b027-4c6a-8f76-c90e63535892/logo.png',
+          defaultNotificationImage: '/brand/logo.png',
           autoSubscribe: false, // Manual subscription for better UX
           userId: null, // Will be set after login
         },

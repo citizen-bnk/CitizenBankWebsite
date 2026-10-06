@@ -27,7 +27,7 @@ Endpoints:
 
 Features:
 - File validation (PDF, JPG, PNG, DOCX up to 10MB)
-- Store files in Databutton storage
+- Store files in file storage
 - Auto-calculate expiry dates based on validity_period_days
 - Authorization checks for board member and admin
 """
@@ -37,7 +37,7 @@ from typing import Optional, List, Dict, Literal
 from datetime import datetime, timedelta, timezone
 
 import asyncpg
-import databutton as db
+from app import runtime
 import os
 
 from app.auth import AuthorizedUser
@@ -345,7 +345,7 @@ async def upload_template(
         
         # Store template in storage with prefix
         storage_key = f"board_templates_{requirement_id}_{int(_now().timestamp())}_{original_name}"
-        db.storage.binary.put(storage_key, content)
+        runtime.storage.binary.put(storage_key, content)
         print(f"💾 Stored template at: {storage_key}")
         
         # Update requirement with template info
@@ -426,7 +426,7 @@ async def delete_template(
         # Delete from storage if exists
         if requirement["template_file_url"]:
             try:
-                db.storage.binary.delete(requirement["template_file_url"])
+                runtime.storage.binary.delete(requirement["template_file_url"])
             except Exception as e:
                 print(f"⚠️ Could not delete template file: {e}")
         
@@ -479,7 +479,7 @@ async def download_template(requirement_id: int, user: AuthorizedUser):
         
         # Get file from storage
         try:
-            content = db.storage.binary.get(storage_key)
+            content = runtime.storage.binary.get(storage_key)
             print(f"✅ Retrieved {len(content)} bytes from storage")
         except Exception as e:
             print(f"❌ Error retrieving template from storage: {e}")
@@ -554,7 +554,7 @@ async def download_document(document_id: int, user: AuthorizedUser):
         # Get file from storage
         print(f"📦 Retrieving file from storage: {doc['file_url']}")
         try:
-            content = db.storage.binary.get(doc["file_url"])
+            content = runtime.storage.binary.get(doc["file_url"])
             print(f"✅ File retrieved successfully: {len(content)} bytes")
         except Exception as e:
             print(f"❌ Error retrieving document from storage: {e}")
@@ -922,10 +922,10 @@ async def upload_document(
 
             print(f"✅ Extension validated: {ext}")
 
-            # Store file in Databutton storage using flat storage key structure (no forward slashes allowed)
+            # Store file in file storage using flat storage key structure (no forward slashes allowed)
             # Format: board_docs_memberID_requirementID_standardizedFilename
             storage_key = f"board_docs_{member['id']}_{requirement_id}_{standardized_filename}"
-            db.storage.binary.put(storage_key, content)
+            runtime.storage.binary.put(storage_key, content)
             print(f"💾 Stored board document at: {storage_key}")
 
             # Compute expiry
@@ -1027,7 +1027,7 @@ async def resubmit_document(
             raise HTTPException(status_code=400, detail=f"File extension .{ext} not allowed. Allowed: {', '.join(accepted_exts)}")
 
         storage_key = f"board_docs_{member['id']}_{existing['document_requirement_id']}_{int(_now().timestamp())}_{original_name}"
-        db.storage.binary.put(storage_key, content)
+        runtime.storage.binary.put(storage_key, content)
 
         resubmission_count = int(existing["resubmission_count"]) + 1
 

@@ -275,7 +275,7 @@ export default function AdminSetupGuide() {
                       <AlertDescription className="text-sm">
                         <strong>Where to find it:</strong>
                         <ol className="list-decimal ml-5 mt-2 space-y-1">
-                          <li>Go to Databutton workspace settings (gear icon)</li>
+                          <li>Open your hosting provider's environment variable settings</li>
                           <li>Navigate to "Secrets" tab</li>
                           <li>Look for <code className="bg-white px-1 py-0.5 rounded text-xs">SUPER_ADMIN_SETUP_TOKEN</code></li>
                           <li>Copy the token value</li>
@@ -400,7 +400,7 @@ export default function AdminSetupGuide() {
                     <div className="space-y-3 text-sm">
                       <div className="border-l-4 border-red-500 pl-3 py-1">
                         <p className="font-medium text-red-900">"Invalid setup token"</p>
-                        <p className="text-red-700 text-xs">Verify token from Databutton secrets, check for extra spaces</p>
+                        <p className="text-red-700 text-xs">Verify the token in your environment variables, check for extra spaces</p>
                       </div>
                       <div className="border-l-4 border-orange-500 pl-3 py-1">
                         <p className="font-medium text-orange-900">"Super admin already exists"</p>
