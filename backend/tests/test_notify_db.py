@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(not PG_TEST_URL, reason="PG_TEST_URL not set")
 
 DDL = """
 DROP SCHEMA IF EXISTS platform CASCADE;
-DROP TABLE IF EXISTS notifications, notification_preferences, user_profiles, board_members, share_subscriptions;
+DROP TABLE IF EXISTS notifications, notification_preferences, user_profiles, board_members, share_subscriptions CASCADE;
 CREATE SCHEMA platform;
 CREATE TABLE platform.person (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), display_name text, primary_email text,
     version integer NOT NULL DEFAULT 1, updated_at timestamptz DEFAULT now());
