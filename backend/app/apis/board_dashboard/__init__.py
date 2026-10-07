@@ -82,6 +82,7 @@ class BoardDashboardResponse(BaseModel):
     popup_notification: Optional[PopupNotification]
     document_summary: Optional[DocumentStatusSummary]
     next_meeting: Optional[NextMeeting]
+    document_service_available: bool = True
 
 
 @router.get("/board/dashboard")
@@ -260,108 +261,113 @@ async def get_board_dashboard(user: AuthorizedUser) -> BoardDashboardResponse:
             
             # 5. Get document summary
             document_summary = None
-            if board_member_id:
-                # Get jurisdiction from board member
-                jurisdiction_row = await conn.fetchrow("""
-                    SELECT up.country
-                    FROM board_members bm
-                    JOIN user_profiles up ON bm.user_id = up.user_id
-                    WHERE bm.id = $1
-                """, board_member_id)
-                
-                jurisdiction = 'global'
-                if jurisdiction_row and jurisdiction_row['country']:
-                    country = jurisdiction_row['country'].lower()
-                    if country == 'lesotho':
-                        jurisdiction = 'lesotho'
-                    elif country == 'south africa':
-                        jurisdiction = 'south_africa'
-                    elif country == 'botswana':
-                        jurisdiction = 'botswana'
-                
-                # Get document requirements and submissions
-                doc_rows = await conn.fetch("""
-                    SELECT 
-                        dr.id as req_id,
-                        dr.name as document_name,
-                        dr.is_required,
-                        dr.default_severity,
-                        bmd.status,
-                        bmd.id as submission_id,
-                        bmd.expires_at
-                    FROM board_document_requirements dr
-                    LEFT JOIN board_member_documents bmd 
-                        ON dr.id = bmd.document_requirement_id 
-                        AND bmd.board_member_id = $1
-                    WHERE dr.is_active = true
-                      AND ($2 = ANY(dr.jurisdictions) OR 'global' = ANY(dr.jurisdictions))
-                """, board_member_id, jurisdiction)
-                
-                total_required = 0
-                submitted = 0
-                approved = 0
-                rejected = 0
-                pending_review = 0
-                needs_action = 0
-                critical_missing = []
-                expiring_soon = []
-                
-                for row in doc_rows:
-                    if row['is_required']:
-                        total_required += 1
+            document_service_available = True
+            try:
+                if board_member_id:
+                    # Get jurisdiction from board member
+                    jurisdiction_row = await conn.fetchrow("""
+                        SELECT up.country
+                        FROM board_members bm
+                        JOIN user_profiles up ON bm.user_id = up.user_id
+                        WHERE bm.id = $1
+                    """, board_member_id)
                     
-                    if row['submission_id']:
-                        submitted += 1
-                        
-                        status = row['status']
-                        if status == 'approved':
-                            approved += 1
-                            
-                            # Check for expiry warnings
-                            if row['expires_at']:
-                                expires_at = row['expires_at']
-                                days_until_expiry = (expires_at.date() - datetime.now().date()).days
-                                
-                                # Alert at 90, 60, 30, 7 days or if expired
-                                if days_until_expiry <= 90:
-                                    expiring_soon.append({
-                                        'document_name': row['document_name'],
-                                        'days_until_expiry': days_until_expiry,
-                                        'severity': 'critical' if days_until_expiry <= 7 else 'urgent' if days_until_expiry <= 30 else 'normal',
-                                        'expires_at': expires_at.isoformat()
-                                    })
-                        elif status == 'rejected':
-                            rejected += 1
-                            needs_action += 1
-                        elif status in ('under_review', 'submitted'):
-                            pending_review += 1
-                        elif status == 'resubmission_required':
-                            needs_action += 1
-                    else:
+                    jurisdiction = 'global'
+                    if jurisdiction_row and jurisdiction_row['country']:
+                        country = jurisdiction_row['country'].lower()
+                        if country == 'lesotho':
+                            jurisdiction = 'lesotho'
+                        elif country == 'south africa':
+                            jurisdiction = 'south_africa'
+                        elif country == 'botswana':
+                            jurisdiction = 'botswana'
+                    
+                    # Get document requirements and submissions
+                    doc_rows = await conn.fetch("""
+                        SELECT 
+                            dr.id as req_id,
+                            dr.name as document_name,
+                            dr.is_required,
+                            dr.default_severity,
+                            bmd.status,
+                            bmd.id as submission_id,
+                            bmd.expires_at
+                        FROM board_document_requirements dr
+                        LEFT JOIN board_member_documents bmd 
+                            ON dr.id = bmd.document_requirement_id 
+                            AND bmd.board_member_id = $1
+                        WHERE dr.is_active = true
+                          AND ($2 = ANY(dr.jurisdictions) OR 'global' = ANY(dr.jurisdictions))
+                    """, board_member_id, jurisdiction)
+                    
+                    total_required = 0
+                    submitted = 0
+                    approved = 0
+                    rejected = 0
+                    pending_review = 0
+                    needs_action = 0
+                    critical_missing = []
+                    expiring_soon = []
+                    
+                    for row in doc_rows:
                         if row['is_required']:
-                            needs_action += 1
-                            # Track critical missing documents
-                            if row['default_severity'] in ('critical', 'urgent'):
-                                critical_missing.append(row['document_name'])
-                
-                # Calculate completion percentage
-                completion_percentage = int((approved / total_required * 100)) if total_required > 0 else 100
-                
-                # Sort expiring_soon by days_until_expiry (most urgent first)
-                expiring_soon.sort(key=lambda x: x['days_until_expiry'])
-                
-                document_summary = DocumentStatusSummary(
-                    total_required=total_required,
-                    submitted=submitted,
-                    approved=approved,
-                    rejected=rejected,
-                    pending_review=pending_review,
-                    needs_action=needs_action,
-                    completion_percentage=completion_percentage,
-                    critical_missing=critical_missing,
-                    expiring_soon=expiring_soon
-                )
-            
+                            total_required += 1
+                        
+                        if row['submission_id']:
+                            submitted += 1
+                            
+                            status = row['status']
+                            if status == 'approved':
+                                approved += 1
+                                
+                                # Check for expiry warnings
+                                if row['expires_at']:
+                                    expires_at = row['expires_at']
+                                    days_until_expiry = (expires_at.date() - datetime.now().date()).days
+                                    
+                                    # Alert at 90, 60, 30, 7 days or if expired
+                                    if days_until_expiry <= 90:
+                                        expiring_soon.append({
+                                            'document_name': row['document_name'],
+                                            'days_until_expiry': days_until_expiry,
+                                            'severity': 'critical' if days_until_expiry <= 7 else 'urgent' if days_until_expiry <= 30 else 'normal',
+                                            'expires_at': expires_at.isoformat()
+                                        })
+                            elif status == 'rejected':
+                                rejected += 1
+                                needs_action += 1
+                            elif status in ('under_review', 'submitted'):
+                                pending_review += 1
+                            elif status == 'resubmission_required':
+                                needs_action += 1
+                        else:
+                            if row['is_required']:
+                                needs_action += 1
+                                # Track critical missing documents
+                                if row['default_severity'] in ('critical', 'urgent'):
+                                    critical_missing.append(row['document_name'])
+                    
+                    # Calculate completion percentage
+                    completion_percentage = int((approved / total_required * 100)) if total_required > 0 else 0
+                    
+                    # Sort expiring_soon by days_until_expiry (most urgent first)
+                    expiring_soon.sort(key=lambda x: x['days_until_expiry'])
+                    
+                    document_summary = DocumentStatusSummary(
+                        total_required=total_required,
+                        submitted=submitted,
+                        approved=approved,
+                        rejected=rejected,
+                        pending_review=pending_review,
+                        needs_action=needs_action,
+                        completion_percentage=completion_percentage,
+                        critical_missing=critical_missing,
+                        expiring_soon=expiring_soon
+                    )
+            except (asyncpg.UndefinedTableError, asyncpg.UndefinedColumnError):
+                document_service_available = False
+                document_summary = None
+
             # 6. Get next meeting
             next_meeting = None
             try:
@@ -396,5 +402,6 @@ async def get_board_dashboard(user: AuthorizedUser) -> BoardDashboardResponse:
                 is_chair=is_chair,
                 popup_notification=popup_notification,
                 document_summary=document_summary,
+                document_service_available=document_service_available,
                 next_meeting=next_meeting
             )

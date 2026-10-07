@@ -186,15 +186,31 @@ def test_router_is_public_in_routers_json_and_endpoints_still_require_a_user():
 
     cfg = json.loads(pathlib.Path("routers.json").read_text())
     assert cfg["routers"]["platform"]["disableAuth"] is True
-    # Router-level auth is off, so each protected endpoint must declare AuthorizedUser itself.
+    # Browser endpoints require AuthorizedUser; the internal profile bridge uses a
+    # method/body-bound service proof and must reject missing proofs before DB access.
     public = {"/platform/jwks.json", "/platform/config", "/platform/demo-accounts"}
     for route in api.router.routes:
         names = {d.call.__name__ for d in route.dependant.dependencies}
-        if route.path in public:
+        if route.path in public or route.path == "/platform/profile-service":
             assert "get_authorized_user" not in names, route.path
         else:
             assert "get_authorized_user" in names, route.path
     assert public <= {r.path for r in api.router.routes}
+
+
+@pytest.mark.parametrize("method", ["GET", "PATCH"])
+async def test_profile_bridge_rejects_missing_service_proof_before_database_access(monkeypatch, method):
+    from starlette.requests import Request
+    from unittest.mock import Mock
+    database = Mock(side_effect=AssertionError("Unauthorized request reached database"))
+    monkeypatch.setattr(api, "db_connection", database)
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+    request = Request({"type": "http", "method": method, "headers": []}, receive)
+    with pytest.raises(HTTPException) as error:
+        await api.profile_service(request)
+    assert error.value.status_code == 401
+    database.assert_not_called()
 
 
 async def test_config_reports_the_demo_flag(env, monkeypatch):

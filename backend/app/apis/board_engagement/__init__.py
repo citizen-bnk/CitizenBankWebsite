@@ -8,18 +8,24 @@ import os
 import json
 from datetime import date, datetime, time
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 import asyncpg
 
 from app.auth import AuthorizedUser
-from app.libs.rbac import check_user_has_role
+from app.libs.rbac import check_user_has_any_role
 from app.libs.ai_content_generator import get_ai_generator, AIContentGenerator
 from app.libs.email_templates import create_board_engagement_email
 from app.libs.notification_service import send_notification, NotificationRequest
 from app.libs.email_queue import enqueue_email
 
-router = APIRouter()
+async def require_engagement_access(user: AuthorizedUser) -> None:
+    """Engagement drafts and recipient details belong to the back office."""
+    if not await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin']):
+        raise HTTPException(status_code=403, detail="Back-office access is required")
+
+
+router = APIRouter(dependencies=[Depends(require_engagement_access)])
 
 # Database connection
 async def get_db_connection():
@@ -440,7 +446,7 @@ async def create_feature(body: CreateFeatureRequest, user: AuthorizedUser):
     Requires super_admin or back_office_staff role.
     """
     # Check authorization
-    is_authorized = await check_user_has_role(user.sub, "super_admin") or await check_user_has_role(user.sub, "back_office_staff")
+    is_authorized = await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin'])
     if not is_authorized:
         raise HTTPException(
             status_code=403,
@@ -492,7 +498,7 @@ async def update_feature(feature_id: str, body: UpdateFeatureRequest, user: Auth
     Requires super_admin or back_office_staff role.
     """
     # Check authorization
-    is_authorized = await check_user_has_role(user.sub, "super_admin") or await check_user_has_role(user.sub, "back_office_staff")
+    is_authorized = await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin'])
     if not is_authorized:
         raise HTTPException(
             status_code=403,
@@ -590,7 +596,7 @@ async def toggle_feature_active(feature_id: str, user: AuthorizedUser):
     Requires super_admin or back_office_staff role.
     """
     # Check authorization
-    is_authorized = await check_user_has_role(user.sub, "super_admin") or await check_user_has_role(user.sub, "back_office_staff")
+    is_authorized = await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin'])
     if not is_authorized:
         raise HTTPException(
             status_code=403,
@@ -622,7 +628,7 @@ async def delete_feature(feature_id: str, user: AuthorizedUser):
     Requires super_admin or back_office_staff role.
     """
     # Check authorization
-    is_authorized = await check_user_has_role(user.sub, "super_admin") or await check_user_has_role(user.sub, "back_office_staff")
+    is_authorized = await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin'])
     if not is_authorized:
         raise HTTPException(
             status_code=403,
@@ -661,7 +667,7 @@ async def generate_feature_with_ai(body: GenerateFeatureRequest, user: Authorize
         Generated feature data (optionally saved to database)
     """
     # Check authorization
-    is_authorized = await check_user_has_role(user.sub, "super_admin") or await check_user_has_role(user.sub, "back_office_staff")
+    is_authorized = await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin'])
     if not is_authorized:
         raise HTTPException(
             status_code=403,
@@ -981,7 +987,7 @@ async def generate_email_drafts(request: GenerateDraftsRequest, user: Authorized
         Progress updates and final results as JSON
     """
     # Check role authorization
-    is_authorized = await check_user_has_role(user.sub, "super_admin") or await check_user_has_role(user.sub, "back_office_staff")
+    is_authorized = await check_user_has_any_role(user.sub, ['back_office', 'back_office_staff', 'super_admin'])
     if not is_authorized:
         raise HTTPException(
             status_code=403,

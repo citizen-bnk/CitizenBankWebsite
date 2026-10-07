@@ -1,5 +1,6 @@
 """The Vercel setup must match what the application actually needs. These tests read the real files."""
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -54,6 +55,8 @@ def test_requirements_are_pinned_and_exclude_unneeded_packages():
 
 def run_entry(code: str) -> str:
     env = {"PATH": "/usr/bin:/bin", "OPENAI_API_KEY": "x", "CRON_SECRET": "c", "HOME": str(ROOT)}
+    # Windows Python needs system paths even in an otherwise isolated environment.
+    env.update({key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP") if key in os.environ})
     r = subprocess.run([sys.executable, "-c", code], cwd=ROOT, env={**env, "PYTHONPATH": ""}, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr[-2000:]
     return r.stdout
@@ -71,7 +74,7 @@ print("config", c.get("/api/platform/config").status_code)
 print("signed_out_me", c.get("/api/platform/me").status_code)
 print("cron_without_secret", c.get("/api/cron/board-document-reminders").status_code)
 print("paths", len(m.app.openapi()["paths"]) > 300)
-import importlib.util; print("shim", importlib.util.find_spec("data" + "button") is None)
+import sys; print("shim", "data" + "button" not in sys.modules)
 """)
     got = dict(line.split(" ", 1) for line in out.splitlines() if " " in line and line.split(" ", 1)[0] in
                {"cwd_is_backend", "config", "signed_out_me", "cron_without_secret", "paths", "shim"})

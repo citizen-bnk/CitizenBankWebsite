@@ -7,11 +7,13 @@ import { DEFAULT_THEME } from "./constants/default-theme";
 import { StackProvider} from "@stackframe/react";
 import { stackClientApp } from "./app/auth/stack";
 import DemoBanner from "components/DemoBanner";
+import { Suspense } from "react";
 
 
 export const AppWrapper = () => {
   return (
     <OuterErrorBoundary>
+      <Suspense fallback={<main role="status" className="flex min-h-screen items-center justify-center">Loading Citizen Bank…</main>}>
       <StackProvider app={stackClientApp}>
       <ThemeProvider defaultTheme={DEFAULT_THEME}>
         <RouterProvider router={router} />
@@ -19,6 +21,7 @@ export const AppWrapper = () => {
         <DemoBanner />
       </ThemeProvider>
       </StackProvider>
+      </Suspense>
     </OuterErrorBoundary>
   );
 };

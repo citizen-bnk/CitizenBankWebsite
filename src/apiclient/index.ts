@@ -8,6 +8,9 @@ const constructBaseUrl = (): string => {
   return `${window.location.origin}/api`;
 };
 
+export const toBackendUrl = (url: RequestInfo | URL): RequestInfo | URL =>
+  typeof url === "string" ? url.replace("/api/routes/", "/api/") : url;
+
 type BaseApiParams = Omit<RequestParams, "signal" | "baseUrl" | "cancelToken">;
 
 const constructBaseApiParams = (): BaseApiParams => {
@@ -25,8 +28,9 @@ const constructClient = () => {
     baseUrl,
     baseApiParams,
     customFetch: (url, options) => {
-      // Ensure we always call /api endpoints
-      return fetch(url, options);
+      // The generated client paths are /routes/<module>/...; the backend
+      // serves them at /api/<module>/...
+      return fetch(toBackendUrl(url), options);
     },
     securityWorker: async () => {
       return {

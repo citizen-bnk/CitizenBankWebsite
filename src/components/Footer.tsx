@@ -1,12 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link } from "./EcosystemLink";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
-import { usePolicy, copyrightLine } from 'utils/policy';
 
 export function Footer() {
-  const policy = usePolicy();
-  const logoUrl = "/brand/logo.png";
+  const logoUrl = "/brand/logo-sm.webp";
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [platform, setPlatform] = useState('');
 
@@ -21,9 +19,9 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* About */}
           <div className="lg:col-span-1">
-            <img src={logoUrl} alt={policy.brand.name} className="h-10 w-auto mb-4 brightness-0 invert" />
+            <img src={logoUrl} alt="Citizen Bank" className="h-10 w-auto mb-4 brightness-0 invert" />
             <p className="text-sm text-gray-400">
-              {policy.legal.footer}
+              Your trusted financial partner in the Kingdom of Lesotho.
             </p>
             <div className="flex gap-3 mt-4">
               <button onClick={() => handleSocialClick('Facebook')} className="text-gray-400 hover:text-[#8f6ec4] transition-colors">
@@ -41,12 +39,15 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Demonstration */}
+          {/* Banking Services */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Demonstration</h3>
+            <h3 className="text-white font-semibold mb-4">Banking</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/demo" className="hover:text-[#8f6ec4] transition-colors">Try the demonstration</Link></li>
-              <li><Link to="/foreign-exchange" className="hover:text-[#8f6ec4] transition-colors">Exchange rates</Link></li>
+              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Personal Accounts</Link></li>
+              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Business Banking</Link></li>
+              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Loans & Credit</Link></li>
+              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Cards</Link></li>
+              <li><Link to="/mobile-banking" className="hover:text-[#8f6ec4] transition-colors">Mobile Banking</Link></li>
             </ul>
           </div>
 
@@ -54,8 +55,10 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Investment</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Share Subscriptions</Link></li>
+              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investment Products</Link></li>
+              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
+              <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Financial Reports</Link></li>
             </ul>
           </div>
 
@@ -77,6 +80,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/help-center" className="hover:text-[#8f6ec4] transition-colors">Help Center</Link></li>
               <li><Link to="/contact" className="hover:text-[#8f6ec4] transition-colors">Contact Us</Link></li>
+              <li><Link to="/branch-locator" className="hover:text-[#8f6ec4] transition-colors">Branch Locator</Link></li>
               <li><Link to="/security-tips" className="hover:text-[#8f6ec4] transition-colors">Security Tips</Link></li>
               <li><Link to="/faqs" className="hover:text-[#8f6ec4] transition-colors">FAQs</Link></li>
             </ul>
@@ -86,10 +90,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
-            <div className="space-y-1 max-w-2xl">
-              <p>{policy.legal.licence_status}</p>
-              <p>{copyrightLine(policy)}</p>
-            </div>
+            <p>© 2025 Citizen Bank Lesotho. All rights reserved.</p>
             <div className="flex gap-6">
               <Link to="/privacy-policy" className="hover:text-[#8f6ec4] transition-colors">Privacy Policy</Link>
               <Link to="/terms-of-service" className="hover:text-[#8f6ec4] transition-colors">Terms of Service</Link>

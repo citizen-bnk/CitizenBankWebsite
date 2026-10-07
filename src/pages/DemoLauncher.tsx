@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import {
   type BankingAudience, type Me, type ServiceInfo, getMe, getServices, hubDestinations, startHandoff,
 } from "utils/platform";
+import { workspaceHref } from "utils/hub";
 
 const BANKING: { id: BankingAudience; label: string; icon: typeof Landmark; next: string; blurb: string }[] = [
   { id: "banking", label: "Internet Banking", icon: Landmark, next: "/dashboard", blurb: "Banking on a desktop computer" },
@@ -42,6 +43,12 @@ export default function DemoLauncher() {
       setError(e instanceof Error ? e.message : "Could not open banking.");
       setBusy(null);
     }
+  };
+
+  const openWorkspace = (path: string) => {
+    const href = workspaceHref(path);
+    if (href) window.location.assign(href);
+    else navigate(path);
   };
 
   const destinations = me ? hubDestinations(me.roles) : [];
@@ -83,7 +90,7 @@ export default function DemoLauncher() {
                       <CardContent className="space-y-2 pt-4">
                         <div className="flex items-center gap-2 font-semibold"><Building2 className="h-4 w-4" />{d.label}</div>
                         <p className="text-sm text-slate-600 dark:text-slate-400">{d.description}</p>
-                        <Button size="sm" onClick={() => navigate(d.path)}>Open</Button>
+                        <Button size="sm" onClick={() => openWorkspace(d.path)}>Open</Button>
                       </CardContent>
                     </Card>
                   ))}

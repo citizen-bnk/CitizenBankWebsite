@@ -3,7 +3,7 @@ from typing import Optional
 from app.libs.notify import EmailSpec, notify
 from app.libs.url_helpers import get_frontend_path
 
-LOGO_URL = "https://citizenbank.co.ls/brand/logo.png"
+LOGO_URL = "https://citizenbank.co.ls/brand/logo-sm.png"
 BRAND_COLOR = "#00563B"
 
 

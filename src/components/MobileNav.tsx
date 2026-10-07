@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from "./EcosystemLink";
+import { useNavigate } from "react-router-dom";
 import { X, Menu, User, Home, Building2, Shield, UserCircle, LogOut } from 'lucide-react';
 import { useUser } from '@stackframe/react';
 import { stackClientApp } from 'app/auth';
@@ -78,7 +79,7 @@ export function MobileNav() {
           <SheetTitle className="text-left">
             <Link to="/" onClick={handleLinkClick} className="flex items-center gap-2">
               <img 
-                src="/brand/logo.png" 
+                src="/brand/logo-sm.webp" 
                 alt="Citizen Bank" 
                 className="h-8 w-auto" 
               />

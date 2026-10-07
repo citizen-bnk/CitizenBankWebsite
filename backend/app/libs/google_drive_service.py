@@ -9,6 +9,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 import io
 import os
+from urllib.parse import urlparse
 
 
 class GoogleDriveService:
@@ -226,7 +227,42 @@ class GoogleDriveService:
         uploaded_file = service.files().create(
             body=file_metadata,
             media_body=media,
-            fields='id, name, webViewLink, size, createdTime'
+            fields='id, name, webViewLink, size, createdTime, mimeType',
+            supportsAllDrives=True,
+            ignoreDefaultVisibility=True,
         ).execute()
-        
-        return uploaded_file
+
+        # A successful upload without a usable provider link is not a completed document record.
+        # Parent folder permissions remain authoritative; no public sharing is added here.
+        file_id = uploaded_file.get('id')
+        if not file_id:
+            raise RuntimeError("Google Drive did not return a file identifier")
+        metadata = service.files().get(
+            fileId=file_id,
+            fields='id, name, webViewLink, size, createdTime, mimeType, trashed',
+            supportsAllDrives=True,
+        ).execute()
+        return self.validate_document_metadata(metadata)
+
+    def get_document_metadata(self, file_id: str, credentials: Credentials) -> Dict[str, Any]:
+        """Read an existing Drive file before linking it to a business record."""
+        service = self.build_service(credentials)
+        metadata = service.files().get(
+            fileId=file_id,
+            fields='id, name, webViewLink, size, createdTime, mimeType, trashed',
+            supportsAllDrives=True,
+        ).execute()
+        return self.validate_document_metadata(metadata)
+
+    @staticmethod
+    def validate_document_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Return only provider metadata suitable for persistence, never file contents."""
+        url = urlparse(metadata.get('webViewLink') or '')
+        if (
+            not metadata.get('id') or metadata.get('trashed')
+            or url.scheme != 'https' or url.hostname not in {'drive.google.com', 'docs.google.com'}
+            or url.username or url.password or url.port is not None or url.path in {'', '/'}
+            or metadata.get('mimeType') == 'application/vnd.google-apps.folder'
+        ):
+            raise RuntimeError("Google Drive file has no usable shared link")
+        return {key: metadata[key] for key in ('id', 'name', 'webViewLink', 'size', 'createdTime', 'mimeType') if key in metadata}

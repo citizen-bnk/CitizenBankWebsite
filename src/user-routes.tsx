@@ -6,182 +6,132 @@ import { RouteObject } from "react-router-dom";
 import { UserGuard } from "./app/auth";
 
 
+
 import { StackHandlerRoutes, LoginRedirect } from "./app/auth";
 
 
-import AdminAudit from "./pages/AdminAudit.tsx";
-import AdminBoardPositions from "./pages/AdminBoardPositions.tsx";
-import AdminDashboard from "./pages/AdminDashboard.tsx";
-import AdminSetupGuide from "./pages/AdminSetupGuide.tsx";
-import AdminUserDetail from "./pages/AdminUserDetail.tsx";
-import AdminUsers from "./pages/AdminUsers.tsx";
 import App from "./pages/App.tsx";
-import BackOfficeAchievements from "./pages/BackOfficeAchievements.tsx";
-import BackOfficeAdminSubscriptions from "./pages/BackOfficeAdminSubscriptions.tsx";
-import BackOfficeBankAccounts from "./pages/BackOfficeBankAccounts.tsx";
-import BackOfficeBoardDocuments from "./pages/BackOfficeBoardDocuments.tsx";
-import BackOfficeBoardInvestments from "./pages/BackOfficeBoardInvestments.tsx";
-import BackOfficeBoardMapping from "./pages/BackOfficeBoardMapping.tsx";
-import BackOfficeBoardMembers from "./pages/BackOfficeBoardMembers.tsx";
-import BackOfficeCertificateTemplates from "./pages/BackOfficeCertificateTemplates.tsx";
-import BackOfficeCertificates from "./pages/BackOfficeCertificates.tsx";
-import BackOfficeCryptoWallets from "./pages/BackOfficeCryptoWallets.tsx";
-import BackOfficeDashboard from "./pages/BackOfficeDashboard.tsx";
-import BackOfficeDataRoom from "./pages/BackOfficeDataRoom.tsx";
-import BackOfficeDataRoomAccess from "./pages/BackOfficeDataRoomAccess.tsx";
-import BackOfficeEngagement from "./pages/BackOfficeEngagement.tsx";
-import BackOfficeInvestorLeads from "./pages/BackOfficeInvestorLeads.tsx";
-import BackOfficeInvitations from "./pages/BackOfficeInvitations.tsx";
-import BackOfficeLicenseDocuments from "./pages/BackOfficeLicenseDocuments.tsx";
-import BackOfficeMediaReleases from "./pages/BackOfficeMediaReleases.tsx";
-import BackOfficeSentItems from "./pages/BackOfficeSentItems.tsx";
-import BackOfficeShareClasses from "./pages/BackOfficeShareClasses.tsx";
-import BackOfficeSubscribeOnBehalf from "./pages/BackOfficeSubscribeOnBehalf.tsx";
-import BackOfficeSubscriptions from "./pages/BackOfficeSubscriptions.tsx";
-import BoardDocuments from "./pages/BoardDocuments.tsx";
-import BoardInvestment from "./pages/BoardInvestment.tsx";
-import BoardMeetings from "./pages/BoardMeetings.tsx";
-import BoardMemberDetail from "./pages/BoardMemberDetail.tsx";
-import BoardOnboarding from "./pages/BoardOnboarding.tsx";
-import BoardPortal from "./pages/BoardPortal.tsx";
-import BoardPortalInvitations from "./pages/BoardPortalInvitations.tsx";
 import BranchLocator from "./pages/BranchLocator.tsx";
-import CommunicationPortal from "./pages/CommunicationPortal.tsx";
-import CompleteProfile from "./pages/CompleteProfile.tsx";
 import Contact from "./pages/Contact.tsx";
 import CookiePolicy from "./pages/CookiePolicy.tsx";
-import CreateMeeting from "./pages/CreateMeeting.tsx";
-import CustomerPortal from "./pages/CustomerPortal.tsx";
 import DemoLauncher from "./pages/DemoLauncher.tsx";
-import DemoSignIn from "./pages/DemoSignIn.tsx";
-import DataRoom from "./pages/DataRoom.tsx";
-import DataRoomAccess from "./pages/DataRoomAccess.tsx";
 import DevSetup from "./pages/DevSetup.tsx";
 import Disclosures from "./pages/Disclosures.tsx";
 import Faqs from "./pages/Faqs.tsx";
 import ForbiddenPage from "./pages/ForbiddenPage.tsx";
 import ForeignExchange from "./pages/ForeignExchange.tsx";
-import Governance from "./pages/Governance.tsx";
-import GovernanceAdmin from "./pages/GovernanceAdmin.tsx";
 import HelpCenter from "./pages/HelpCenter.tsx";
-import Invest from "./pages/Invest.tsx";
 import Invite from "./pages/Invite.tsx";
 import InviteAcceptance from "./pages/InviteAcceptance.tsx";
 import Media from "./pages/Media.tsx";
-import Newsletters from "./pages/Newsletters.tsx";
-import Careers from "./pages/Careers.tsx";
-import MeetingDetails from "./pages/MeetingDetails.tsx";
-import MyAgreements from "./pages/MyAgreements.tsx";
-import MySubscriptions from "./pages/MySubscriptions.tsx";
 import NoRoles from "./pages/NoRoles.tsx";
 import NotificationAnalytics from "./pages/NotificationAnalytics.tsx";
-import NotificationPreferences from "./pages/NotificationPreferences.tsx";
 import Offline from "./pages/Offline.tsx";
 import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
-import Profile from "./pages/Profile.tsx";
 import SecurityTips from "./pages/SecurityTips.tsx";
-import ShareSubscription from "./pages/ShareSubscription.tsx";
-import SignCertificate from "./pages/SignCertificate.tsx";
 import Support from "./pages/Support.tsx";
 import Sustainability from "./pages/Sustainability.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
 import UnauthorizedPage from "./pages/UnauthorizedPage.tsx";
 import VerifyCertificate from "./pages/VerifyCertificate.tsx";
 
+import ServiceRedirect from "./components/ServiceRedirect";
+
 export const userRoutes: RouteObject[] = [
+  ...["/auth/sign-in", "/auth/sign-up", "/demo", "/demo/launch", "/customer-portal", "/customerportal", "/open-account", "/mobile-banking", "/profile", "/complete-profile", "/completeprofile", "/notification-preferences", "/notificationpreferences"].map(path => ({path, element:<ServiceRedirect />})),
 
 	{ path: "/auth/redirect", element: <LoginRedirect /> },
 	{ path: "/auth/*", element: <StackHandlerRoutes /> },
-	{ path: "/admin-audit", element: <UserGuard><AdminAudit /></UserGuard> },
-	{ path: "/adminaudit", element: <UserGuard><AdminAudit /></UserGuard> },
-	{ path: "/admin-board-positions", element: <UserGuard><AdminBoardPositions /></UserGuard> },
-	{ path: "/adminboardpositions", element: <UserGuard><AdminBoardPositions /></UserGuard> },
-	{ path: "/admin-dashboard", element: <UserGuard><AdminDashboard /></UserGuard> },
-	{ path: "/admindashboard", element: <UserGuard><AdminDashboard /></UserGuard> },
-	{ path: "/admin-setup-guide", element: <UserGuard><AdminSetupGuide /></UserGuard> },
-	{ path: "/adminsetupguide", element: <UserGuard><AdminSetupGuide /></UserGuard> },
-	{ path: "/admin-user-detail", element: <UserGuard><AdminUserDetail /></UserGuard> },
-	{ path: "/adminuserdetail", element: <UserGuard><AdminUserDetail /></UserGuard> },
-	{ path: "/admin-users", element: <UserGuard><AdminUsers /></UserGuard> },
-	{ path: "/adminusers", element: <UserGuard><AdminUsers /></UserGuard> },
+	{ path: "/admin-audit", element: <ServiceRedirect /> },
+	{ path: "/adminaudit", element: <ServiceRedirect /> },
+	{ path: "/admin-board-positions", element: <ServiceRedirect /> },
+	{ path: "/adminboardpositions", element: <ServiceRedirect /> },
+	{ path: "/admin-dashboard", element: <ServiceRedirect /> },
+	{ path: "/admindashboard", element: <ServiceRedirect /> },
+	{ path: "/admin-setup-guide", element: <ServiceRedirect /> },
+	{ path: "/adminsetupguide", element: <ServiceRedirect /> },
+	{ path: "/admin-user-detail", element: <ServiceRedirect /> },
+	{ path: "/adminuserdetail", element: <ServiceRedirect /> },
+	{ path: "/admin-users", element: <ServiceRedirect /> },
+	{ path: "/adminusers", element: <ServiceRedirect /> },
 	{ path: "/", element: <App /> },
-	{ path: "/back-office-achievements", element: <UserGuard><BackOfficeAchievements /></UserGuard> },
-	{ path: "/backofficeachievements", element: <UserGuard><BackOfficeAchievements /></UserGuard> },
-	{ path: "/back-office-admin-subscriptions", element: <UserGuard><BackOfficeAdminSubscriptions /></UserGuard> },
-	{ path: "/backofficeadminsubscriptions", element: <UserGuard><BackOfficeAdminSubscriptions /></UserGuard> },
-	{ path: "/back-office-bank-accounts", element: <UserGuard><BackOfficeBankAccounts /></UserGuard> },
-	{ path: "/backofficebankaccounts", element: <UserGuard><BackOfficeBankAccounts /></UserGuard> },
-	{ path: "/back-office-board-documents", element: <UserGuard><BackOfficeBoardDocuments /></UserGuard> },
-	{ path: "/backofficeboarddocuments", element: <UserGuard><BackOfficeBoardDocuments /></UserGuard> },
-	{ path: "/back-office-board-investments", element: <UserGuard><BackOfficeBoardInvestments /></UserGuard> },
-	{ path: "/backofficeboardinvestments", element: <UserGuard><BackOfficeBoardInvestments /></UserGuard> },
-	{ path: "/back-office-board-mapping", element: <UserGuard><BackOfficeBoardMapping /></UserGuard> },
-	{ path: "/backofficeboardmapping", element: <UserGuard><BackOfficeBoardMapping /></UserGuard> },
-	{ path: "/back-office-board-members", element: <UserGuard><BackOfficeBoardMembers /></UserGuard> },
-	{ path: "/backofficeboardmembers", element: <UserGuard><BackOfficeBoardMembers /></UserGuard> },
-	{ path: "/back-office-certificate-templates", element: <UserGuard><BackOfficeCertificateTemplates /></UserGuard> },
-	{ path: "/backofficecertificatetemplates", element: <UserGuard><BackOfficeCertificateTemplates /></UserGuard> },
-	{ path: "/back-office-certificates", element: <UserGuard><BackOfficeCertificates /></UserGuard> },
-	{ path: "/backofficecertificates", element: <UserGuard><BackOfficeCertificates /></UserGuard> },
-	{ path: "/back-office-crypto-wallets", element: <UserGuard><BackOfficeCryptoWallets /></UserGuard> },
-	{ path: "/backofficecryptowallets", element: <UserGuard><BackOfficeCryptoWallets /></UserGuard> },
-	{ path: "/back-office-dashboard", element: <BackOfficeDashboard /> },
-	{ path: "/backofficedashboard", element: <BackOfficeDashboard /> },
-	{ path: "/back-office-data-room", element: <UserGuard><BackOfficeDataRoom /></UserGuard> },
-	{ path: "/backofficedataroom", element: <UserGuard><BackOfficeDataRoom /></UserGuard> },
-	{ path: "/back-office-data-room-access", element: <UserGuard><BackOfficeDataRoomAccess /></UserGuard> },
-	{ path: "/backofficedataroomaccess", element: <UserGuard><BackOfficeDataRoomAccess /></UserGuard> },
-	{ path: "/back-office-engagement", element: <UserGuard><BackOfficeEngagement /></UserGuard> },
-	{ path: "/backofficeengagement", element: <UserGuard><BackOfficeEngagement /></UserGuard> },
-	{ path: "/back-office-investor-leads", element: <UserGuard><BackOfficeInvestorLeads /></UserGuard> },
-	{ path: "/backofficeinvestorleads", element: <UserGuard><BackOfficeInvestorLeads /></UserGuard> },
-	{ path: "/back-office-invitations", element: <UserGuard><BackOfficeInvitations /></UserGuard> },
-	{ path: "/backofficeinvitations", element: <UserGuard><BackOfficeInvitations /></UserGuard> },
-	{ path: "/back-office-license-documents", element: <UserGuard><BackOfficeLicenseDocuments /></UserGuard> },
-	{ path: "/backofficelicensedocuments", element: <UserGuard><BackOfficeLicenseDocuments /></UserGuard> },
-	{ path: "/back-office-media-releases", element: <UserGuard><BackOfficeMediaReleases /></UserGuard> },
-	{ path: "/backofficemediareleases", element: <UserGuard><BackOfficeMediaReleases /></UserGuard> },
-	{ path: "/back-office-sent-items", element: <UserGuard><BackOfficeSentItems /></UserGuard> },
-	{ path: "/backofficesentitems", element: <UserGuard><BackOfficeSentItems /></UserGuard> },
-	{ path: "/back-office-share-classes", element: <UserGuard><BackOfficeShareClasses /></UserGuard> },
-	{ path: "/backofficeshareclasses", element: <UserGuard><BackOfficeShareClasses /></UserGuard> },
-	{ path: "/back-office-subscribe-on-behalf", element: <UserGuard><BackOfficeSubscribeOnBehalf /></UserGuard> },
-	{ path: "/backofficesubscribeonbehalf", element: <UserGuard><BackOfficeSubscribeOnBehalf /></UserGuard> },
-	{ path: "/back-office-subscriptions", element: <UserGuard><BackOfficeSubscriptions /></UserGuard> },
-	{ path: "/backofficesubscriptions", element: <UserGuard><BackOfficeSubscriptions /></UserGuard> },
-	{ path: "/board-documents", element: <UserGuard><BoardDocuments /></UserGuard> },
-	{ path: "/boarddocuments", element: <UserGuard><BoardDocuments /></UserGuard> },
-	{ path: "/board-investment", element: <UserGuard><BoardInvestment /></UserGuard> },
-	{ path: "/boardinvestment", element: <UserGuard><BoardInvestment /></UserGuard> },
-	{ path: "/board-meetings", element: <UserGuard><BoardMeetings /></UserGuard> },
-	{ path: "/boardmeetings", element: <UserGuard><BoardMeetings /></UserGuard> },
-	{ path: "/board-member-detail", element: <UserGuard><BoardMemberDetail /></UserGuard> },
-	{ path: "/boardmemberdetail", element: <UserGuard><BoardMemberDetail /></UserGuard> },
-	{ path: "/board-onboarding", element: <UserGuard><BoardOnboarding /></UserGuard> },
-	{ path: "/boardonboarding", element: <UserGuard><BoardOnboarding /></UserGuard> },
-	{ path: "/board-portal", element: <UserGuard><BoardPortal /></UserGuard> },
-	{ path: "/boardportal", element: <UserGuard><BoardPortal /></UserGuard> },
-	{ path: "/board-portal-invitations", element: <UserGuard><BoardPortalInvitations /></UserGuard> },
-	{ path: "/boardportalinvitations", element: <UserGuard><BoardPortalInvitations /></UserGuard> },
+	{ path: "/back-office-achievements", element: <ServiceRedirect /> },
+	{ path: "/backofficeachievements", element: <ServiceRedirect /> },
+	{ path: "/back-office-admin-subscriptions", element: <ServiceRedirect /> },
+	{ path: "/backofficeadminsubscriptions", element: <ServiceRedirect /> },
+	{ path: "/back-office-bank-accounts", element: <ServiceRedirect /> },
+	{ path: "/backofficebankaccounts", element: <ServiceRedirect /> },
+	{ path: "/back-office-board-documents", element: <ServiceRedirect /> },
+	{ path: "/backofficeboarddocuments", element: <ServiceRedirect /> },
+	{ path: "/back-office-board-investments", element: <ServiceRedirect /> },
+	{ path: "/backofficeboardinvestments", element: <ServiceRedirect /> },
+	{ path: "/back-office-board-mapping", element: <ServiceRedirect /> },
+	{ path: "/backofficeboardmapping", element: <ServiceRedirect /> },
+	{ path: "/back-office-board-members", element: <ServiceRedirect /> },
+	{ path: "/backofficeboardmembers", element: <ServiceRedirect /> },
+	{ path: "/back-office-certificate-templates", element: <ServiceRedirect /> },
+	{ path: "/backofficecertificatetemplates", element: <ServiceRedirect /> },
+	{ path: "/back-office-certificates", element: <ServiceRedirect /> },
+	{ path: "/backofficecertificates", element: <ServiceRedirect /> },
+	{ path: "/back-office-crypto-wallets", element: <ServiceRedirect /> },
+	{ path: "/backofficecryptowallets", element: <ServiceRedirect /> },
+	{ path: "/back-office-dashboard", element: <ServiceRedirect /> },
+	{ path: "/backofficedashboard", element: <ServiceRedirect /> },
+	{ path: "/back-office-data-room", element: <ServiceRedirect /> },
+	{ path: "/backofficedataroom", element: <ServiceRedirect /> },
+	{ path: "/back-office-data-room-access", element: <ServiceRedirect /> },
+	{ path: "/backofficedataroomaccess", element: <ServiceRedirect /> },
+	{ path: "/back-office-engagement", element: <ServiceRedirect /> },
+	{ path: "/backofficeengagement", element: <ServiceRedirect /> },
+	{ path: "/back-office-investor-leads", element: <ServiceRedirect /> },
+	{ path: "/backofficeinvestorleads", element: <ServiceRedirect /> },
+	{ path: "/back-office-invitations", element: <ServiceRedirect /> },
+	{ path: "/backofficeinvitations", element: <ServiceRedirect /> },
+	{ path: "/back-office-license-documents", element: <ServiceRedirect /> },
+	{ path: "/backofficelicensedocuments", element: <ServiceRedirect /> },
+	{ path: "/back-office-media-releases", element: <ServiceRedirect /> },
+	{ path: "/backofficemediareleases", element: <ServiceRedirect /> },
+	{ path: "/back-office-sent-items", element: <ServiceRedirect /> },
+	{ path: "/backofficesentitems", element: <ServiceRedirect /> },
+	{ path: "/back-office-share-classes", element: <ServiceRedirect /> },
+	{ path: "/backofficeshareclasses", element: <ServiceRedirect /> },
+	{ path: "/back-office-subscribe-on-behalf", element: <ServiceRedirect /> },
+	{ path: "/backofficesubscribeonbehalf", element: <ServiceRedirect /> },
+	{ path: "/back-office-subscriptions", element: <ServiceRedirect /> },
+	{ path: "/backofficesubscriptions", element: <ServiceRedirect /> },
+	{ path: "/board-documents", element: <ServiceRedirect /> },
+	{ path: "/boarddocuments", element: <ServiceRedirect /> },
+	{ path: "/board-investment", element: <ServiceRedirect /> },
+	{ path: "/boardinvestment", element: <ServiceRedirect /> },
+	{ path: "/board-meetings", element: <ServiceRedirect /> },
+	{ path: "/boardmeetings", element: <ServiceRedirect /> },
+	{ path: "/board-member-detail", element: <ServiceRedirect /> },
+	{ path: "/boardmemberdetail", element: <ServiceRedirect /> },
+	{ path: "/board-onboarding", element: <ServiceRedirect /> },
+	{ path: "/boardonboarding", element: <ServiceRedirect /> },
+	{ path: "/board-portal", element: <ServiceRedirect /> },
+	{ path: "/boardportal", element: <ServiceRedirect /> },
+	{ path: "/board-portal-invitations", element: <ServiceRedirect /> },
+	{ path: "/boardportalinvitations", element: <ServiceRedirect /> },
 	{ path: "/branch-locator", element: <BranchLocator /> },
 	{ path: "/branchlocator", element: <BranchLocator /> },
-	{ path: "/communication-portal", element: <UserGuard><CommunicationPortal /></UserGuard> },
-	{ path: "/communicationportal", element: <UserGuard><CommunicationPortal /></UserGuard> },
-	{ path: "/complete-profile", element: <UserGuard><CompleteProfile /></UserGuard> },
-	{ path: "/completeprofile", element: <UserGuard><CompleteProfile /></UserGuard> },
+	{ path: "/communication-portal", element: <ServiceRedirect /> },
+	{ path: "/communicationportal", element: <ServiceRedirect /> },
+	{ path: "/complete-profile", element: <ServiceRedirect /> },
+	{ path: "/completeprofile", element: <ServiceRedirect /> },
 	{ path: "/contact", element: <Contact /> },
 	{ path: "/cookie-policy", element: <CookiePolicy /> },
 	{ path: "/cookiepolicy", element: <CookiePolicy /> },
-	{ path: "/create-meeting", element: <UserGuard><CreateMeeting /></UserGuard> },
-	{ path: "/createmeeting", element: <UserGuard><CreateMeeting /></UserGuard> },
-	{ path: "/customer-portal", element: <UserGuard><CustomerPortal /></UserGuard> },
-	{ path: "/demo", element: <DemoSignIn /> },
+	{ path: "/create-meeting", element: <ServiceRedirect /> },
+	{ path: "/createmeeting", element: <ServiceRedirect /> },
+	{ path: "/customer-portal", element: <ServiceRedirect /> },
+	{ path: "/demo", element: <ServiceRedirect /> },
 	{ path: "/demo/launch", element: <UserGuard><DemoLauncher /></UserGuard> },
-	{ path: "/customerportal", element: <UserGuard><CustomerPortal /></UserGuard> },
-	{ path: "/data-room", element: <UserGuard><DataRoom /></UserGuard> },
-	{ path: "/dataroom", element: <UserGuard><DataRoom /></UserGuard> },
-	{ path: "/data-room-access", element: <UserGuard><DataRoomAccess /></UserGuard> },
-	{ path: "/dataroomaccess", element: <UserGuard><DataRoomAccess /></UserGuard> },
+	{ path: "/customerportal", element: <ServiceRedirect /> },
+	{ path: "/data-room", element: <ServiceRedirect /> },
+	{ path: "/dataroom", element: <ServiceRedirect /> },
+	{ path: "/data-room-access", element: <ServiceRedirect /> },
+	{ path: "/dataroomaccess", element: <ServiceRedirect /> },
 	{ path: "/dev-setup", element: <UserGuard><DevSetup /></UserGuard> },
 	{ path: "/devsetup", element: <UserGuard><DevSetup /></UserGuard> },
 	{ path: "/disclosures", element: <Disclosures /> },
@@ -190,41 +140,38 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/forbiddenpage", element: <ForbiddenPage /> },
 	{ path: "/foreign-exchange", element: <ForeignExchange /> },
 	{ path: "/foreignexchange", element: <ForeignExchange /> },
-	{ path: "/governance", element: <UserGuard><Governance /></UserGuard> },
-	{ path: "/governance-admin", element: <UserGuard><GovernanceAdmin /></UserGuard> },
-	{ path: "/governanceadmin", element: <UserGuard><GovernanceAdmin /></UserGuard> },
+	{ path: "/governance", element: <ServiceRedirect /> },
+	{ path: "/governance-admin", element: <ServiceRedirect /> },
+	{ path: "/governanceadmin", element: <ServiceRedirect /> },
 	{ path: "/help-center", element: <HelpCenter /> },
 	{ path: "/helpcenter", element: <HelpCenter /> },
-	{ path: "/invest", element: <Invest /> },
+	{ path: "/invest", element: <ServiceRedirect /> },
 	{ path: "/invite", element: <Invite /> },
 	{ path: "/invite-acceptance", element: <InviteAcceptance /> },
 	{ path: "/inviteacceptance", element: <InviteAcceptance /> },
 	{ path: "/media", element: <Media /> },
-	{ path: "/newsletters", element: <Newsletters /> },
-	{ path: "/careers", element: <Careers /> },
-	{ path: "/careers/:slug", element: <Careers /> },
-	{ path: "/meeting-details", element: <UserGuard><MeetingDetails /></UserGuard> },
-	{ path: "/meetingdetails", element: <UserGuard><MeetingDetails /></UserGuard> },
-	{ path: "/my-agreements", element: <UserGuard><MyAgreements /></UserGuard> },
-	{ path: "/myagreements", element: <UserGuard><MyAgreements /></UserGuard> },
-	{ path: "/my-subscriptions", element: <UserGuard><MySubscriptions /></UserGuard> },
-	{ path: "/mysubscriptions", element: <UserGuard><MySubscriptions /></UserGuard> },
+	{ path: "/meeting-details", element: <ServiceRedirect /> },
+	{ path: "/meetingdetails", element: <ServiceRedirect /> },
+	{ path: "/my-agreements", element: <ServiceRedirect /> },
+	{ path: "/myagreements", element: <ServiceRedirect /> },
+	{ path: "/my-subscriptions", element: <ServiceRedirect /> },
+	{ path: "/mysubscriptions", element: <ServiceRedirect /> },
 	{ path: "/no-roles", element: <NoRoles /> },
 	{ path: "/noroles", element: <NoRoles /> },
 	{ path: "/notification-analytics", element: <NotificationAnalytics /> },
 	{ path: "/notificationanalytics", element: <NotificationAnalytics /> },
-	{ path: "/notification-preferences", element: <NotificationPreferences /> },
-	{ path: "/notificationpreferences", element: <NotificationPreferences /> },
+	{ path: "/notification-preferences", element: <ServiceRedirect /> },
+	{ path: "/notificationpreferences", element: <ServiceRedirect /> },
 	{ path: "/offline", element: <Offline /> },
 	{ path: "/privacy-policy", element: <PrivacyPolicy /> },
 	{ path: "/privacypolicy", element: <PrivacyPolicy /> },
-	{ path: "/profile", element: <UserGuard><Profile /></UserGuard> },
+	{ path: "/profile", element: <ServiceRedirect /> },
 	{ path: "/security-tips", element: <SecurityTips /> },
 	{ path: "/securitytips", element: <SecurityTips /> },
-	{ path: "/share-subscription", element: <UserGuard><ShareSubscription /></UserGuard> },
-	{ path: "/sharesubscription", element: <UserGuard><ShareSubscription /></UserGuard> },
-	{ path: "/sign-certificate", element: <UserGuard><SignCertificate /></UserGuard> },
-	{ path: "/signcertificate", element: <UserGuard><SignCertificate /></UserGuard> },
+	{ path: "/share-subscription", element: <ServiceRedirect /> },
+	{ path: "/sharesubscription", element: <ServiceRedirect /> },
+	{ path: "/sign-certificate", element: <ServiceRedirect /> },
+	{ path: "/signcertificate", element: <ServiceRedirect /> },
 	{ path: "/support", element: <Support /> },
 	{ path: "/sustainability", element: <Sustainability /> },
 	{ path: "/terms-of-service", element: <TermsOfService /> },
