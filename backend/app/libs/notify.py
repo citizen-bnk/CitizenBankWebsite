@@ -22,7 +22,7 @@ import inspect
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 from urllib.parse import urlsplit
 
 from app.libs.url_helpers import get_frontend_path
@@ -83,6 +83,9 @@ class EmailSpec:
     sender_type: str = "noreply"
     template: Optional[str] = None
     template_args: dict = field(default_factory=dict)
+    # For mail that needs its own transport (e.g. calendar attachments): an async callable
+    # that performs the send. It runs only when the preference allows email.
+    send: Optional[Callable[[], Awaitable[Any]]] = None
 
 
 async def _render_html(spec: EmailSpec) -> str:
@@ -265,8 +268,11 @@ async def notify(
                 if not await email_allowed(conn, user_id):
                     result["email"] = "skipped_preference"
                 else:
-                    html = await _render_html(email)
-                    await _deliver_email(email, html, user_id)
+                    if email.send is not None:
+                        await email.send()
+                    else:
+                        html = await _render_html(email)
+                        await _deliver_email(email, html, user_id)
                     result["email"] = "sent"
             except Exception as e:  # noqa: BLE001
                 print(f"notify: email failed ({type}): {e}")
