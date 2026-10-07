@@ -557,12 +557,13 @@ async def send_notification(
                 elif channel == "email":
                     # Send email via Resend (fallback)
                     try:
-                        from app.libs.email import send_email
+                        from app.libs.email_service import send_email
                         
                         await send_email(
                             to=identifier,
                             subject=subject,
-                            body=message
+                            content_html=f"<p>{message}</p>",
+                            content_text=message,
                         )
                         
                         results["channels_sent"].append("email")

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import time
+from datetime import datetime, time
 import asyncpg
 import os
 from app.auth import AuthorizedUser
@@ -24,8 +24,8 @@ class NotificationPreferences(BaseModel):
     quiet_hours_start: Optional[time] = None
     quiet_hours_end: Optional[time] = None
     timezone: str = "Africa/Johannesburg"
-    created_at: str
-    updated_at: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class UpdatePreferencesRequest(BaseModel):
     """Update notification preferences"""

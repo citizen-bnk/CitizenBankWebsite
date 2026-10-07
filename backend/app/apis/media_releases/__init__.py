@@ -655,27 +655,14 @@ async def create_media_release_notification(
         excerpt: Article excerpt/preview
         article_url: URL to the full article
     """
-    # Prepare metadata with CTA
-    notification_metadata = {
-        'action': 'read_article',
-        'url': article_url,
-        'source': 'media_release_system',
-        'board_member_id': board_member_id
-    }
-    
-    # Insert notification
-    await conn.execute("""
-        INSERT INTO notifications
-        (user_id, recipient_email, title, message, notification_type, metadata, severity, read)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
-    """,
-        user_id,
-        email,
-        f"📰 {title}",
-        excerpt,
-        'media_release',
-        json.dumps(notification_metadata),
-        'normal'
+    # Real inbox columns, relative Hub-style path, never raises (email is queued elsewhere).
+    from app.libs.notify import notify
+
+    await notify(
+        conn, user_id, "media_release", f"📰 {title}", excerpt,
+        path=article_url, recipient_email=email,
+        extra={"action": "read_article", "source": "media_release_system",
+               "board_member_id": board_member_id},
     )
-    
+
     print(f"🔔 Created media release notification for {full_name}")

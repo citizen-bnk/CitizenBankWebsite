@@ -387,103 +387,16 @@ async def payments_process_payment_reminders(user: AuthorizedUser):
     if not is_admin:
         raise HTTPException(status_code=403, detail="Only administrators can process payment reminders")
     
+    # Single reminder pipeline: same code as the daily scheduler job (libs/payment_reminders.py).
+    from app.libs.payment_reminders import run_payment_reminders
+
     async with db_connection() as conn:
-        now = datetime.now(timezone.utc)
-        
-        # Find subscriptions needing reminders
-        subscriptions = await conn.fetch("""
-            SELECT 
-                ss.subscription_id, ss.email, ss.user_id, ss.payment_status,
-                ss.payment_deadline, ss.total_amount, ss.created_at,
-                ss.payment_reminder_24h_sent, ss.payment_reminder_7d_sent,
-                ss.payment_reminder_3d_sent, ss.payment_reminder_1d_sent,
-                ss.full_name
-            FROM share_subscriptions ss
-            WHERE ss.payment_status IN ('pending_payment', 'proof_submitted')
-              AND ss.payment_deadline > NOW()
-            ORDER BY ss.payment_deadline ASC
-        """)
-        
-        reminders_sent = 0
-        notifications_created = 0
-        
-        for sub in subscriptions:
-            deadline = sub['payment_deadline']
-            created = sub['created_at']
-            days_until_deadline = (deadline - now).days
-            hours_since_created = (now - created).total_seconds() / 3600
-            
-            reminder_type = None
-            column_to_update = None
-            
-            # Check which reminder to send
-            if not sub['payment_reminder_24h_sent'] and hours_since_created >= 24:
-                reminder_type = '24h'
-                column_to_update = 'payment_reminder_24h_sent'
-            elif not sub['payment_reminder_7d_sent'] and days_until_deadline <= 7 and days_until_deadline > 3:
-                reminder_type = '7days'
-                column_to_update = 'payment_reminder_7d_sent'
-            elif not sub['payment_reminder_3d_sent'] and days_until_deadline <= 3 and days_until_deadline > 1:
-                reminder_type = '3days'
-                column_to_update = 'payment_reminder_3d_sent'
-            elif not sub['payment_reminder_1d_sent'] and days_until_deadline <= 1 and days_until_deadline >= 0:
-                reminder_type = '1day'
-                column_to_update = 'payment_reminder_1d_sent'
-            
-            if reminder_type:
-                try:
-                    # Send reminder email
-                    from app.libs.email_service import send_email
-                    
-                    subject_map = {
-                        '24h': 'Welcome - Payment Instructions',
-                        '7days': 'Payment Due in 7 Days',
-                        '3days': 'Payment Due in 3 Days',
-                        '1day': 'URGENT: Payment Due Tomorrow'
-                    }
-                    
-                    await send_email(
-                        to=sub['email'],
-                        subject=f"{subject_map[reminder_type]} - {sub['subscription_id']}",
-                        content_html=f"<p>Payment reminder for subscription {sub['subscription_id']}</p>",
-                        sender_type="shares"
-                    )
-                    
-                    # Create bell notification
-                    severity = 'high' if days_until_deadline <= 3 else 'medium'
-                    await conn.execute("""
-                        INSERT INTO notifications (
-                            user_id, recipient_email, subject, content, 
-                            category, metadata, severity, show_popup
-                        )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    """,
-                        sub['user_id'],
-                        sub['email'],
-                        f"Payment Reminder - {days_until_deadline} days remaining",
-                        f"Your payment for subscription {sub['subscription_id']} is due soon.",
-                        'payment_reminder',
-                        json.dumps({"subscription_id": sub['subscription_id']}),
-                        severity,
-                        days_until_deadline <= 3
-                    )
-                    
-                    # Mark reminder as sent
-                    await conn.execute(
-                        f"UPDATE share_subscriptions SET {column_to_update} = TRUE WHERE subscription_id = $1",
-                        sub['subscription_id']
-                    )
-                    
-                    reminders_sent += 1
-                    notifications_created += 1
-                    print(f"✅ Reminder sent ({reminder_type}): {sub['subscription_id']}")
-                    
-                except Exception as e:
-                    print(f"⚠️ Failed to send reminder for {sub['subscription_id']}: {e}")
-        
-        return {
-            "success": True,
-            "reminders_sent": reminders_sent,
-            "notifications_created": notifications_created,
-            "message": f"Processed {reminders_sent} reminder(s) with {notifications_created} bell notifications"
-        }
+        results = await run_payment_reminders(conn)
+
+    return {
+        "success": True,
+        "reminders_sent": results["reminders_sent"],
+        "notifications_created": results["notifications_created"],
+        "errors": results["errors"],
+        "message": f"Processed {results['reminders_sent']} reminder(s) with {results['notifications_created']} inbox notifications"
+    }

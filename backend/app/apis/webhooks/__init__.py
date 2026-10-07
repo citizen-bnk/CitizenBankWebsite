@@ -2,27 +2,46 @@ from fastapi import APIRouter, Request, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional, Any
 from app import runtime
+import base64
 import hashlib
 import hmac
 import json
 import os
+import time
 from datetime import datetime
 
 router = APIRouter(prefix="/webhooks")
 
 
-def verify_resend_signature(payload: bytes, signature: str, secret: str) -> bool:
-    """
-    Verify the Resend webhook signature.
-    Resend uses HMAC SHA256 for webhook signatures.
+SIGNATURE_TOLERANCE_SECONDS = 5 * 60
+
+
+def verify_resend_signature(payload: bytes, svix_id: Optional[str], svix_timestamp: Optional[str],
+                            svix_signature: Optional[str], secret: str) -> bool:
+    """Verify a Resend (Svix) webhook.
+
+    Signed content is "{svix-id}.{svix-timestamp}.{body}" with HMAC-SHA256, keyed by the
+    base64 part of the signing secret ("whsec_..."). The svix-signature header holds one or
+    more space-separated "v1,<base64>" entries. Timestamps outside a 5 minute window are
+    rejected to stop replays.
     """
     try:
-        expected_signature = hmac.new(
-            secret.encode('utf-8'),
-            payload,
-            hashlib.sha256
-        ).hexdigest()
-        return hmac.compare_digest(signature, expected_signature)
+        if not (svix_id and svix_timestamp and svix_signature):
+            return False
+        if abs(time.time() - int(svix_timestamp)) > SIGNATURE_TOLERANCE_SECONDS:
+            return False
+        key = secret[len("whsec_"):] if secret.startswith("whsec_") else secret
+        try:
+            key_bytes = base64.b64decode(key)
+        except Exception:
+            key_bytes = key.encode("utf-8")
+        signed = f"{svix_id}.{svix_timestamp}.".encode("utf-8") + payload
+        expected = base64.b64encode(hmac.new(key_bytes, signed, hashlib.sha256).digest()).decode()
+        for part in svix_signature.split():
+            version, _, sig = part.partition(",")
+            if version == "v1" and hmac.compare_digest(sig, expected):
+                return True
+        return False
     except Exception as e:
         print(f"Signature verification error: {e}")
         return False
@@ -58,10 +77,12 @@ async def resend_webhook(
     
     # Verify webhook signature if configured
     webhook_secret = os.environ.get("RESEND_WEBHOOK_SECRET")
-    if webhook_secret and svix_signature:
-        if not verify_resend_signature(body, svix_signature, webhook_secret):
-            print("⚠️ Invalid webhook signature")
+    if webhook_secret:
+        if not verify_resend_signature(body, svix_id, svix_timestamp, svix_signature, webhook_secret):
+            print("⚠️ Invalid or missing webhook signature")
             raise HTTPException(status_code=401, detail="Invalid signature")
+    else:
+        print("⚠️ RESEND_WEBHOOK_SECRET is not set: accepting UNSIGNED Resend webhooks (fine for local use only)")
     
     # Parse the event
     try:

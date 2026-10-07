@@ -67,17 +67,7 @@ async def log_email(
             recipient_email, sender_email, subject, email_type, status,
             related_invitation_id, related_user_id, metadata_json
         )
-        
-        # Create notification record (linked by email)
-        await conn.execute(
-            """
-            INSERT INTO notifications (recipient_email, email_subject, email_content, email_type,
-                                       related_invitation_id, related_user_id, metadata)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            """,
-            recipient_email, subject, f"Email sent: {email_type}", email_type,
-            related_invitation_id, related_user_id, metadata_json
-        )
+        # NOTE: no inbox row here. 'Email sent' rows were noise; real events use libs.notify.notify().
     finally:
         await conn.close()
 
