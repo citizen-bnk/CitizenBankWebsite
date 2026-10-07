@@ -1432,21 +1432,36 @@ async def send_governance_session_notification(
             # Calculate scheduled time: first email immediately, then +1min, +2min, etc.
             scheduled_at = now + timedelta(minutes=idx)
             
-            # Insert into queue
-            await db_conn.execute(
-                """
-                INSERT INTO governance_email_queue 
-                (session_id, recipient_user_id, recipient_email, recipient_name, subject, html_body, scheduled_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """,
-                session_id,
-                recipient["user_id"],
-                recipient["email"],
-                recipient["full_name"],
-                subject,
-                html_body,
-                scheduled_at
+            # Inbox row (Hub /decisions, "vote needed") for everyone; the staggered email queue
+            # insert only runs when the member has not switched email off.
+            async def queue_email(recipient=recipient, html_body=html_body, scheduled_at=scheduled_at):
+                await db_conn.execute(
+                    """
+                    INSERT INTO governance_email_queue 
+                    (session_id, recipient_user_id, recipient_email, recipient_name, subject, html_body, scheduled_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    session_id,
+                    recipient["user_id"],
+                    recipient["email"],
+                    recipient["full_name"],
+                    subject,
+                    html_body,
+                    scheduled_at
+                )
+
+            from app.libs.notify import EmailSpec, notify
+            outcome = await notify(
+                None, recipient["user_id"], "governance_session", subject,
+                f"Your vote is needed: {session['title']} (voting closes {closes_at}).",
+                path=f"/decisions?session={session_id}", recipient_email=recipient["email"],
+                email=EmailSpec(to=recipient["email"], subject=subject, send=queue_email),
+                dedupe_key=f"governance-session:{session_id}:{recipient['user_id']}", dedupe_hours=1,
+                extra={"session_id": session_id},
             )
+            if outcome["email"] != "sent":
+                print(f"governance: no email queued for {recipient['email']} ({outcome['email']})")
+                continue  # inbox row exists; only count emails actually queued
             queued_count += 1
         
         await db_conn.close()

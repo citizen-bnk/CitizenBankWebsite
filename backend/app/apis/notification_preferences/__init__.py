@@ -70,7 +70,10 @@ class DeviceInfo(BaseModel):
 
 async def get_db_connection():
     """Get database connection"""
-    return await asyncpg.connect(os.environ.get("DATABASE_URL"))
+    # Same database the inbox and libs.notify use (falls back to DATABASE_URL when unset)
+    from app.env import Mode, mode
+    url = os.environ.get("DATABASE_URL_PROD" if mode == Mode.PROD else "DATABASE_URL_DEV")
+    return await asyncpg.connect(url or os.environ.get("DATABASE_URL"))
 
 async def get_or_create_preferences(user_id: str, conn: asyncpg.Connection) -> dict:
     """Get existing preferences or create default ones (idempotent)"""

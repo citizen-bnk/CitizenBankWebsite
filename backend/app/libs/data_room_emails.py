@@ -1,6 +1,6 @@
 """Email templates for data room notifications and access requests."""
 from typing import Optional
-from app.libs.email_queue import enqueue_email
+from app.libs.notify import EmailSpec, notify
 from app.libs.url_helpers import get_frontend_path
 
 LOGO_URL = "https://citizenbank.co.ls/brand/logo.png"
@@ -222,12 +222,14 @@ async def send_new_document_notification(
         description=description
     )
     
-    await enqueue_email(
-        to_email=to_email,
-        subject=f"New Document Available: {document_name}",
-        body_html=html_content,
-        category="data_room",
-        priority=2
+    # Inbox row (Hub /data-room) + email (honours channel_email)
+    subject = f"New Document Available: {document_name}"
+    await notify(
+        None, None, "data_room_document", subject,
+        f"A new document is available in the data room: {document_name} ({category}).",
+        path="/data-room", recipient_email=to_email,
+        email=EmailSpec(to=to_email, subject=subject, html=html_content, recipient_name=recipient_name),
+        dedupe_key=f"data-room-doc:{document_name}:{to_email.lower()}", dedupe_hours=24,
     )
 
 
@@ -242,12 +244,13 @@ async def send_agreement_reminder(
         missing_agreements=missing_agreements
     )
     
-    await enqueue_email(
-        to_email=to_email,
-        subject="Action Required: Sign Data Room Agreements",
-        body_html=html_content,
-        category="data_room",
-        priority=1  # Higher priority
+    subject = "Action Required: Sign Data Room Agreements"
+    await notify(
+        None, None, "data_room_agreements", subject,
+        "Please sign the outstanding data room agreements: " + ", ".join(missing_agreements) + ".",
+        path="/data-room", recipient_email=to_email,
+        email=EmailSpec(to=to_email, subject=subject, html=html_content, recipient_name=recipient_name),
+        dedupe_key=f"data-room-agreements:{to_email.lower()}", dedupe_hours=24,
     )
 
 
@@ -268,10 +271,10 @@ async def send_document_access_alert(
         timestamp=timestamp
     )
     
-    await enqueue_email(
-        to_email=to_email,
-        subject=f"Data Room Access Alert: {document_name}",
-        body_html=html_content,
-        category="data_room_audit",
-        priority=3  # Lower priority for audit notifications
+    subject = f"Data Room Access Alert: {document_name}"
+    await notify(
+        None, None, "data_room_access", subject,
+        f"{user_name} accessed {document_name} ({access_reason}).",
+        path="/office/data-room", recipient_email=to_email,
+        email=EmailSpec(to=to_email, subject=subject, html=html_content, recipient_name=admin_name),
     )

@@ -354,4 +354,24 @@ async def review_loi_submission(
         if result == "UPDATE 0":
             raise HTTPException(status_code=404, detail="LOI submission not found")
         
+        # Tell the investor (inbox row on Hub /data-room). The submitter column is not
+        # confirmed by any DDL in the repo, so look it up defensively and skip if absent.
+        try:
+            async with conn.transaction():
+                owner = await conn.fetchval(
+                    "SELECT user_id FROM letter_of_intent_submissions WHERE id = $1", submission_id
+                )
+            if owner:
+                from app.libs.notify import notify
+                approved = review.status == "approved"
+                await notify(
+                    conn, owner, "data_room_loi_review",
+                    "Letter of intent approved" if approved else "Letter of intent not approved",
+                    "Your letter of intent was approved. You now have data room access."
+                    if approved else "Your letter of intent was not approved." + (f" {review.notes}" if review.notes else ""),
+                    path="/data-room", dedupe_key=f"loi-review:{submission_id}:{review.status}", dedupe_hours=1,
+                )
+        except Exception as e:
+            print(f"LOI review notification skipped: {e}")
+
         return {"message": f"LOI submission {review.status} successfully"}
