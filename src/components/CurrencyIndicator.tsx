@@ -58,7 +58,7 @@ export function CurrencyIndicator() {
 export function ExchangeRateDisclaimer() {
   return (
     <div className="text-xs text-gray-500 italic mt-2">
-      * Exchange rates updated hourly. Actual rates may vary at time of transaction.
+      * Indicative rates, loaded once per session. Actual rates may differ at the time of any transaction.
     </div>
   );
 }

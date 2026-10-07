@@ -2,51 +2,37 @@ import { Header } from 'components/Header';
 import { Footer } from 'components/Footer';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { HelpCircle, Phone, MapPin, Shield, FileQuestion, Mail, ArrowRight } from 'lucide-react';
+import { HelpCircle, Shield, FileQuestion, Mail, ArrowRight } from 'lucide-react';
 
 export default function Support() {
   const supportResources = [
     {
       icon: HelpCircle,
       title: 'Help Center',
-      description: 'Browse our comprehensive knowledge base and find answers to common questions',
+      description: 'Answers to common questions about the platform',
       link: '/help-center',
       color: '#6d52a2'
     },
     {
       icon: Mail,
       title: 'Contact Us',
-      description: 'Get in touch with our support team via email, phone, or contact form',
+      description: 'How to reach Citizen Bank',
       link: '/contact',
       color: '#8f6ec4'
     },
     {
-      icon: MapPin,
-      title: 'Branch Locator',
-      description: 'Find your nearest Citizen Bank branch with addresses and operating hours',
-      link: '/branch-locator',
-      color: '#6d52a2'
-    },
-    {
       icon: Shield,
       title: 'Security Tips',
-      description: 'Learn how to protect your account and stay safe from fraud and scams',
+      description: 'General advice for staying safe from fraud and scams',
       link: '/security-tips',
       color: '#8f6ec4'
     },
     {
       icon: FileQuestion,
       title: 'FAQs',
-      description: 'Quick answers to frequently asked questions about our services',
+      description: 'Quick answers to frequently asked questions',
       link: '/faqs',
       color: '#6d52a2'
-    },
-    {
-      icon: Phone,
-      title: 'Emergency Support',
-      description: '24/7 hotline for urgent account issues and card blocking',
-      link: '/contact',
-      color: '#8f6ec4'
     }
   ];
 
@@ -60,7 +46,7 @@ export default function Support() {
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-3xl sm:text-4xl font-bold mb-4">How Can We Help You?</h1>
             <p className="text-lg sm:text-xl text-white/90">
-              Access our support resources, contact our team, or find your nearest branch
+              Support resources and how to contact us
             </p>
           </div>
         </div>
@@ -92,39 +78,6 @@ export default function Support() {
               </Link>
             );
           })}
-        </div>
-      </section>
-
-      {/* Quick Contact */}
-      <section className="bg-white border-t border-gray-200 py-12">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Need Immediate Assistance?</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <div>
-                <Phone className="h-8 w-8 text-[#6d52a2] mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Call Us</h3>
-                <p className="text-sm text-gray-600">+266 2231 2345</p>
-                <p className="text-xs text-gray-500 mt-1">Mon-Fri: 8am-5pm</p>
-              </div>
-              <div>
-                <Mail className="h-8 w-8 text-[#6d52a2] mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Email Us</h3>
-                <p className="text-sm text-gray-600">support@citizenbank.co.ls</p>
-                <p className="text-xs text-gray-500 mt-1">Response within 24 hours</p>
-              </div>
-              <div>
-                <MapPin className="h-8 w-8 text-[#6d52a2] mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-1">Visit Us</h3>
-                <p className="text-sm text-gray-600">Kingsway Street, Maseru</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  <Link to="/branch-locator" className="text-[#6d52a2] hover:underline">
-                    View all branches
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 

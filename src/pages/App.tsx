@@ -1,8 +1,6 @@
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
-import { MetricCard } from "components/MetricCard";
 import { PortalCard } from "components/PortalCard";
-import { CurrencyIndicator } from "components/CurrencyIndicator";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
@@ -15,11 +13,12 @@ import {
   FileText,
   Newspaper,
   Leaf,
-  DollarSign,
   ArrowRight,
   Shield,
-  Clock,
-  Award,
+  Landmark,
+  Smartphone,
+  Bot,
+  KeyRound,
   HandCoins,
   UserPlus,
 } from "lucide-react";
@@ -84,18 +83,18 @@ export default function App() {
   </span>
 </h1>
             <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-white/90">
-              Your comprehensive banking platform for all financial services.
-              Access customer banking, investments, governance, and back office systems from one unified hub.
+              Citizen Bank is a digital bank being built for Lesotho. Banking features on this site are a
+              pre-licensing demonstration that uses simulated money, alongside tools for investors and board members.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               {!user ? (
                 <>
                   <Link
-                    to="/auth/sign-up"
+                    to="/demo"
                     className="px-6 sm:px-8 py-3 bg-white text-[#6d52a2] rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
                     <UserPlus className="h-5 w-5" />
-                    Open an Account
+                    Try the demonstration
                   </Link>
                   <Link
                     to="/auth/sign-in"
@@ -110,7 +109,7 @@ export default function App() {
                     to="/customer-portal"
                     className="px-6 sm:px-8 py-3 bg-white text-[#6d52a2] rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
-                    Go to Customer Portal
+                    Customer Portal (demonstration)
                     <ArrowRight className="h-5 w-5" />
                   </Link>
                   <Link
@@ -134,7 +133,7 @@ export default function App() {
       </section>
 
       {/* Admin Setup Notice - Only show if user is not logged in or is super admin */}
-      {(!user || roles.includes('super_admin')) && (
+      {user && roles.includes('super_admin') && (
         <section className="container mx-auto px-4 py-8">
           <div className="bg-[#6d52a2]/5 border border-[#6d52a2] rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -144,9 +143,7 @@ export default function App() {
                   <div>
                     <strong className="text-[#6d52a2] text-base">System Administrators:</strong>
                     <p className="text-sm text-gray-700 mt-1">
-                      {user && roles.includes('super_admin') 
-                        ? 'Manage admin users and back office staff through the setup guide.'
-                        : 'Set up your first administrator account and configure back office access.'}
+                      Manage admin users and back office staff through the setup guide.
                     </p>
                   </div>
                   <Link to="/admin-setup-guide">
@@ -179,7 +176,7 @@ export default function App() {
                 Access Your Systems
               </h2>
               <p className="text-white/90">
-                Quick access to your authorized banking portals
+                Quick access to the portals you are authorised to use
               </p>
             </div>
 
@@ -188,7 +185,7 @@ export default function App() {
                 <PortalCard
                   icon={Users}
                   title="Customer Portal"
-                  description="Personal and business banking services, accounts, transfers, and loans"
+                  description="Demonstration banking with simulated accounts and transfers"
                   link="/customer-portal"
                 />
               )}
@@ -212,7 +209,7 @@ export default function App() {
                 <PortalCard
                   icon={Settings}
                   title="Back Office"
-                  description="Internal operations, compliance, reporting, and administration"
+                  description="Internal operations, reporting, and administration"
                   link="/back-office-dashboard"
                 />
               )}
@@ -221,51 +218,50 @@ export default function App() {
         </section>
       )}
 
-      {/* Performance Dashboard */}
+      {/* What has been built (statements of fact only; no statistics) */}
       <section className="bg-white border-y border-gray-200 py-16">
         <div className="container mx-auto px-4">
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Bank Performance Overview
-            </h2>
-            <p className="text-gray-600 mb-4">
-              Real-time metrics and key performance indicators
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">What has been built so far</h2>
+            <p className="text-gray-600">
+              A pre-licensing demonstration of the platform. All banking in it is simulated and no real money moves.
             </p>
-            <CurrencyIndicator />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <MetricCard
-              icon={Users}
-              label="Active Customers"
-              value="24,500"
-              change="12%"
-              positive={true}
-            />
-            <MetricCard
-              icon={DollarSign}
-              label="Total Assets"
-              value={2400000000}
-              change="8.5%"
-              positive={true}
-              isCurrency={true}
-            />
-            <MetricCard
-              icon={TrendingUp}
-              label="Investment Portfolio"
-              value={850000000}
-              change="15.2%"
-              positive={true}
-              isCurrency={true}
-            />
-            <MetricCard
-              icon={Award}
-              label="Customer Satisfaction"
-              value="94%"
-              change="3%"
-              positive={true}
-            />
+            <div className="rounded-lg border border-gray-200 p-6">
+              <Landmark className="h-8 w-8 text-[#6d52a2] mb-3" />
+              <h3 className="font-semibold text-gray-900 mb-2">Core ledger</h3>
+              <p className="text-sm text-gray-600">
+                A double-entry ledger that records every transaction as balanced entries and makes retries safe.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-6">
+              <Smartphone className="h-8 w-8 text-[#6d52a2] mb-3" />
+              <h3 className="font-semibold text-gray-900 mb-2">Web and mobile banking</h3>
+              <p className="text-sm text-gray-600">
+                An internet banking experience and an installable mobile app, both connected to the ledger.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-6">
+              <Bot className="h-8 w-8 text-[#6d52a2] mb-3" />
+              <h3 className="font-semibold text-gray-900 mb-2">Citizen AI assistant</h3>
+              <p className="text-sm text-gray-600">
+                Answers questions about a person's own accounts and prepares payments for them to confirm. It cannot move money by itself.
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-6">
+              <KeyRound className="h-8 w-8 text-[#6d52a2] mb-3" />
+              <h3 className="font-semibold text-gray-900 mb-2">Passkey sign-in and roles</h3>
+              <p className="text-sm text-gray-600">
+                Passkey sign-in, one sign-in across the website, Hub and banking, and role-based access.
+              </p>
+            </div>
           </div>
+          <p className="mt-6 text-sm text-gray-600">
+            Follow progress in the{" "}
+            <Link to="/media" className="text-[#6d52a2] font-medium hover:underline">Media Center</Link>.
+          </p>
         </div>
       </section>
 
@@ -281,7 +277,7 @@ export default function App() {
               Public Disclosures
             </h3>
             <p className="text-gray-600 mb-4">
-              Access financial reports, compliance documents, and regulatory filings
+              Documents about Citizen Digital Ltd and its banking licence application
             </p>
             <span className="text-[#6d52a2] font-medium inline-flex items-center gap-1">
               View Disclosures <ArrowRight className="h-4 w-4" />
@@ -297,7 +293,7 @@ export default function App() {
               Media Center
             </h3>
             <p className="text-gray-600 mb-4">
-              Latest news, press releases, and announcements from Citizen Bank
+              Progress updates and announcements from Citizen Bank
             </p>
             <span className="text-[#6d52a2] font-medium inline-flex items-center gap-1">
               Read News <ArrowRight className="h-4 w-4" />
@@ -313,41 +309,12 @@ export default function App() {
               Sustainability & CSR
             </h3>
             <p className="text-gray-600 mb-4">
-              Our commitment to social responsibility and environmental sustainability
+              How we approach social responsibility and sustainability
             </p>
             <span className="text-[#6d52a2] font-medium inline-flex items-center gap-1">
               Learn More <ArrowRight className="h-4 w-4" />
             </span>
           </Link>
-        </div>
-      </section>
-
-      {/* Trust Indicators */}
-      <section className="bg-gray-100 py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            <div className="flex flex-col items-center">
-              <Shield className="h-12 w-12 text-[#6d52a2] mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-2">Bank-Level Security</h3>
-              <p className="text-sm text-gray-600">
-                Your data is protected with industry-leading encryption and security protocols
-              </p>
-            </div>
-            <div className="flex flex-col items-center">
-              <Clock className="h-12 w-12 text-[#6d52a2] mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-2">24/7 Access</h3>
-              <p className="text-sm text-gray-600">
-                Access your accounts and services anytime, anywhere from any device
-              </p>
-            </div>
-            <div className="flex flex-col items-center">
-              <Award className="h-12 w-12 text-[#6d52a2] mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-2">Award-Winning Service</h3>
-              <p className="text-sm text-gray-600">
-                Recognized for excellence in banking services across the Kingdom of Lesotho
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 

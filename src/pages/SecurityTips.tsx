@@ -2,16 +2,19 @@ import { Header } from 'components/Header';
 import { Footer } from 'components/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { usePolicy, visibleContact } from 'utils/policy';
 import { Shield, Lock, Eye, Smartphone, Mail, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 
 export default function SecurityTips() {
+  const policy = usePolicy();
+  const reportLines = visibleContact(policy, ['security_email', 'phone']);
   const securityTips = [
     {
       icon: Lock,
       title: 'Password Security',
       tips: [
         'Use strong passwords with at least 12 characters including uppercase, lowercase, numbers, and symbols',
-        'Never share your password with anyone, including bank staff',
+        'Never share your password with anyone, including staff',
         'Change your password regularly (every 3-6 months)',
         'Use different passwords for different accounts',
         'Enable two-factor authentication whenever available'
@@ -20,9 +23,9 @@ export default function SecurityTips() {
     },
     {
       icon: Smartphone,
-      title: 'Mobile Banking Safety',
+      title: 'Mobile App Safety',
       tips: [
-        'Only download our official app from Google Play Store or Apple App Store',
+        'Only install apps from a source Citizen Bank has told you to use',
         'Keep your mobile banking app updated to the latest version',
         'Never save your login credentials on shared devices',
         'Use biometric authentication (fingerprint/face ID) when available',
@@ -38,7 +41,7 @@ export default function SecurityTips() {
         'Always verify the sender\'s email address before clicking links',
         'Look for "https://" and the padlock icon in your browser',
         'Be suspicious of urgent requests for personal information',
-        'Report suspicious emails to security@citizenbank.co.ls'
+        'Report suspicious emails to Citizen Bank using the contact details on this site'
       ],
       color: '#6d52a2'
     },
@@ -46,8 +49,8 @@ export default function SecurityTips() {
       icon: Eye,
       title: 'Account Monitoring',
       tips: [
-        'Check your account statements regularly for unauthorized transactions',
-        'Set up transaction alerts via SMS or email',
+        'Check your account activity regularly for unauthorised transactions',
+        'Turn on notifications for account activity where they are offered',
         'Report any suspicious activity immediately',
         'Review your account activity at least once a week',
         'Keep your contact information updated so we can reach you'
@@ -62,15 +65,15 @@ export default function SecurityTips() {
     'Suspicious links or attachments',
     'Threats or urgent demands for action',
     'Requests to transfer money to "secure" accounts',
-    'Calls claiming to be from the bank asking for verification codes'
+    'Calls claiming to be from Citizen Bank asking for verification codes'
   ];
 
   const safePractices = [
-    'Access online banking only from secure, private networks',
+    'Use online banking only from secure, private networks',
     'Keep your devices updated with the latest security patches',
     'Use antivirus software and keep it updated',
     'Never use public computers for banking',
-    'Clear browser cache and history after online banking sessions'
+    'Sign out and close the browser after online banking sessions'
   ];
 
   return (
@@ -84,7 +87,7 @@ export default function SecurityTips() {
             <Shield className="h-16 w-16 mx-auto mb-4 opacity-90" />
             <h1 className="text-4xl font-bold mb-4">Security Tips</h1>
             <p className="text-xl text-white/90">
-              Protect your account and stay safe from fraud, scams, and unauthorized access
+              General advice for staying safe from fraud, scams and unauthorised access
             </p>
           </div>
         </div>
@@ -177,12 +180,16 @@ export default function SecurityTips() {
           <AlertTitle className="text-[#6d52a2] font-semibold">Suspect Fraud?</AlertTitle>
           <AlertDescription className="mt-2">
             <p className="text-gray-700 mb-3">
-              If you suspect unauthorized activity on your account or have fallen victim to a scam:
+              If you suspect unauthorized activity on your account or have fallen victim to a scam, contact the person or organisation that holds your account, and report it to the police. To tell Citizen Bank:
             </p>
             <div className="space-y-2 text-sm">
-              <p><strong>Call immediately:</strong> +266 2231 9999 (24/7 Fraud Hotline)</p>
-              <p><strong>Email:</strong> security@citizenbank.co.ls</p>
-              <p><strong>In Person:</strong> Visit your nearest branch with valid ID</p>
+              {reportLines.length > 0 ? (
+                reportLines.map((l) => (
+                  <p key={l.key}><strong>{l.key === 'phone' ? 'Phone' : 'Email'}:</strong> {l.value}</p>
+                ))
+              ) : (
+                <p>Contact details for reporting will be published on the Contact page.</p>
+              )}
             </div>
           </AlertDescription>
         </Alert>

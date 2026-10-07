@@ -84,11 +84,8 @@ export function Header() {
 
           {/* Main Menu - Hidden on mobile, shown on large screens */}
           <nav className="hidden lg:flex items-center gap-6 xl:gap-8">
-            <Link to={user ? getFrontendPath("/customer-portal") : getFrontendPath("/auth/sign-in")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
-              Personal Banking
-            </Link>
-            <Link to={user ? getFrontendPath("/customer-portal") : getFrontendPath("/auth/sign-in")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
-              Business Banking
+            <Link to="/demo" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
+              Demonstration
             </Link>
             <Link to={getFrontendPath("/invest")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Invest

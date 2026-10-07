@@ -38,10 +38,10 @@ export default function ForeignExchange() {
           <div className="max-w-3xl">
             <div className="flex items-center gap-3 mb-4">
               <Globe className="h-8 w-8 sm:h-10 sm:w-10" />
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Foreign Exchange Services</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">Exchange Rates</h1>
             </div>
             <p className="text-base sm:text-lg md:text-xl text-white/90">
-              Access competitive foreign exchange rates for international transactions and currency conversion
+              Indicative exchange rates against the Lesotho Loti, shown for information and for converting amounts on this site. Citizen Bank does not currently offer currency exchange.
             </p>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function ForeignExchange() {
                     <div className="pt-2">
                       <div className="flex items-center gap-1 text-xs sm:text-sm text-green-600">
                         <TrendingUp className="h-4 w-4" />
-                        <span>Live Rate</span>
+                        <span>Indicative rate</span>
                       </div>
                     </div>
                   </div>
@@ -148,11 +148,11 @@ export default function ForeignExchange() {
                       {isAvailable ? (
                         <div className="flex items-center gap-1 text-xs sm:text-sm text-green-600">
                           <TrendingUp className="h-4 w-4" />
-                          <span>Live Rate</span>
+                          <span>Indicative rate</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1 text-xs sm:text-sm text-gray-400">
-                          <span>Contact bank for rates</span>
+                          <span>Not available</span>
                         </div>
                       )}
                     </div>
@@ -167,36 +167,36 @@ export default function ForeignExchange() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg">International Transfers</CardTitle>
+              <CardTitle className="text-base sm:text-lg">About these rates</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs sm:text-sm text-gray-600">
-                Send money internationally with competitive exchange rates and low transfer fees.
-                Transfers typically complete within 1-3 business days.
+                Rates are indicative and come from a third-party data source. They are not a quote or an
+                offer to exchange currency.
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg">Currency Exchange</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Display currency</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs sm:text-sm text-gray-600">
-                Exchange foreign currency at our branches. We offer competitive rates for major
-                currencies including USD, EUR, GBP, and ZAR.
+                Amounts on this site can be shown in other currencies using these rates. Lesotho Loti (LSL)
+                is the base currency.
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base sm:text-lg">Cryptocurrency Services</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Share subscription payments</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs sm:text-sm text-gray-600">
-                Accept cryptocurrency payments for board member investments. We support Bitcoin (BTC), 
-                Ethereum (ETH), Tether (USDT), and BNB for share subscriptions.
+                Payment options for share subscriptions, including the cryptocurrencies listed above, are
+                shown in the subscription flow for eligible investors.
               </p>
             </CardContent>
           </Card>

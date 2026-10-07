@@ -1,6 +1,6 @@
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
-import { TrendingUp, PieChart, BarChart3, DollarSign, FileText, HandCoins, Wallet, Shield } from "lucide-react";
+import { TrendingUp, DollarSign, FileText, HandCoins, Wallet, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useUser } from "@stackframe/react";
 import { useState, useEffect } from "react";
@@ -119,12 +119,12 @@ export default function Invest() {
         <div className="container mx-auto px-4">
           <div className="max-w-5xl">
             <h1 className="text-4xl font-bold mb-4">
-              {user ? 'My Investment Portfolio' : 'Investment Products'}
+              {user ? 'My Investment Portfolio' : 'Invest in Citizen Bank'}
             </h1>
             {user ? (
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <p className="text-xl text-white/90">
-                  Track your investments, shares, and portfolio performance
+                  Track your share subscriptions and investments
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
                   <Link to="/share-subscription">
@@ -149,7 +149,7 @@ export default function Invest() {
               </div>
             ) : (
               <p className="text-xl text-white/90">
-                Grow your wealth with our comprehensive range of investment products and services
+                Share subscriptions in Citizen Digital Ltd are open to eligible investors. Sign in to see what is available to you.
               </p>
             )}
           </div>
@@ -357,7 +357,7 @@ export default function Invest() {
                     <h3 className="text-lg sm:text-xl font-semibold text-white">Investor Data Room</h3>
                   </div>
                   <p className="text-sm sm:text-base text-white/90 mb-4">
-                    Access banking license documentation and critical investor materials.
+                    Access documents about the banking licence application and other investor materials.
                   </p>
                   <Link 
                     to="/data-room-access"
@@ -371,9 +371,9 @@ export default function Invest() {
 
               {/* Quick Actions */}
               <div className="bg-gradient-to-r from-[#6d52a2] to-[#5a4289] rounded-lg p-6 sm:p-8 text-white">
-                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Grow Your Portfolio</h3>
+                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">More ways to invest</h3>
                 <p className="text-sm sm:text-base text-white/90 mb-4 sm:mb-6">
-                  Explore more investment opportunities and maximize your returns
+                  Subscribe to more shares or view the other investment options open to you
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <Link to="/share-subscription">
@@ -398,94 +398,21 @@ export default function Invest() {
         </section>
       )}
 
-      {/* Investment Products */}
+      {/* Share subscription (the only investment offered) */}
       <section className="container mx-auto px-4 py-16">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">
-            {user ? 'Available Investment Products' : 'Investment Products'}
-          </h2>
-          <p className="text-gray-600">Explore our range of investment options</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Share subscriptions</h2>
+          <p className="text-gray-600">The investment currently open through this site</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-all">
-            <TrendingUp className="h-12 w-12 text-[#6d52a2] mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Fixed Deposits</h3>
-            <p className="text-gray-600 mb-4">
-              Secure your future with competitive interest rates on fixed deposits
-            </p>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Competitive interest rates
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Flexible terms (3, 6, 12 months)
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Capital guaranteed
-              </li>
-            </ul>
-            <button
-              type="button"
-              className="w-full px-4 py-2 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors"
-            >
-              Learn More
-            </button>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-all">
-            <PieChart className="h-12 w-12 text-[#6d52a2] mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Unit Trusts</h3>
-            <p className="text-gray-600 mb-4">Diversified investment portfolio managed by professionals</p>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Professional fund management
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Diversified portfolio
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Flexible contributions
-              </li>
-            </ul>
-            <button
-              type="button"
-              className="w-full px-4 py-2 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors"
-            >
-              Learn More
-            </button>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-all">
-            <BarChart3 className="h-12 w-12 text-[#6d52a2] mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Treasury Bills</h3>
-            <p className="text-gray-600 mb-4">Short-term government securities with attractive returns</p>
-            <ul className="space-y-2 mb-6">
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Government-backed security
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Short-term investment
-              </li>
-              <li className="flex items-center text-sm text-gray-600">
-                <span className="mr-2 text-[#6d52a2]">✓</span>
-                Competitive yields
-              </li>
-            </ul>
-            <button
-              type="button"
-              className="w-full px-4 py-2 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors"
-            >
-              Learn More
-            </button>
-          </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-8 max-w-2xl">
+          <HandCoins className="h-12 w-12 text-[#6d52a2] mb-4" />
+          <p className="text-gray-600 mb-3">
+            Eligible investors can subscribe to shares in Citizen Digital Ltd. Share classes, prices, payment
+            options and terms are shown in the subscription flow after you sign in.
+          </p>
+          <p className="text-sm text-gray-600">
+            Shares are not deposits. Their value can go down as well as up, and there is no guaranteed return.
+          </p>
         </div>
       </section>
 
@@ -495,7 +422,7 @@ export default function Invest() {
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Ready to Start Investing?</h2>
             <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-              Sign in or create an account to start building your investment portfolio
+              Sign in or create a profile to see the share subscription options open to you
             </p>
             <div className="flex gap-4 justify-center">
               <Link
@@ -503,7 +430,7 @@ export default function Invest() {
                 className="px-8 py-3 bg-[#6d52a2] text-white rounded-lg font-semibold hover:bg-[#5a4289] transition-colors inline-flex items-center gap-2"
               >
                 <DollarSign className="h-5 w-5" />
-                Open Account
+                Sign up
               </Link>
               <Link
                 to="/disclosures"
