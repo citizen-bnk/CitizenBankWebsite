@@ -226,10 +226,10 @@ export default function App() {
         <div className="container mx-auto px-4">
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Bank Performance Overview
+              Illustrative demonstration metrics
             </h2>
             <p className="text-gray-600 mb-4">
-              Real-time metrics and key performance indicators
+              Sample values for demonstration; these are not actual operating results.
             </p>
             <CurrencyIndicator />
           </div>

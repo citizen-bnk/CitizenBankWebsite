@@ -47,7 +47,7 @@ export function Footer() {
               <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Business Banking</Link></li>
               <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Loans & Credit</Link></li>
               <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Cards</Link></li>
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Mobile Banking</Link></li>
+              <li><Link to="/mobile-banking" className="hover:text-[#8f6ec4] transition-colors">Mobile Banking</Link></li>
             </ul>
           </div>
 
