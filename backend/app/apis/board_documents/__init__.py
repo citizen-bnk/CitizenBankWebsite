@@ -1841,19 +1841,12 @@ async def send_individual_document_request(
             # Send email notification
             try:
                 deadline_str = body.deadline.strftime("%Y-%m-%d") if body.deadline else None
+                # One call: inbox row + email (email honours the member's channel_email setting)
                 await send_document_request_email(
                     board_member_id=member["id"],
                     document_requirement_id=requirement["id"],
                     deadline_date=deadline_str,
-                )
-                # Create in-app notification for document request
-                await create_board_document_notification(
-                    conn=conn,
-                    board_member_id=member["id"],
-                    notification_type="document_request",
-                    title="📄 Document Request",
-                    message=body.message or f"Please submit your {requirement['name']}",
-                    severity=body.severity,
+                    message=body.message,
                 )
                 documents_sent += 1
             except Exception as e:
