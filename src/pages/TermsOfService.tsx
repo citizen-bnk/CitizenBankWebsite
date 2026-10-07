@@ -5,8 +5,12 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { usePolicy, firstContact, visibleContact } from 'utils/policy';
 
 export default function TermsOfService() {
+  const policy = usePolicy();
+  const legalEmail = firstContact(policy, ['legal_email', 'email']);
+  const otherLines = visibleContact(policy, ['phone', 'address']);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [agreements, setAgreements] = useState({
     acceptance: false,
@@ -72,9 +76,11 @@ export default function TermsOfService() {
             <FileText className="h-16 w-16 mx-auto mb-4 opacity-90" />
             <h1 className="text-4xl font-bold mb-4">Terms of Service</h1>
             <p className="text-xl text-white/90">
-              Legal terms and conditions for using Citizen Bank services
+              Terms and conditions for using this website and the demonstration services
             </p>
-            <p className="text-sm text-white/80 mt-2">Last updated: October 16, 2025</p>
+            <p className="text-sm text-white/80 mt-2">
+              Parts of these terms (accounts, transactions, loans) describe services that are not currently offered.
+            </p>
           </div>
         </div>
       </section>
@@ -234,7 +240,7 @@ export default function TermsOfService() {
 
               <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">13. Governing Law</h2>
               <p className="text-gray-600 mb-6">
-                These Terms are governed by the laws of the Kingdom of Lesotho. Our Services comply with all applicable banking regulations and Central Bank of Lesotho requirements.
+                These Terms are governed by the laws of the Kingdom of Lesotho.
               </p>
 
               <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">14. Changes to Terms</h2>
@@ -248,10 +254,14 @@ export default function TermsOfService() {
               </p>
               <div className="bg-gray-50 p-4 rounded-lg mt-4">
                 <p className="text-gray-700"><strong>Legal Department</strong></p>
-                <p className="text-gray-600">Citizen Bank</p>
-                <p className="text-gray-600">Kingsway Street, Maseru 100, Lesotho</p>
-                <p className="text-gray-600 mt-2">Email: legal@citizenbank.co.ls</p>
-                <p className="text-gray-600">Phone: +266 2231 2345</p>
+                <p className="text-gray-600">{policy.legal.company_name} (Reg. {policy.legal.registration_number})</p>
+                {legalEmail && <p className="text-gray-600 mt-2">Email: {legalEmail}</p>}
+                {otherLines.map((l) => (
+                  <p key={l.key} className="text-gray-600">{l.key === 'phone' ? 'Phone' : 'Address'}: {l.value}</p>
+                ))}
+                {!legalEmail && otherLines.length === 0 && (
+                  <p className="text-gray-600 mt-2">Contact details have not been published yet.</p>
+                )}
               </div>
             </div>
           </div>
