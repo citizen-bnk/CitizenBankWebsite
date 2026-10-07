@@ -43,6 +43,8 @@ INSERT INTO app_policy (key, value, value_type, description, audience, schema, u
   ('contact.privacy_email', 'null'::jsonb, 'string', 'Privacy enquiries email. Null hides the line.', 'public', '{"type": ["string", "null"]}'::jsonb, 'seed'),
   ('contact.legal_email', 'null'::jsonb, 'string', 'Legal notices email. Null hides the line.', 'public', '{"type": ["string", "null"]}'::jsonb, 'seed'),
   ('contact.security_email', 'null'::jsonb, 'string', 'Security disclosures email. Null hides the line.', 'public', '{"type": ["string", "null"]}'::jsonb, 'seed'),
+  ('contact.media_email', 'null'::jsonb, 'string', 'Media enquiries email. Null hides the line.', 'public', '{"type": ["string", "null"]}'::jsonb, 'seed'),
+  ('contact.media_phone', 'null'::jsonb, 'string', 'Media enquiries phone. Null hides the line.', 'public', '{"type": ["string", "null"]}'::jsonb, 'seed'),
   ('contact.support', 'null'::jsonb, 'string', 'Support email. Null hides the line.', 'public', '{"type": ["string", "null"]}'::jsonb, 'seed'),
   ('app.base_currency', '"LSL"'::jsonb, 'string', 'Base currency of the bank (ISO 4217).', 'authenticated', '{"pattern": "^[A-Z]{3}$", "type": "string"}'::jsonb, 'seed'),
   ('app.default_country', '"Lesotho"'::jsonb, 'string', 'Default country for forms.', 'authenticated', '{"minLength": 2, "type": "string"}'::jsonb, 'seed'),

@@ -83,6 +83,8 @@ DEFAULTS: dict[str, PolicyDef] = {
     "contact.privacy_email": _d(None, "string", PUBLIC, "Privacy enquiries email. Null hides the line."),
     "contact.legal_email": _d(None, "string", PUBLIC, "Legal notices email. Null hides the line."),
     "contact.security_email": _d(None, "string", PUBLIC, "Security disclosures email. Null hides the line."),
+    "contact.media_email": _d(None, "string", PUBLIC, "Media enquiries email. Null hides the line."),
+    "contact.media_phone": _d(None, "string", PUBLIC, "Media enquiries phone. Null hides the line."),
     "contact.support": _d(None, "string", PUBLIC, "Support email. Null hides the line."),
     # ---- application
     "app.base_currency": _d("LSL", "string", AUTHENTICATED, "Base currency of the bank (ISO 4217).", {"type": "string", "pattern": "^[A-Z]{3}$"}),
