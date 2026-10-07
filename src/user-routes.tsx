@@ -68,6 +68,8 @@ import Invest from "./pages/Invest.tsx";
 import Invite from "./pages/Invite.tsx";
 import InviteAcceptance from "./pages/InviteAcceptance.tsx";
 import Media from "./pages/Media.tsx";
+import Newsletters from "./pages/Newsletters.tsx";
+import Careers from "./pages/Careers.tsx";
 import MeetingDetails from "./pages/MeetingDetails.tsx";
 import MyAgreements from "./pages/MyAgreements.tsx";
 import MySubscriptions from "./pages/MySubscriptions.tsx";
@@ -198,6 +200,9 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/invite-acceptance", element: <InviteAcceptance /> },
 	{ path: "/inviteacceptance", element: <InviteAcceptance /> },
 	{ path: "/media", element: <Media /> },
+	{ path: "/newsletters", element: <Newsletters /> },
+	{ path: "/careers", element: <Careers /> },
+	{ path: "/careers/:slug", element: <Careers /> },
 	{ path: "/meeting-details", element: <UserGuard><MeetingDetails /></UserGuard> },
 	{ path: "/meetingdetails", element: <UserGuard><MeetingDetails /></UserGuard> },
 	{ path: "/my-agreements", element: <UserGuard><MyAgreements /></UserGuard> },

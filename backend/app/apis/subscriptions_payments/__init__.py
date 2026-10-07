@@ -7,7 +7,7 @@ from app.auth import AuthorizedUser
 from app.libs.database import db_connection
 from app.libs.subscription_models import PaymentRecord, PaymentResponse
 from app.libs.rbac import check_user_has_any_role
-from app.libs.email_queue import enqueue_email
+from app.libs.notify import EmailSpec, notify
 from app.libs.email_templates import create_payment_receipt_email
 from app.libs.receipt_generator import generate_receipt
 from fastapi.concurrency import run_in_threadpool
@@ -149,22 +149,25 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             print(f"📄 Receipt generated and stored: {receipt_number}")
             documents_generated.append('receipt')
             
-            # Queue email with receipt
-            await enqueue_email(
-                recipient_email=subscription['email'],
-                recipient_name=subscription['full_name'],
-                subject=f"Payment Receipt - {receipt_number}",
-                body_html=create_payment_receipt_email(
+            # Inbox row + receipt email (email honours channel_email)
+            receipt_subject = f"Payment Receipt - {receipt_number}"
+            await notify(
+                conn, subscription['user_id'], "payment_received", receipt_subject,
+                f"We recorded your payment of M {float(payment.amount):,.2f} for subscription {payment.subscription_id}.",
+                path=f"/portfolio/{payment.subscription_id}",
+                email=EmailSpec(
+                    to=subscription['email'], subject=receipt_subject,
                     recipient_name=subscription['full_name'],
-                    receipt_number=receipt_number,
-                    payment_amount=float(payment.amount),
-                    payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
-                    payment_date=payment_date.strftime('%d %B %Y'),
-                    subscription_details=f"{subscription['num_shares']} shares"
+                    html=create_payment_receipt_email(
+                        recipient_name=subscription['full_name'],
+                        receipt_number=receipt_number,
+                        payment_amount=float(payment.amount),
+                        payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
+                        payment_date=payment_date.strftime('%d %B %Y'),
+                        subscription_details=f"{subscription['num_shares']} shares"
+                    ),
                 ),
-                recipient_id=subscription['user_id'],
-                created_by='system',
-                priority='high'
+                dedupe_key=f"payment-receipt:{receipt_number}",
             )
             print(f"📧 Payment receipt email queued: {receipt_number}")
             
@@ -267,7 +270,7 @@ async def payments_verify_payment(subscription_id: str, approved: bool, notes: s
     
     async with db_connection() as conn:
         subscription = await conn.fetchrow(
-            "SELECT id, subscription_id, email, full_name FROM share_subscriptions WHERE subscription_id = $1",
+            "SELECT id, subscription_id, user_id, email, full_name FROM share_subscriptions WHERE subscription_id = $1",
             subscription_id
         )
         
@@ -287,6 +290,12 @@ async def payments_verify_payment(subscription_id: str, approved: bool, notes: s
             
             print(f"✅ Payment proof verified for {subscription_id} by {user.sub}")
             message = "Payment proof verified successfully"
+            await notify(
+                conn, subscription['user_id'], "payment_verified", "Payment proof verified",
+                f"Your proof of payment for subscription {subscription_id} was verified.",
+                path=f"/portfolio/{subscription_id}", recipient_email=subscription['email'],
+                dedupe_key=f"payment-verified:{subscription_id}", dedupe_hours=1,
+            )
         else:
             # Reject
             await conn.execute("""
@@ -300,6 +309,13 @@ async def payments_verify_payment(subscription_id: str, approved: bool, notes: s
             
             print(f"❌ Payment proof rejected for {subscription_id} by {user.sub}")
             message = "Payment proof rejected"
+            await notify(
+                conn, subscription['user_id'], "payment_rejected", "Payment proof rejected",
+                f"Your proof of payment for subscription {subscription_id} was not accepted"
+                + (f": {notes}" if notes else ". Please upload a new proof of payment."),
+                path=f"/portfolio/{subscription_id}", recipient_email=subscription['email'],
+                dedupe_key=f"payment-rejected:{subscription_id}", dedupe_hours=1,
+            )
         
         # Log verification action
         await conn.execute("""
@@ -387,103 +403,16 @@ async def payments_process_payment_reminders(user: AuthorizedUser):
     if not is_admin:
         raise HTTPException(status_code=403, detail="Only administrators can process payment reminders")
     
+    # Single reminder pipeline: same code as the daily scheduler job (libs/payment_reminders.py).
+    from app.libs.payment_reminders import run_payment_reminders
+
     async with db_connection() as conn:
-        now = datetime.now(timezone.utc)
-        
-        # Find subscriptions needing reminders
-        subscriptions = await conn.fetch("""
-            SELECT 
-                ss.subscription_id, ss.email, ss.user_id, ss.payment_status,
-                ss.payment_deadline, ss.total_amount, ss.created_at,
-                ss.payment_reminder_24h_sent, ss.payment_reminder_7d_sent,
-                ss.payment_reminder_3d_sent, ss.payment_reminder_1d_sent,
-                ss.full_name
-            FROM share_subscriptions ss
-            WHERE ss.payment_status IN ('pending_payment', 'proof_submitted')
-              AND ss.payment_deadline > NOW()
-            ORDER BY ss.payment_deadline ASC
-        """)
-        
-        reminders_sent = 0
-        notifications_created = 0
-        
-        for sub in subscriptions:
-            deadline = sub['payment_deadline']
-            created = sub['created_at']
-            days_until_deadline = (deadline - now).days
-            hours_since_created = (now - created).total_seconds() / 3600
-            
-            reminder_type = None
-            column_to_update = None
-            
-            # Check which reminder to send
-            if not sub['payment_reminder_24h_sent'] and hours_since_created >= 24:
-                reminder_type = '24h'
-                column_to_update = 'payment_reminder_24h_sent'
-            elif not sub['payment_reminder_7d_sent'] and days_until_deadline <= 7 and days_until_deadline > 3:
-                reminder_type = '7days'
-                column_to_update = 'payment_reminder_7d_sent'
-            elif not sub['payment_reminder_3d_sent'] and days_until_deadline <= 3 and days_until_deadline > 1:
-                reminder_type = '3days'
-                column_to_update = 'payment_reminder_3d_sent'
-            elif not sub['payment_reminder_1d_sent'] and days_until_deadline <= 1 and days_until_deadline >= 0:
-                reminder_type = '1day'
-                column_to_update = 'payment_reminder_1d_sent'
-            
-            if reminder_type:
-                try:
-                    # Send reminder email
-                    from app.libs.email_service import send_email
-                    
-                    subject_map = {
-                        '24h': 'Welcome - Payment Instructions',
-                        '7days': 'Payment Due in 7 Days',
-                        '3days': 'Payment Due in 3 Days',
-                        '1day': 'URGENT: Payment Due Tomorrow'
-                    }
-                    
-                    await send_email(
-                        to=sub['email'],
-                        subject=f"{subject_map[reminder_type]} - {sub['subscription_id']}",
-                        content_html=f"<p>Payment reminder for subscription {sub['subscription_id']}</p>",
-                        sender_type="shares"
-                    )
-                    
-                    # Create bell notification
-                    severity = 'high' if days_until_deadline <= 3 else 'medium'
-                    await conn.execute("""
-                        INSERT INTO notifications (
-                            user_id, recipient_email, subject, content, 
-                            category, metadata, severity, show_popup
-                        )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    """,
-                        sub['user_id'],
-                        sub['email'],
-                        f"Payment Reminder - {days_until_deadline} days remaining",
-                        f"Your payment for subscription {sub['subscription_id']} is due soon.",
-                        'payment_reminder',
-                        json.dumps({"subscription_id": sub['subscription_id']}),
-                        severity,
-                        days_until_deadline <= 3
-                    )
-                    
-                    # Mark reminder as sent
-                    await conn.execute(
-                        f"UPDATE share_subscriptions SET {column_to_update} = TRUE WHERE subscription_id = $1",
-                        sub['subscription_id']
-                    )
-                    
-                    reminders_sent += 1
-                    notifications_created += 1
-                    print(f"✅ Reminder sent ({reminder_type}): {sub['subscription_id']}")
-                    
-                except Exception as e:
-                    print(f"⚠️ Failed to send reminder for {sub['subscription_id']}: {e}")
-        
-        return {
-            "success": True,
-            "reminders_sent": reminders_sent,
-            "notifications_created": notifications_created,
-            "message": f"Processed {reminders_sent} reminder(s) with {notifications_created} bell notifications"
-        }
+        results = await run_payment_reminders(conn)
+
+    return {
+        "success": True,
+        "reminders_sent": results["reminders_sent"],
+        "notifications_created": results["notifications_created"],
+        "errors": results["errors"],
+        "message": f"Processed {results['reminders_sent']} reminder(s) with {results['notifications_created']} inbox notifications"
+    }

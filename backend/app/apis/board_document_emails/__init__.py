@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.auth import AuthorizedUser
 from app.libs.database import get_db_connection
 from app.libs.email_queue import enqueue_email
+from app.libs.notify import EmailSpec, notify
 from app.libs.url_helpers import get_frontend_path
 from app import runtime
 import json
@@ -797,9 +798,10 @@ def create_consolidated_reminder_email(
 async def send_document_request_email(
     board_member_id: int,
     document_requirement_id: int,
-    deadline_date: str = None
+    deadline_date: str = None,
+    message: str = None
 ):
-    """Send document request email to a board member."""
+    """Notify a board member of a document request: inbox row (Hub /compliance) + email."""
     conn = await get_db_connection()
     try:
         # Get board member and document details
@@ -826,17 +828,20 @@ async def send_document_request_email(
             deadline_date=deadline_date
         )
         
-        # Queue email
-        await enqueue_email(
+        await notify(
+            conn, row['user_id'], "document_request", "📄 Document Request",
+            message or f"Please submit your {row['doc_name']}",
+            path="/compliance",
+            email=EmailSpec(to=row['email'], subject=subject, html=html_body,
+                            recipient_name=row['full_name']),
             recipient_email=row['email'],
-            recipient_name=row['full_name'],
-            subject=subject,
-            body_html=html_body,
-            created_by='system',
-            recipient_id=row['user_id']
+            dedupe_key=f"doc-request:{board_member_id}:{document_requirement_id}",
+            dedupe_hours=1,
+            extra={"action": "view_documents", "source": "board_document_system",
+                   "requirement_id": document_requirement_id},
         )
         
-        print(f"✅ Document request email queued for {row['email']}")
+        print(f"✅ Document request notified: {row['email']}")
         
     finally:
         await conn.close()
@@ -865,16 +870,18 @@ async def send_document_approved_email(document_id: int, reviewed_by_name: str =
             reviewed_by=reviewed_by_name
         )
         
-        await enqueue_email(
+        await notify(
+            conn, row['user_id'], "approved", "✅ Document approved",
+            f"Your {row['doc_name']} was approved.",
+            path="/compliance",
+            email=EmailSpec(to=row['email'], subject=subject, html=html_body,
+                            recipient_name=row['full_name']),
             recipient_email=row['email'],
-            recipient_name=row['full_name'],
-            subject=subject,
-            body_html=html_body,
-            created_by=reviewed_by_name or 'system',
-            recipient_id=row['user_id']
+            dedupe_key=f"doc-review:{document_id}:approved", dedupe_hours=1,
+            extra={"action": "view_documents", "source": "board_document_system"},
         )
         
-        print(f"✅ Approval email queued for {row['email']}")
+        print(f"✅ Approval notified: {row['email']}")
         
     finally:
         await conn.close()
@@ -904,16 +911,18 @@ async def send_document_rejected_email(document_id: int, rejection_reason: str, 
             reviewed_by=reviewed_by_name
         )
         
-        await enqueue_email(
+        await notify(
+            conn, row['user_id'], "rejected", "Document needs attention",
+            f"Your {row['doc_name']} was not accepted: {rejection_reason}",
+            path="/compliance",
+            email=EmailSpec(to=row['email'], subject=subject, html=html_body,
+                            recipient_name=row['full_name']),
             recipient_email=row['email'],
-            recipient_name=row['full_name'],
-            subject=subject,
-            body_html=html_body,
-            created_by=reviewed_by_name or 'system',
-            recipient_id=row['user_id']
+            dedupe_key=f"doc-review:{document_id}:rejected", dedupe_hours=1,
+            extra={"action": "view_documents", "source": "board_document_system"},
         )
         
-        print(f"✅ Rejection email queued for {row['email']}")
+        print(f"✅ Rejection notified: {row['email']}")
         
     finally:
         await conn.close()
@@ -1204,8 +1213,9 @@ async def create_board_document_notification(
     notification_type: str,  # 'document_request', 'reminder', 'approved', 'rejected', 'expiry_warning'
     title: str,
     message: str,
-    action_url: str = '/board-documents',
-    metadata: dict = None
+    action_url: str = '/compliance',
+    metadata: dict = None,
+    severity: str = None
 ):
     """
     Create an in-app notification for a board member about document events.
@@ -1216,7 +1226,7 @@ async def create_board_document_notification(
         notification_type: Type of notification
         title: Notification title
         message: Notification message
-        action_url: URL to navigate when clicked (default: /board-documents)
+        action_url: Hub path to open when clicked (default: /compliance)
         metadata: Additional metadata as dict
     """
     # Get board member user_id and email
@@ -1230,35 +1240,15 @@ async def create_board_document_notification(
         print(f"⚠️ Board member {board_member_id} not found, skipping notification")
         return
     
-    # Determine severity based on notification type
-    severity_map = {
-        'document_request': 'normal',
-        'reminder': 'urgent',
-        'approved': 'normal',
-        'rejected': 'normal',
-        'expiry_warning': 'critical'
-    }
-    severity_level = severity_map.get(notification_type, 'normal')
+    extra = dict(metadata or {})
+    extra.update({'action': 'view_documents', 'source': 'board_document_system'})
+    if severity:
+        extra['severity'] = severity
     
-    # Prepare metadata
-    notification_metadata = metadata or {}
-    notification_metadata['action'] = 'view_documents'
-    notification_metadata['url'] = action_url
-    notification_metadata['source'] = 'board_document_system'
-    
-    # Insert notification
-    await conn.execute("""
-        INSERT INTO notifications
-        (user_id, recipient_email, email_subject, email_content, email_type, metadata, severity_level, read_status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
-    """,
-        board_member['user_id'],
-        board_member['email'],
-        title,
-        message,
-        notification_type,
-        json.dumps(notification_metadata),
-        severity_level
+    # Inbox only (callers email separately); relative Hub path; no popup flags.
+    await notify(
+        conn, board_member['user_id'], notification_type, title, message,
+        path=action_url, recipient_email=board_member['email'], extra=extra,
     )
     
     print(f"🔔 Created {notification_type} notification for {board_member['full_name']}")

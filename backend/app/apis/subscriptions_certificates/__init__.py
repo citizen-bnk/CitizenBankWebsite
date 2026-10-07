@@ -17,6 +17,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.utils import ImageReader
 import hashlib
 from app.libs.email_queue import enqueue_email
+from app.libs.notify import EmailSpec, notify
 from app import runtime
 from app.env import Mode, mode
 from app.libs.url_helpers import get_api_base_url
@@ -125,23 +126,26 @@ async def certificates_issue_certificate(
             WHERE subscription_id = $3
         """, cert_number, cert_url, request.subscription_id)
         
-        # Send certificate email
+        # Inbox row + certificate email (email honours channel_email)
         try:
-            await enqueue_email(
-                recipient_email=subscription['email'],
-                recipient_name=subscription['full_name'],
-                subject=f"Your Share Certificate - {cert_number}",
-                body_html=create_share_certificate_email(
+            cert_subject = f"Your Share Certificate - {cert_number}"
+            await notify(
+                conn, subscription['user_id'], "certificate_issued", cert_subject,
+                f"Your share certificate {cert_number} for {subscription['num_shares']:,} shares has been issued.",
+                path=f"/portfolio/{request.subscription_id}",
+                email=EmailSpec(
+                    to=subscription['email'], subject=cert_subject,
                     recipient_name=subscription['full_name'],
-                    certificate_number=cert_number,
-                    shares=subscription['num_shares'],
-                    total_amount=float(subscription['total_amount']),
-                    qr_code_base64=qr_code_base64,
-                    certificate_url=cert_url
+                    html=create_share_certificate_email(
+                        recipient_name=subscription['full_name'],
+                        certificate_number=cert_number,
+                        shares=subscription['num_shares'],
+                        total_amount=float(subscription['total_amount']),
+                        qr_code_base64=qr_code_base64,
+                        certificate_url=cert_url
+                    ),
                 ),
-                recipient_id=subscription['user_id'],
-                created_by=user.sub,
-                priority='high'
+                dedupe_key=f"certificate-issued:{cert_number}",
             )
             print(f"📧 Certificate email queued for {subscription['email']}")
         except Exception as e:

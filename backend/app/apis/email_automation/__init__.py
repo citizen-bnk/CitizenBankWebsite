@@ -12,6 +12,23 @@ from app.libs.url_helpers import get_frontend_path
 router = APIRouter(prefix="/email-automation")
 
 
+async def _enqueue_email(conn, recipient_email, recipient_name, subject, body_html,
+                         template_name=None, metadata=None):
+    """Adapter onto the real queue (app.libs.email_queue). The old app.libs.email_sender
+    module never existed. The real queue opens its own connection and has no
+    template_name/metadata columns, so those arguments are accepted and ignored."""
+    from app.libs.email_queue import enqueue_email
+
+    queued = await enqueue_email(
+        recipient_email=recipient_email,
+        recipient_name=recipient_name or "",
+        subject=subject,
+        body_html=body_html,
+        created_by="email_automation",
+    )
+    return queued["queue_id"]
+
+
 class AutomationRuleConfig(BaseModel):
     rule_type: str
     enabled: bool
@@ -161,7 +178,7 @@ async def auto_resend_unopened(conn, queue_ids: Optional[List[str]] = None, conf
     eligible_emails = await conn.fetch(query, *params)
     
     resent_count = 0
-    from app.libs.email_sender import enqueue_email
+    enqueue_email = _enqueue_email
     
     for email in eligible_emails:
         try:
@@ -256,7 +273,7 @@ async def auto_followup_engaged(conn, queue_ids: Optional[List[str]] = None, con
     eligible_emails = await conn.fetch(query, *params)
     
     followup_count = 0
-    from app.libs.email_sender import enqueue_email
+    enqueue_email = _enqueue_email
     
     for email in eligible_emails:
         try:
@@ -265,7 +282,7 @@ async def auto_followup_engaged(conn, queue_ids: Optional[List[str]] = None, con
             <p>Hi {email['recipient_name']},</p>
             <p>We noticed you opened our previous email about {email['subject']}. We wanted to follow up and see if you have any questions or need assistance.</p>
             <p>If you'd like to learn more or take action, please click the link below:</p>
-            <p><a href="{get_frontend_path()}" style="background-color: #2F004F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Get Started</a></p>
+            <p><a href="{get_frontend_path("/")}" style="background-color: #2F004F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">Get Started</a></p>
             <p>Best regards,<br>Citizen Bank Team</p>
             """
             

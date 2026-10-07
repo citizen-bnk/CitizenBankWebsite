@@ -56,7 +56,9 @@ Set in Render (the blueprint prompts for them). Never commit them: `.env*` files
 | `AUTH_PROVIDERS` | Stack Auth config JSON: `[{"name":"stack-auth","version":"0.0.0","config":{"projectId":"...","jwksUrl":"...","publishableClientKey":"..."}}]`. Without it, logged-in API calls are rejected |
 | `STACK_SECRET_SERVER_KEY` | Stack Auth server calls |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | File storage |
-| `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` | Email |
+| `RESEND_API_KEY` | Email sending |
+| `RESEND_WEBHOOK_SECRET` | Resend (Svix) signing secret, the `whsec_...` value from the Resend webhook page. When set, `POST /api/webhooks/resend` rejects unsigned, invalid or stale (over 5 min) requests with 401. When unset the endpoint accepts anything and logs a warning: fine locally, set it in production |
+| `HUB_URL` | Origin of the Hub (for example `https://hub.citizenbank.co.ls`). `libs/notify.hub_url(path)` builds Hub links from it and keeps the query string; without it links use the website host (the Hub redirects the old website paths). Also read by `/api/platform` |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY` | AI features |
 | `AFRICASTALKING_USERNAME`, `AFRICASTALKING_API_KEY`, `AFRICASTALKING_SENDER_ID` | SMS (without them SMS is only logged) |
 | `PUSHWOOSH_APP_CODE`, `PUSHWOOSH_SERVER_TOKEN` | Push notifications |

@@ -21,14 +21,14 @@ export function ComingSoonModal({ open, onClose, platform = 'social media' }: Pr
               <div className="p-4 bg-[#6d52a2]/10 rounded-lg">
                 <Calendar className="h-12 w-12 text-[#6d52a2] mx-auto mb-3" />
                 <p className="text-gray-700 font-medium">
-                  We're working on our {platform} presence!
+                  No {platform} page yet
                 </p>
               </div>
               <p className="text-sm text-gray-600">
-                Our social media channels will be launching soon. Stay tuned for updates, news, and exclusive content from Citizen Bank.
+                We do not have a {platform} page yet. For progress updates, see the Media Center on this site.
               </p>
               <p className="text-xs text-gray-500">
-                In the meantime, you can contact us through our website or visit any of our branches.
+                You can reach us through the Contact page.
               </p>
             </div>
           </DialogDescription>

@@ -434,17 +434,36 @@ async def send_consolidated_daily_reminder(
     # Track all document IDs for metadata
     all_doc_ids = [item['requirement_id'] for item in periodic_items + expiry_items]
     
-    # Queue consolidated email
-    queue_result = await enqueue_email(
-        recipient_email=member['email'],
-        recipient_name=member['full_name'],
-        subject=subject,
-        body_html=html_body,
-        created_by='system',
-        recipient_id=member['user_id']
-    )
+    # Queue consolidated email (kept on the queue directly: open tracking needs its queue_id),
+    # but only when the member has not switched email off.
+    from app.libs.notify import email_allowed, notify
+    queue_result = None
+    if await email_allowed(conn, member['user_id']):
+        queue_result = await enqueue_email(
+            recipient_email=member['email'],
+            recipient_name=member['full_name'],
+            subject=subject,
+            body_html=html_body,
+            created_by='system',
+            recipient_id=member['user_id']
+        )
     
     queue_id = queue_result.get('queue_id') if queue_result else None
+    
+    # ONE inbox row per member per day, however many documents are outstanding
+    n_missing, n_expiring = len(periodic_items), len(expiry_items)
+    parts = []
+    if n_missing:
+        parts.append(f"{n_missing} missing document{'s' if n_missing != 1 else ''}")
+    if n_expiring:
+        parts.append(f"{n_expiring} expiring document{'s' if n_expiring != 1 else ''}")
+    await notify(
+        conn, member['user_id'], 'reminder', '📬 Document Reminder',
+        "Reminder: you have " + " and ".join(parts) + ".",
+        path='/compliance', recipient_email=member['email'],
+        dedupe_key=f"doc-reminder:{member['id']}:{date.today().isoformat()}",
+        extra={'requirement_ids': all_doc_ids, 'source': 'board_document_system'},
+    )
     
     # Update reminder records for all periodic items
     for item in periodic_items:
@@ -473,19 +492,6 @@ async def send_consolidated_daily_reminder(
                 )
                 VALUES ($1, $2, 'periodic', NOW(), $3, 1, $4, 1)
             """, member['id'], item['requirement_id'], next_date, queue_id)
-        
-        # Create in-app notification for each missing doc
-        await create_board_document_notification(
-            conn=conn,
-            board_member_id=member['id'],
-            notification_type='reminder',
-            title='📬 Document Reminder',
-            message=f"Reminder: Please submit {item['name']}.",
-            metadata={
-                'requirement_id': item['requirement_id'],
-                'reminder_count': item['reminder_count']
-            }
-        )
     
     # Update reminder records for all expiry items
     for item in expiry_items:

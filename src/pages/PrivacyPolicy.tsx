@@ -1,8 +1,12 @@
 import { Header } from 'components/Header';
 import { Footer } from 'components/Footer';
 import { Shield } from 'lucide-react';
+import { usePolicy, firstContact, visibleContact } from 'utils/policy';
 
 export default function PrivacyPolicy() {
+  const policy = usePolicy();
+  const privacyEmail = firstContact(policy, ['privacy_email', 'email']);
+  const otherLines = visibleContact(policy, ['phone', 'address']);
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -16,7 +20,6 @@ export default function PrivacyPolicy() {
             <p className="text-xl text-white/90">
               How we collect, use, and protect your personal information
             </p>
-            <p className="text-sm text-white/80 mt-2">Last updated: October 16, 2025</p>
           </div>
         </div>
       </section>
@@ -27,7 +30,7 @@ export default function PrivacyPolicy() {
           <div className="prose prose-gray max-w-none">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">1. Introduction</h2>
             <p className="text-gray-600 mb-6">
-              Citizen Bank ("we", "us", or "our") is committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, store, and share your information when you use our banking services, websites, and mobile applications.
+              {policy.legal.company_name} (Reg. {policy.legal.registration_number}), trading as {policy.brand.name} ("we", "us", or "our") is committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, store, and share your information when you use our websites, mobile applications and demonstration services.
             </p>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">2. Information We Collect</h2>
@@ -45,7 +48,7 @@ export default function PrivacyPolicy() {
             <ul className="list-disc pl-6 text-gray-600 space-y-2 mb-6">
               <li>Device information (IP address, browser type, operating system)</li>
               <li>Usage data (pages visited, features used, time spent on platform)</li>
-              <li>Location data (when you use our mobile app or visit branches)</li>
+              <li>Location data (when you use our mobile app)</li>
               <li>Cookies and similar tracking technologies</li>
             </ul>
 
@@ -76,21 +79,14 @@ export default function PrivacyPolicy() {
             </p>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">5. Data Security</h2>
-            <p className="text-gray-600 mb-4">
-              We implement industry-standard security measures to protect your information:
+            <p className="text-gray-600 mb-6">
+              We use technical and organisational measures to protect your information, including encrypted connections,
+              passkey sign-in, and role-based access to data. No method of transmission or storage is completely secure.
             </p>
-            <ul className="list-disc pl-6 text-gray-600 space-y-2 mb-6">
-              <li>256-bit SSL encryption for all online transactions</li>
-              <li>Multi-factor authentication for account access</li>
-              <li>Regular security audits and penetration testing</li>
-              <li>Secure data centers with physical and digital access controls</li>
-              <li>Employee training on data protection and privacy</li>
-              <li>Incident response and breach notification procedures</li>
-            </ul>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">6. Data Retention</h2>
             <p className="text-gray-600 mb-6">
-              We retain your personal information for as long as necessary to provide our services and comply with legal obligations. Account information is typically retained for 7 years after account closure as required by banking regulations. Transaction records are kept for 10 years for audit and compliance purposes.
+              We retain your personal information for as long as necessary to provide our services and comply with legal obligations. Retention periods depend on the type of information and on the legal requirements that apply to it.
             </p>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">7. Your Rights</h2>
@@ -104,7 +100,7 @@ export default function PrivacyPolicy() {
               <li><strong>Withdrawal of Consent:</strong> Withdraw consent for optional data processing</li>
             </ul>
             <p className="text-gray-600 mb-6">
-              To exercise these rights, contact us at privacy@citizenbank.co.ls or visit any branch with valid identification.
+              To exercise these rights, contact us using the details in section 12.
             </p>
 
             <h2 className="text-2xl font-bold text-gray-900 mb-4 mt-8">8. Cookies and Tracking</h2>
@@ -133,10 +129,14 @@ export default function PrivacyPolicy() {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mt-4">
               <p className="text-gray-700"><strong>Data Protection Officer</strong></p>
-              <p className="text-gray-600">Citizen Bank</p>
-              <p className="text-gray-600">Kingsway Street, Maseru 100, Lesotho</p>
-              <p className="text-gray-600 mt-2">Email: privacy@citizenbank.co.ls</p>
-              <p className="text-gray-600">Phone: +266 2231 2345</p>
+              <p className="text-gray-600">{policy.legal.company_name} (Reg. {policy.legal.registration_number})</p>
+              {privacyEmail && <p className="text-gray-600 mt-2">Email: {privacyEmail}</p>}
+              {otherLines.map((l) => (
+                <p key={l.key} className="text-gray-600">{l.key === 'phone' ? 'Phone' : 'Address'}: {l.value}</p>
+              ))}
+              {!privacyEmail && otherLines.length === 0 && (
+                <p className="text-gray-600 mt-2">Contact details for privacy requests have not been published yet.</p>
+              )}
             </div>
           </div>
         </div>

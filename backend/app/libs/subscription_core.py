@@ -24,6 +24,7 @@ from app.libs.subscription_models import (
 )
 from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_payment_instructions_email
+from app.libs.payment_plans import check_subscription_plan, load_plans
 
 
 async def get_db_connection() -> asyncpg.Connection:
@@ -112,6 +113,9 @@ async def create_subscription_record(
     print(f"   Payment method: {request.payment_method}")
     print(f"   Installment plan: {request.installment_plan}")
     
+    # The plan must be one of the active investor plans (payment_plans); 422 otherwise
+    plan_months = check_subscription_plan(await load_plans(conn), request.payment_method, request.installment_plan)
+
     # Check availability
     availability = await get_share_availability_data(conn)
     
@@ -143,8 +147,7 @@ async def create_subscription_record(
     monthly_payment = None
     
     if request.payment_method == 'installment' and request.installment_plan:
-        months = int(request.installment_plan.split('-')[0])
-        monthly_payment = total_amount_lsl / months
+        monthly_payment = total_amount_lsl / plan_months
     
     # Get purchase currency from request (default to LSL)
     purchase_currency = getattr(request, 'purchase_currency', 'LSL') or 'LSL'

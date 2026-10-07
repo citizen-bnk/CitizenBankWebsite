@@ -53,14 +53,18 @@ export function NewsCarousel() {
     try {
       setLoading(true);
 
-      // Fetch both media releases and achievements
-      const [mediaResponse, achievementsResponse] = await Promise.all([
+      // Fetch media releases and achievements. Either may fail without hiding the other.
+      const [mediaResult, achievementsResult] = await Promise.allSettled([
         apiClient.list_published_releases({ limit: 10 }),
-        apiClient.list_all_achievements({ published: true }),
+        apiClient.get_timeline({ limit: 10 }), // public endpoint: the admin list returns 403 to visitors
       ]);
 
-      const mediaData: MediaReleaseListItem[] = await mediaResponse.json();
-      const achievementsData = await achievementsResponse.json();
+      const mediaData: MediaReleaseListItem[] =
+        mediaResult.status === 'fulfilled' ? await mediaResult.value.json() : [];
+      const achievementsData: { achievements: Achievement[] } =
+        achievementsResult.status === 'fulfilled'
+          ? await achievementsResult.value.json()
+          : { achievements: [] };
 
       // Transform and combine data
       const mediaItems: NewsItem[] = mediaData.map((item) => ({

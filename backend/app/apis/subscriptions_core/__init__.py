@@ -15,10 +15,11 @@ from app.libs.subscription_models import (
     SubscriptionConfig,
 )
 from app.libs.subscription_core import get_share_availability_data
-from app.libs.email_queue import enqueue_email
+from app.libs.notify import EmailSpec, notify
 from app.libs.email_templates import create_payment_instructions_email
 from app.libs.profile_completion_reminders import schedule_profile_completion_reminder
 from app.libs.rbac import check_user_has_any_role
+from app.libs.payment_plans import check_subscription_plan, load_plans
 
 router = APIRouter(prefix="/subscriptions/core")
 
@@ -58,6 +59,30 @@ async def core_get_share_availability() -> ShareAvailability:
         return await get_share_availability_data(conn)
 
 
+PROFILE_FIELDS = ("full_name", "email", "phone", "id_number")
+
+
+async def apply_profile_snapshot(conn, user_id: str, request: SubscriptionRequest) -> SubscriptionRequest:
+    """Return the request with full_name/email/phone/id_number taken from user_profiles.
+
+    404 when the person has no profile; 422 naming the missing fields when it is incomplete.
+    """
+    row = await conn.fetchrow(
+        "SELECT full_name, email, phone, id_number FROM user_profiles WHERE user_id = $1", user_id
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Complete your profile before subscribing: no profile found.")
+    values = {f: (row[f] or "").strip() for f in PROFILE_FIELDS}
+    missing = [f for f in PROFILE_FIELDS if not values[f]]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Complete your profile before subscribing. Missing: {', '.join(missing)}.",
+        )
+    values["email"] = values["email"].lower()
+    return request.model_copy(update=values)
+
+
 @router.post("/subscribe")
 async def core_create_subscription(request: SubscriptionRequest, user: AuthorizedUser) -> SubscriptionResponse:
     """
@@ -65,14 +90,15 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
     Validates availability and creates subscription record.
     Stores currency used and exchange rate at time of purchase.
     """
-    print(f"📝 Subscription request from user {user.sub}:")
-    print(f"   Full name: {request.full_name}")
-    print(f"   Email: {request.email}")
-    print(f"   Num shares: {request.num_shares}")
-    print(f"   Payment method: {request.payment_method}")
-    print(f"   Purchase currency: {getattr(request, 'purchase_currency', 'LSL')}")
-    
     async with db_connection() as conn:
+        # The buyer's details come from their profile, never from the request body, so the
+        # subscription always carries the same name/email/phone/ID as the profile.
+        request = await apply_profile_snapshot(conn, user.sub, request)
+        print(f"📝 Subscription request from user {user.sub}: {request.num_shares} shares, "
+              f"{request.payment_method}, {getattr(request, 'purchase_currency', 'LSL')}")
+        # The plan must be one of the active investor plans (payment_plans); 422 otherwise
+        plan_months = check_subscription_plan(await load_plans(conn), request.payment_method, request.installment_plan)
+
         # Check availability
         availability = await get_share_availability_data(conn)
         
@@ -85,7 +111,7 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         
         # Check if investor already has subscription
         existing = await conn.fetchrow(
-            "SELECT id FROM share_subscriptions WHERE email = $1 AND status != 'cancelled'",
+            "SELECT id FROM share_subscriptions WHERE LOWER(email) = LOWER($1) AND status != 'cancelled'",
             request.email
         )
         
@@ -104,8 +130,7 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         monthly_payment = None
         
         if request.payment_method == 'installment' and request.installment_plan:
-            months = int(request.installment_plan.split('-')[0])
-            monthly_payment = total_amount_lsl / months
+            monthly_payment = total_amount_lsl / plan_months
         
         # Get purchase currency from request (default to LSL)
         purchase_currency = getattr(request, 'purchase_currency', 'LSL') or 'LSL'
@@ -164,37 +189,33 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         except Exception as reminder_error:
             print(f"⚠️ Failed to schedule profile completion reminder: {reminder_error}")
         
-        # Send payment instructions email
+        # Inbox row + payment instructions email (email honours the person's channel_email setting)
         try:
             email_amount = float(amount_in_purchase_currency) if amount_in_purchase_currency else float(total_amount_lsl)
-            email_currency = purchase_currency
             email_monthly_payment = float(monthly_payment) if monthly_payment else None
-            
-            email_html = create_payment_instructions_email(
+
+            email_html = await create_payment_instructions_email(
                 recipient_name=request.full_name,
                 subscription_id=subscription_id,
                 num_shares=request.num_shares,
                 total_amount=email_amount,
-                currency=email_currency,
+                currency=purchase_currency,
                 payment_method=request.payment_method,
                 installment_plan=request.installment_plan,
                 monthly_payment=email_monthly_payment
             )
-            
-            await enqueue_email(
-                recipient_email=request.email,
-                recipient_name=request.full_name,
-                subject=f"Payment Instructions - Subscription {subscription_id}",
-                body_html=email_html,
-                recipient_id=user.sub,
-                created_by='system',
-                priority='high'
+            subject = f"Payment Instructions - Subscription {subscription_id}"
+            await notify(
+                conn, user.sub, "subscription_created", subject,
+                f"We received your subscription for {request.num_shares:,} shares. Payment instructions are in your email.",
+                path=f"/portfolio/{subscription_id}",
+                email=EmailSpec(to=request.email, subject=subject, html=email_html,
+                                recipient_name=request.full_name),
+                dedupe_key=f"subscription-created:{subscription_id}",
             )
-            
-            print(f"📧 Payment instructions email queued for {request.email}")
         except Exception as email_error:
-            print(f"⚠️ Failed to send payment instructions email: {email_error}")
-        
+            print(f"⚠️ Failed to notify about new subscription: {email_error}")
+
         display_amount = Decimal(str(amount_in_purchase_currency)) if amount_in_purchase_currency else total_amount_lsl
         
         return SubscriptionResponse(
@@ -313,7 +334,7 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
                        certificate_url, payment_deadline, created_at, updated_at,
                        created_by_admin, admin_user_id
                 FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
+                WHERE user_id = $1 OR LOWER(email) = LOWER($2)
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
@@ -420,7 +441,7 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, created_at, updated_at
                 FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
+                WHERE user_id = $1 OR LOWER(email) = LOWER($2)
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
@@ -491,7 +512,7 @@ async def core_get_subscription_details(subscription_id: str, user: AuthorizedUs
                    installment_plan, status, certificate_number, certificate_issued_date,
                    certificate_url, created_at, updated_at
             FROM share_subscriptions
-            WHERE subscription_id = $1 AND (user_id = $2 OR email = $3)
+            WHERE subscription_id = $1 AND (user_id = $2 OR LOWER(email) = LOWER($3))
         """, subscription_id, user.sub, user_email)
         
         if not sub:

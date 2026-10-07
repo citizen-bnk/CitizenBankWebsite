@@ -24,6 +24,7 @@ from app.libs.email_templates import (
     create_verification_code_email
 )
 from app.libs.email_service import send_email
+from app.libs.notify import EmailSpec, notify
 from app.libs.email_config import get_sender
 from app.libs.url_helpers import get_frontend_path
 # Assuming send_email and get_sender are defined in another module; import if needed
@@ -67,17 +68,7 @@ async def log_email(
             recipient_email, sender_email, subject, email_type, status,
             related_invitation_id, related_user_id, metadata_json
         )
-        
-        # Create notification record (linked by email)
-        await conn.execute(
-            """
-            INSERT INTO notifications (recipient_email, email_subject, email_content, email_type,
-                                       related_invitation_id, related_user_id, metadata)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            """,
-            recipient_email, subject, f"Email sent: {email_type}", email_type,
-            related_invitation_id, related_user_id, metadata_json
-        )
+        # NOTE: no inbox row here. 'Email sent' rows were noise; real events use libs.notify.notify().
     finally:
         await conn.close()
 
@@ -151,14 +142,22 @@ Citizen Bank Team
     """
     
     subject = f"You're Invited to Join Citizen Bank - {role_text} Position"
-    await send_email(
-        to=email, 
-        subject=subject, 
-        content_text=email_content_text, 
-        content_html=email_content_html,
-        sender_type="invitations"
+    # One delivery path: inbox row (Hub /invitations) + email (invitations sender). Inbox rows are
+    # only for real events, so log_email no longer adds an "Email sent" row.
+    outcome = await notify(
+        None, None, "invitation", subject,
+        f"You have been invited to join Citizen Bank as a {role_text}{position_display}.",
+        path="/invitations",
+        email=EmailSpec(to=email, subject=subject, html=email_content_html,
+                        text=email_content_text, recipient_name=recipient_name,
+                        sender_type="invitations"),
+        recipient_email=email,
+        extra={"invitation_id": invitation_id, "role": role},
     )
-    print(f"✅ {role_text} invitation email sent successfully to {email}")
+    if outcome["email"] == "failed":
+        # Callers rely on a failed invitation email surfacing as an error.
+        raise Exception(f"Invitation email to {email} could not be sent")
+    print(f"✅ {role_text} invitation sent to {email} ({outcome})")
     await log_email(recipient_email=email, subject=subject, email_type="invitation", related_invitation_id=invitation_id, metadata={"token": str(token), "role": role, "position": position})
     
     # Create message record

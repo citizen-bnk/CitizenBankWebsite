@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePolicy } from "utils/policy";
 import { type DemoAccounts, getDemoAccounts, reasonMessage } from "utils/platform";
 
 /**
@@ -14,6 +15,7 @@ import { type DemoAccounts, getDemoAccounts, reasonMessage } from "utils/platfor
  */
 export default function DemoSignIn() {
   const app = useStackApp();
+  const policy = usePolicy();
   const [data, setData] = useState<DemoAccounts | null | undefined>(undefined);
   const [copied, setCopied] = useState<string | null>(null);
   const reason = reasonMessage(new URLSearchParams(window.location.search).get("reason"));
@@ -71,8 +73,7 @@ export default function DemoSignIn() {
                 <CardTitle className="text-2xl">Citizen Bank demonstration</CardTitle>
                 <CardDescription>
                   Try every part of the platform with a ready-made account. Banking is simulated and no real money
-                  moves. Citizen Digital Ltd (Reg. 99073) is the applicant for a Central Bank of Lesotho banking
-                  licence and does not currently carry on banking business.
+                  moves. {policy.legal.licence_status}
                 </CardDescription>
               </div>
             </div>

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import time
+from datetime import datetime, time
 import asyncpg
 import os
 from app.auth import AuthorizedUser
@@ -24,8 +24,8 @@ class NotificationPreferences(BaseModel):
     quiet_hours_start: Optional[time] = None
     quiet_hours_end: Optional[time] = None
     timezone: str = "Africa/Johannesburg"
-    created_at: str
-    updated_at: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class UpdatePreferencesRequest(BaseModel):
     """Update notification preferences"""
@@ -70,7 +70,10 @@ class DeviceInfo(BaseModel):
 
 async def get_db_connection():
     """Get database connection"""
-    return await asyncpg.connect(os.environ.get("DATABASE_URL"))
+    # Same database the inbox and libs.notify use (falls back to DATABASE_URL when unset)
+    from app.env import Mode, mode
+    url = os.environ.get("DATABASE_URL_PROD" if mode == Mode.PROD else "DATABASE_URL_DEV")
+    return await asyncpg.connect(url or os.environ.get("DATABASE_URL"))
 
 async def get_or_create_preferences(user_id: str, conn: asyncpg.Connection) -> dict:
     """Get existing preferences or create default ones (idempotent)"""

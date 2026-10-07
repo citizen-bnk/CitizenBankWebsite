@@ -2,8 +2,12 @@ import { Header } from 'components/Header';
 import { Footer } from 'components/Footer';
 import { Cookie } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePolicy, firstContact, visibleContact } from 'utils/policy';
 
 export default function CookiePolicy() {
+  const policy = usePolicy();
+  const privacyEmail = firstContact(policy, ['privacy_email', 'email']);
+  const otherLines = visibleContact(policy, ['phone', 'address']);
   const cookieTypes = [
     {
       type: 'Essential Cookies',
@@ -40,7 +44,6 @@ export default function CookiePolicy() {
             <p className="text-xl text-white/90">
               How we use cookies and similar technologies on our website
             </p>
-            <p className="text-sm text-white/80 mt-2">Last updated: October 16, 2025</p>
           </div>
         </div>
       </section>
@@ -178,10 +181,14 @@ export default function CookiePolicy() {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg mt-4">
               <p className="text-gray-700"><strong>Data Protection Officer</strong></p>
-              <p className="text-gray-600">Citizen Bank</p>
-              <p className="text-gray-600">Kingsway Street, Maseru 100, Lesotho</p>
-              <p className="text-gray-600 mt-2">Email: privacy@citizenbank.co.ls</p>
-              <p className="text-gray-600">Phone: +266 2231 2345</p>
+              <p className="text-gray-600">{policy.legal.company_name} (Reg. {policy.legal.registration_number})</p>
+              {privacyEmail && <p className="text-gray-600 mt-2">Email: {privacyEmail}</p>}
+              {otherLines.map((l) => (
+                <p key={l.key} className="text-gray-600">{l.key === 'phone' ? 'Phone' : 'Address'}: {l.value}</p>
+              ))}
+              {!privacyEmail && otherLines.length === 0 && (
+                <p className="text-gray-600 mt-2">Contact details have not been published yet.</p>
+              )}
             </div>
           </div>
         </div>

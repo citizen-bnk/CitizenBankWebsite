@@ -1297,6 +1297,23 @@ async def resend_meeting_invitations(meeting_id: str, request: ResendInvitations
 
 # Helper functions for email notifications
 async def send_meeting_invitation_email(email: str, meeting_id: str, meeting_info: dict, invitee_id: str):
+    """Invite a board member: inbox row (Hub /meetings/:id) + the calendar email (if email is on)."""
+    from app.libs.notify import EmailSpec, notify
+
+    when = f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}"
+    await notify(
+        None, None, "meeting_invitation", f"Meeting invitation: {meeting_info['title']}",
+        f"You are invited to {meeting_info['title']} on {when}. Please respond.",
+        path=f"/meetings/{meeting_id}", recipient_email=email,
+        email=EmailSpec(
+            to=email, subject=f"Meeting Invitation: {meeting_info['title']}",
+            send=lambda: _post_meeting_invitation_email(email, meeting_id, meeting_info, invitee_id),
+        ),
+        extra={"meeting_id": str(meeting_id)},
+    )
+
+
+async def _post_meeting_invitation_email(email: str, meeting_id: str, meeting_info: dict, invitee_id: str):
     """Send meeting invitation email with calendar attachment."""
     try:
         meeting_datetime = datetime.combine(
@@ -1378,6 +1395,27 @@ async def send_meeting_invitation_email(email: str, meeting_id: str, meeting_inf
 
 
 async def send_meeting_reminder_email(email: str, meeting_info: dict, reminder_type: str):
+    """Remind (or announce an update/cancellation): inbox row + email (if email is on)."""
+    from app.libs.notify import EmailSpec, notify
+
+    titles = {
+        'meeting_cancelled': f"Meeting cancelled: {meeting_info['title']}",
+        'meeting_update': f"Meeting updated: {meeting_info['title']}",
+    }
+    title = titles.get(reminder_type, f"Reminder: {meeting_info['title']}")
+    when = f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}"
+    await notify(
+        None, None, "meeting_reminder", title, f"{meeting_info['title']} on {when}.",
+        path=f"/meetings/{meeting_info['id']}", recipient_email=email,
+        email=EmailSpec(to=email, subject=title,
+                        send=lambda: _post_meeting_reminder_email(email, meeting_info, reminder_type)),
+        dedupe_key=f"meeting-reminder:{meeting_info['id']}:{reminder_type}:{email.lower()}",
+        dedupe_hours=48,
+        extra={"meeting_id": str(meeting_info['id'])},
+    )
+
+
+async def _post_meeting_reminder_email(email: str, meeting_info: dict, reminder_type: str):
     """Send meeting reminder email."""
     try:
         meeting_datetime = datetime.combine(
