@@ -108,7 +108,7 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         
         # Check if investor already has subscription
         existing = await conn.fetchrow(
-            "SELECT id FROM share_subscriptions WHERE email = $1 AND status != 'cancelled'",
+            "SELECT id FROM share_subscriptions WHERE LOWER(email) = LOWER($1) AND status != 'cancelled'",
             request.email
         )
         
@@ -332,7 +332,7 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
                        certificate_url, payment_deadline, created_at, updated_at,
                        created_by_admin, admin_user_id
                 FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
+                WHERE user_id = $1 OR LOWER(email) = LOWER($2)
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
@@ -439,7 +439,7 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, created_at, updated_at
                 FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
+                WHERE user_id = $1 OR LOWER(email) = LOWER($2)
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
@@ -510,7 +510,7 @@ async def core_get_subscription_details(subscription_id: str, user: AuthorizedUs
                    installment_plan, status, certificate_number, certificate_issued_date,
                    certificate_url, created_at, updated_at
             FROM share_subscriptions
-            WHERE subscription_id = $1 AND (user_id = $2 OR email = $3)
+            WHERE subscription_id = $1 AND (user_id = $2 OR LOWER(email) = LOWER($3))
         """, subscription_id, user.sub, user_email)
         
         if not sub:

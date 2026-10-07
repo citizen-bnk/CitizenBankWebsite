@@ -12,7 +12,8 @@ from app.libs.user_models import (
     UserDetailsResponse, SecurityInfo, ActivitySummary, RoleMetadata,
     BoardMemberData, InvestorData, CustomerData
 )
-from app.libs.rbac import assign_role_to_user, check_user_has_role
+from app.libs.rbac import assign_role_to_user, check_user_has_role, check_user_has_any_role
+from app.libs import profile_sync
 from app.libs.occ import update_with_version_check, ConcurrencyError
 from app.libs.outbox import write_to_outbox, AggregateType, EventType
 from app.libs.identity_service import IdentityService, IdentityValidationResult, ProfileCompletenessResult
@@ -188,7 +189,8 @@ async def register_user(request: UserRegistrationRequest, user: AuthorizedUser) 
     Note: User must be authenticated via Stack Auth first.
     """
     print(f"🔥 Registration request received for user {user.sub}")
-    print(f"📋 Request data: {request.model_dump()}")
+    # Emails are stored trimmed and lower-cased so every lookup can compare them directly.
+    request = request.model_copy(update={"email": str(request.email).strip().lower()})
     
     conn = await get_db_connection()
     
@@ -204,7 +206,7 @@ async def register_user(request: UserRegistrationRequest, user: AuthorizedUser) 
         
         # Check if email is already registered
         email_exists = await conn.fetchrow(
-            "SELECT id FROM user_profiles WHERE email = $1",
+            "SELECT id FROM user_profiles WHERE LOWER(email) = $1",
             request.email
         )
         
@@ -285,9 +287,18 @@ async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
         await conn.close()
 
 
+PROFILE_LOOKUP_ROLES = ["back_office", "admin", "super_admin"]
+
+
 @router.get("/profile/{user_id}")
-async def get_user_profile_by_id(user_id: str) -> UserDetailsResponse:
-    """Get comprehensive user details by user ID (admin use)"""
+async def get_user_profile_by_id(user_id: str, user: AuthorizedUser) -> UserDetailsResponse:
+    """Get comprehensive user details by user ID.
+
+    Allowed for back_office / admin / super_admin, or for the person themselves
+    (the response contains id_number, phone and role history).
+    """
+    if user.sub != user_id and not await check_user_has_any_role(user.sub, PROFILE_LOOKUP_ROLES):
+        raise HTTPException(status_code=403, detail="Not allowed to view this profile")
     conn = await get_db_connection()
     
     try:
@@ -445,6 +456,12 @@ async def update_user_profile(request: UserProfileUpdate, user: AuthorizedUser) 
         
         # Start transaction
         async with conn.transaction():
+            before = await conn.fetchrow(
+                "SELECT full_name, phone FROM user_profiles WHERE user_id = $1", user.sub
+            )
+            name_changed = before is not None and profile_sync.changed(before["full_name"], update_data.get("full_name"))
+            phone_changed = before is not None and profile_sync.changed(before["phone"], update_data.get("phone"))
+
             set_parts = []
             values = []
             param_count = 1
@@ -454,6 +471,10 @@ async def update_user_profile(request: UserProfileUpdate, user: AuthorizedUser) 
                 values.append(value)
                 param_count += 1
             
+            # A new phone number has not been verified yet
+            if phone_changed:
+                set_parts.append("mobile_verified = FALSE")
+
             # If CV was updated, set cv_uploaded_at to NOW()
             if 'cv_document_url' in update_data:
                 set_parts.append("cv_uploaded_at = NOW()")
@@ -486,6 +507,13 @@ async def update_user_profile(request: UserProfileUpdate, user: AuthorizedUser) 
                     "Please refresh and try again."
                 )
             
+            # Same transaction: refresh the copies of name/phone held elsewhere
+            await profile_sync.sync_profile_copies(
+                conn, user.sub,
+                name_changed=name_changed, new_name=update_data.get("full_name"),
+                phone_changed=phone_changed, new_phone=update_data.get("phone"),
+            )
+
             # Calculate profile completion using the comprehensive function
             completion_percentage = await calculate_profile_completion(user.sub, conn)
             profile_completed = completion_percentage == 100
