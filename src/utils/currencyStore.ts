@@ -18,49 +18,6 @@ const COUNTRY_TO_CURRENCY: Record<string, string> = {
   SK: "EUR", EE: "EUR", LV: "EUR", LT: "EUR", HR: "EUR",
 };
 
-// Reverse geocoding to get country from coordinates
-async function getCountryFromCoordinates(lat: number, lon: number): Promise<string> {
-  try {
-    // Use a free geocoding service
-    const response = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
-    );
-    const data = await response.json();
-    return data.countryCode || "US"; // Default to US if not found
-  } catch (error) {
-    console.error("Geocoding error:", error);
-    return "US"; // Default fallback
-  }
-}
-
-// Get country using browser geolocation API
-async function getCountryFromBrowser(): Promise<string> {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      console.log("Geolocation not supported, defaulting to US");
-      resolve("US");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        console.log(`Browser location: ${latitude}, ${longitude}`);
-        const country = await getCountryFromCoordinates(latitude, longitude);
-        resolve(country);
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        resolve("US"); // Default to US if permission denied or error
-      },
-      {
-        timeout: 10000,
-        enableHighAccuracy: false,
-      }
-    );
-  });
-}
-
 interface CurrencyState {
   detectedCurrency: string;
   selectedCurrency: string;
@@ -107,7 +64,7 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
         return;
       }
 
-      let countryCode = "US"; // Default fallback
+      let countryCode = "LS"; // Home currency when detection is unavailable
       let detectionMethod = "default";
 
       // Try IP-based detection first
@@ -120,21 +77,12 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
           detectionMethod = "IP";
           console.log(`Location detected via IP: ${countryCode}`);
         }
-      } catch (ipError) {
-        console.warn("IP detection failed (likely rate limit), trying browser geolocation:", ipError);
-        
-        // Fallback to browser geolocation
-        try {
-          countryCode = await getCountryFromBrowser();
-          detectionMethod = "browser";
-          console.log(`Location detected via browser: ${countryCode}`);
-        } catch (browserError) {
-          console.error("Browser geolocation failed:", browserError);
-          // Keep default "US"
-        }
+      } catch {
+        // Location is optional. Preserve the home currency without requesting
+        // precise location or transmitting coordinates to another service.
       }
 
-      const currency = COUNTRY_TO_CURRENCY[countryCode] || "USD";
+      const currency = COUNTRY_TO_CURRENCY[countryCode] || "LSL";
       console.log(`Currency set to ${currency} based on country ${countryCode} (${detectionMethod} detection)`);
 
       set({
@@ -148,7 +96,7 @@ export const useCurrencyStore = create<CurrencyState>((set, get) => ({
       set({
         error: "Failed to detect location",
         isLoading: false,
-        selectedCurrency: "USD", // Fallback to USD
+        selectedCurrency: "LSL", // Preserve home currency
       });
     }
   },
