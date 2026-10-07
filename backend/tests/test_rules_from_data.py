@@ -85,6 +85,9 @@ async def test_subscribe_rejects_an_unknown_plan_with_422_before_touching_anythi
     from app.libs.subscription_models import SubscriptionRequest
 
     class C:
+        async def fetchrow(self, *a):  # the buyer's profile (subscribe takes identity from it)
+            return {"full_name": "A B", "email": "a@example.com", "phone": "1234567", "id_number": "12345"}
+
         async def fetch(self, *a):
             return [{"code": "one-time", "label": "x", "months": 1, "audience": "all", "display_order": 1, "active": True}]
 
