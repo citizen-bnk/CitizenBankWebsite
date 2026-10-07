@@ -2,9 +2,26 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
 from app import runtime
-import os
 from app.auth import AuthorizedUser
-from datetime import datetime
+from app.libs.content_common import CONTENT_EDITOR_ROLES, require_roles, resolve_image_url
+from app.libs.database import get_db_connection
+from datetime import date, datetime
+
+TIMELINE_STATUSES = ("completed", "in_progress", "upcoming")
+ADMIN_MESSAGE = "Access denied. Admin or back office role required."
+
+
+def to_date(value: str) -> date:
+    """Accept '2026-09-25' or a full ISO timestamp; reject anything else with a 400."""
+    try:
+        return date.fromisoformat(value[:10]) if len(value) >= 10 else date.fromisoformat(value)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail="achievement_date must be an ISO date (YYYY-MM-DD)")
+
+
+def check_status(value: Optional[str]) -> None:
+    if value is not None and value not in TIMELINE_STATUSES:
+        raise HTTPException(status_code=400, detail=f"status must be one of {', '.join(TIMELINE_STATUSES)}")
 
 router = APIRouter(prefix="/progress-timeline")
 
@@ -56,15 +73,24 @@ class TimelineCommentResponse(BaseModel):
     created_at: str
     is_approved: bool
 
+def _record(item, comment_count: int | None = None) -> dict:
+    """A row as the response model expects it: ISO dates, and image keys turned into serve URLs."""
+    record = dict(item)
+    for key in ("achievement_date", "created_at", "updated_at"):
+        if record.get(key):
+            record[key] = record[key].isoformat()
+    record["image_url"] = resolve_image_url(record.get("image_url"))
+    if comment_count is not None:
+        record["comment_count"] = comment_count
+    return record
+
+
 # ============ Timeline Item Endpoints ============
 
 @router.get("/public")
 async def list_public_timeline_items() -> list[TimelineItemResponse]:
     """Get all published timeline items ordered by date"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    conn = await get_db_connection()
     
     try:
         items = await conn.fetch("""
@@ -80,14 +106,7 @@ async def list_public_timeline_items() -> list[TimelineItemResponse]:
         
         results = []
         for item in items:
-            record = dict(item)
-            if record.get('achievement_date'):
-                record['achievement_date'] = record['achievement_date'].isoformat()
-            if record.get('created_at'):
-                record['created_at'] = record['created_at'].isoformat()
-            if record.get('updated_at'):
-                record['updated_at'] = record['updated_at'].isoformat()
-            results.append(TimelineItemResponse(**record))
+            results.append(TimelineItemResponse(**_record(item)))
         
         return results
         
@@ -97,10 +116,8 @@ async def list_public_timeline_items() -> list[TimelineItemResponse]:
 @router.get("/admin/list")
 async def list_all_timeline_items(user: AuthorizedUser) -> list[TimelineItemResponse]:
     """Get all timeline items for admin (including unpublished)"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    await require_roles(user.sub, CONTENT_EDITOR_ROLES, ADMIN_MESSAGE)
+    conn = await get_db_connection()
     
     try:
         items = await conn.fetch("""
@@ -115,14 +132,7 @@ async def list_all_timeline_items(user: AuthorizedUser) -> list[TimelineItemResp
         
         results = []
         for item in items:
-            record = dict(item)
-            if record.get('achievement_date'):
-                record['achievement_date'] = record['achievement_date'].isoformat()
-            if record.get('created_at'):
-                record['created_at'] = record['created_at'].isoformat()
-            if record.get('updated_at'):
-                record['updated_at'] = record['updated_at'].isoformat()
-            results.append(TimelineItemResponse(**record))
+            results.append(TimelineItemResponse(**_record(item)))
         
         return results
         
@@ -132,10 +142,10 @@ async def list_all_timeline_items(user: AuthorizedUser) -> list[TimelineItemResp
 @router.post("/admin/create")
 async def create_timeline_item(body: TimelineItemCreate, user: AuthorizedUser) -> TimelineItemResponse:
     """Create a new timeline item (admin only)"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    await require_roles(user.sub, CONTENT_EDITOR_ROLES, ADMIN_MESSAGE)
+    check_status(body.status)
+    achieved = to_date(body.achievement_date).isoformat()
+    conn = await get_db_connection()
     
     try:
         item = await conn.fetchrow("""
@@ -143,12 +153,12 @@ async def create_timeline_item(body: TimelineItemCreate, user: AuthorizedUser) -
                 title, short_story, achievement_date, image_url, 
                 status, display_order, is_published, created_by
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3::text::date, $4, $5, $6, $7, $8)
             RETURNING *
         """, 
             body.title,
             body.short_story,
-            body.achievement_date,
+            achieved,
             body.image_url,
             body.status,
             body.display_order,
@@ -156,16 +166,7 @@ async def create_timeline_item(body: TimelineItemCreate, user: AuthorizedUser) -
             user.sub
         )
         
-        record = dict(item)
-        if record.get('achievement_date'):
-            record['achievement_date'] = record['achievement_date'].isoformat()
-        if record.get('created_at'):
-            record['created_at'] = record['created_at'].isoformat()
-        if record.get('updated_at'):
-            record['updated_at'] = record['updated_at'].isoformat()
-        record['comment_count'] = 0
-        
-        return TimelineItemResponse(**record)
+        return TimelineItemResponse(**_record(item, 0))
         
     finally:
         await conn.close()
@@ -177,10 +178,9 @@ async def update_timeline_item(
     user: AuthorizedUser
 ) -> TimelineItemResponse:
     """Update a timeline item (admin only)"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    await require_roles(user.sub, CONTENT_EDITOR_ROLES, ADMIN_MESSAGE)
+    check_status(body.status)
+    conn = await get_db_connection()
     
     try:
         # Build update query dynamically
@@ -199,8 +199,8 @@ async def update_timeline_item(
             param_count += 1
         
         if body.achievement_date is not None:
-            update_fields.append(f"achievement_date = ${param_count}")
-            values.append(body.achievement_date)
+            update_fields.append(f"achievement_date = ${param_count}::text::date")
+            values.append(to_date(body.achievement_date).isoformat())
             param_count += 1
         
         if body.image_url is not None:
@@ -226,9 +226,7 @@ async def update_timeline_item(
         if not update_fields:
             raise HTTPException(status_code=400, detail="No fields to update")
         
-        update_fields.append(f"updated_at = ${param_count}")
-        values.append(datetime.utcnow())
-        param_count += 1
+        update_fields.append("updated_at = NOW()")
         
         values.append(item_id)
         
@@ -250,16 +248,7 @@ async def update_timeline_item(
             item_id
         )
         
-        record = dict(item)
-        if record.get('achievement_date'):
-            record['achievement_date'] = record['achievement_date'].isoformat()
-        if record.get('created_at'):
-            record['created_at'] = record['created_at'].isoformat()
-        if record.get('updated_at'):
-            record['updated_at'] = record['updated_at'].isoformat()
-        record['comment_count'] = comment_count or 0
-        
-        return TimelineItemResponse(**record)
+        return TimelineItemResponse(**_record(item, comment_count or 0))
         
     finally:
         await conn.close()
@@ -267,10 +256,8 @@ async def update_timeline_item(
 @router.delete("/admin/{item_id}")
 async def delete_timeline_item(item_id: int, user: AuthorizedUser):
     """Delete a timeline item (admin only)"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    await require_roles(user.sub, CONTENT_EDITOR_ROLES, ADMIN_MESSAGE)
+    conn = await get_db_connection()
     
     try:
         result = await conn.execute(
@@ -291,10 +278,7 @@ async def delete_timeline_item(item_id: int, user: AuthorizedUser):
 @router.get("/{item_id}/comments")
 async def get_timeline_comments(item_id: int) -> list[TimelineCommentResponse]:
     """Get all approved comments for a timeline item"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    conn = await get_db_connection()
     
     try:
         comments = await conn.fetch("""
@@ -318,21 +302,19 @@ async def get_timeline_comments(item_id: int) -> list[TimelineCommentResponse]:
 @router.post("/comment")
 async def add_timeline_comment(body: TimelineCommentCreate, user: AuthorizedUser) -> TimelineCommentResponse:
     """Add a comment to a timeline item"""
-    import asyncpg
-    from app.libs.stack_auth import get_user_info
-    
     if len(body.comment_text) > 128:
         raise HTTPException(status_code=400, detail="Comment must be 128 characters or less")
     
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    conn = await get_db_connection()
     
     try:
-        # Get user info
-        user_info = await get_user_info(user.sub)
-        user_name = user_info.get('display_name') or user_info.get('email', 'Anonymous')
-        user_email = user_info.get('email')
-        
+        # The signed-in user's name and email come from the verified token.
+        user_name = user.name or user.email or 'Anonymous'
+        user_email = user.email
+        exists = await conn.fetchval("SELECT 1 FROM progress_timeline WHERE id = $1 AND is_published = true", body.timeline_id)
+        if not exists:
+            raise HTTPException(status_code=404, detail="Timeline item not found")
+
         comment = await conn.fetchrow("""
             INSERT INTO timeline_comments (
                 timeline_id, user_id, user_name, user_email, comment_text
@@ -359,10 +341,8 @@ async def add_timeline_comment(body: TimelineCommentCreate, user: AuthorizedUser
 @router.delete("/admin/comment/{comment_id}")
 async def delete_comment(comment_id: int, user: AuthorizedUser):
     """Delete a comment (admin only)"""
-    import asyncpg
-    
-    database_url = os.environ.get("DATABASE_URL_DEV")
-    conn = await asyncpg.connect(database_url)
+    await require_roles(user.sub, CONTENT_EDITOR_ROLES, ADMIN_MESSAGE)
+    conn = await get_db_connection()
     
     try:
         result = await conn.execute(

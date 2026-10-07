@@ -149,6 +149,24 @@ export function MobileNav() {
             </Link>
 
             <Link
+              to="/newsletters"
+              onClick={handleLinkClick}
+              className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Building2 className="h-5 w-5" />
+              <span>Newsletters</span>
+            </Link>
+
+            <Link
+              to="/careers"
+              onClick={handleLinkClick}
+              className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Building2 className="h-5 w-5" />
+              <span>Careers</span>
+            </Link>
+
+            <Link
               to="/contact"
               onClick={handleLinkClick}
               className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"

@@ -6,6 +6,7 @@ from app import runtime
 from app.auth import AuthorizedUser
 from app.libs.database import get_db_connection
 import re
+from app.libs.content_common import resolve_image_url, storage_key_from_value
 
 router = APIRouter(prefix="/achievements")
 
@@ -95,6 +96,13 @@ async def check_user_has_any_role(user_id: str, roles: list[str]) -> bool:
     finally:
         await conn.close()
 
+def to_achievement(row) -> "Achievement":
+    """Build the response model; a stored storage key becomes a servable URL."""
+    data = dict(row)
+    data["image_url"] = resolve_image_url(data.get("image_url"))
+    return Achievement(**data)
+
+
 def sanitize_storage_key(filename: str) -> str:
     """Sanitize filename for storage key"""
     # Remove any characters that are not alphanumeric, underscore, dot, or hyphen
@@ -128,7 +136,7 @@ async def get_timeline(
             params.append(limit)
         
         rows = await conn.fetch(query, *params)
-        achievements = [Achievement(**dict(row)) for row in rows]
+        achievements = [to_achievement(row) for row in rows]
         
         return TimelineResponse(
             achievements=achievements,
@@ -167,7 +175,7 @@ async def list_all_achievements(
         query += " ORDER BY achievement_date DESC, display_order ASC"
         
         rows = await conn.fetch(query, *params)
-        achievements = [Achievement(**dict(row)) for row in rows]
+        achievements = [to_achievement(row) for row in rows]
         
         return AdminListResponse(
             achievements=achievements,
@@ -208,7 +216,7 @@ async def create_achievement(
             user.sub
         )
         
-        return Achievement(**dict(row))
+        return to_achievement(row)
     finally:
         await conn.close()
 
@@ -277,7 +285,7 @@ async def update_achievement(
         updates.append("updated_at = NOW()")
         
         if not updates:
-            return Achievement(**dict(existing))
+            return to_achievement(existing)
         
         params.append(achievement_id)
         query = f"""
@@ -288,7 +296,7 @@ async def update_achievement(
         """
         
         row = await conn.fetchrow(query, *params)
-        return Achievement(**dict(row))
+        return to_achievement(row)
     finally:
         await conn.close()
 
@@ -315,9 +323,10 @@ async def delete_achievement(
             raise HTTPException(status_code=404, detail="Achievement not found")
         
         # Delete image from storage if exists
-        if achievement['image_url']:
+        old_key = storage_key_from_value(achievement['image_url'])
+        if old_key:
             try:
-                runtime.storage.binary.delete(achievement['image_url'])
+                runtime.storage.binary.delete(old_key)
             except Exception as e:
                 print(f"Warning: Could not delete image: {e}")
         
@@ -367,9 +376,10 @@ async def upload_achievement_image(
             raise HTTPException(status_code=404, detail="Achievement not found")
         
         # Delete old image if exists
-        if existing['image_url']:
+        old_key = storage_key_from_value(existing['image_url'])
+        if old_key:
             try:
-                runtime.storage.binary.delete(existing['image_url'])
+                runtime.storage.binary.delete(old_key)
             except Exception as e:
                 print(f"Warning: Could not delete old image: {e}")
         
@@ -394,8 +404,8 @@ async def upload_achievement_image(
         
         return {
             "success": True,
-            "image_url": storage_key,
-            "achievement": Achievement(**dict(row))
+            "image_url": resolve_image_url(storage_key),
+            "achievement": to_achievement(row)
         }
     finally:
         await conn.close()

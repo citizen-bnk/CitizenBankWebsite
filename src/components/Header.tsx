@@ -96,6 +96,12 @@ export function Header() {
             <Link to="/media" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Media
             </Link>
+            <Link to="/newsletters" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
+              Newsletters
+            </Link>
+            <Link to="/careers" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
+              Careers
+            </Link>
           </nav>
 
           {/* Right Side: Currency Selector + Profile Bell + User Menu */}

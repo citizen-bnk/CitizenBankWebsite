@@ -4,6 +4,9 @@ import brain from 'brain';
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
 import { AchievementsTimeline } from "components/AchievementsTimeline";
+import { ProgressTimeline } from "components/ProgressTimeline";
+import { LicenceStatusNote } from "components/LicenceStatusNote";
+import { loadPublicPolicies } from "utils/publicContentApi";
 import { Newspaper, Calendar, ArrowRight, X, Eye, Award } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +21,11 @@ export default function Media() {
   const [selectedRelease, setSelectedRelease] = useState<MediaReleaseResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showArticle, setShowArticle] = useState(false);
+  const [policies, setPolicies] = useState<Record<string, unknown> | null>(null);
+
+  useEffect(() => {
+    loadPublicPolicies().then(setPolicies);
+  }, []);
 
   useEffect(() => {
     loadReleases();
@@ -98,7 +106,7 @@ export default function Media() {
           <div className="max-w-3xl">
             <h1 className="text-4xl font-bold mb-4">Media Center</h1>
             <p className="text-xl text-white/90">
-              Latest news, press releases, and achievements from Citizen Bank
+              Latest news, press releases and progress updates from Citizen Bank
             </p>
           </div>
         </div>
@@ -125,7 +133,7 @@ export default function Media() {
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">Our Achievements</h2>
                   <p className="text-gray-600">
-                    Milestones, awards, and significant moments in building Lesotho's trusted banking partner
+                    Milestones in building Citizen Bank's technology and preparing our licence application
                   </p>
                 </div>
                 <AchievementsTimeline />
@@ -135,10 +143,10 @@ export default function Media() {
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">Our Journey</h2>
                   <p className="text-gray-600">
-                    View our complete timeline of growth and achievements
+                    How the Citizen Bank platform has developed so far
                   </p>
                 </div>
-                <AchievementsTimeline />
+                <ProgressTimeline />
               </TabsContent>
             </Tabs>
           </div>
@@ -220,19 +228,29 @@ export default function Media() {
         </div>
       </section>
 
-      {/* Media Contact */}
-      <section className="bg-white border-y border-gray-200 py-12">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Media Inquiries</h2>
-          <p className="text-gray-600 mb-6">
-            For press inquiries and media relations, please contact our communications team
-          </p>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-gray-900 font-medium">📧 media@citizenbank.co.ls</p>
-            <p className="text-gray-900 font-medium">📞 +266 2231 2345</p>
+      {/* Media contact: shown only when the contact details are confirmed in the policy settings */}
+      {(typeof policies?.['contact.media_email'] === 'string' || typeof policies?.['contact.media_phone'] === 'string') && (
+        <section className="bg-white border-y border-gray-200 py-12">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Media Inquiries</h2>
+            <p className="text-gray-600 mb-6">For press inquiries and media relations, please contact us</p>
+            <div className="flex flex-col items-center gap-2">
+              {typeof policies?.['contact.media_email'] === 'string' && (
+                <p className="text-gray-900 font-medium">
+                  <a href={`mailto:${policies['contact.media_email']}`}>{String(policies['contact.media_email'])}</a>
+                </p>
+              )}
+              {typeof policies?.['contact.media_phone'] === 'string' && (
+                <p className="text-gray-900 font-medium">{String(policies['contact.media_phone'])}</p>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      <div className="container mx-auto px-4 py-8">
+        <LicenceStatusNote policies={policies} className="text-center" />
+      </div>
 
       {/* Article Detail Dialog */}
       <Dialog open={showArticle} onOpenChange={handleCloseArticle}>
