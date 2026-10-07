@@ -88,13 +88,14 @@ def harness(monkeypatch):
     async def fake_has_role(user_id, roles):
         return any(r in state["roles"] for r in roles)
 
-    async def fake_enqueue(**kwargs):
-        return None
+    async def fake_notify(*args, **kwargs):
+        state.setdefault("notified", []).append((args, kwargs))
+        return {"inbox": True, "email": "sent", "deduped": False}
 
     monkeypatch.setattr(payments, "db_connection", fake_db_connection)
     monkeypatch.setattr(payments, "check_user_has_any_role", fake_has_role)
     monkeypatch.setattr(payments, "generate_receipt", lambda **kw: b"%PDF-fake")
-    monkeypatch.setattr(payments, "enqueue_email", fake_enqueue)
+    monkeypatch.setattr(payments, "notify", fake_notify)
     monkeypatch.setattr(payments.runtime.storage.binary, "put", lambda *a, **k: None, raising=False)
     return state
 
@@ -138,6 +139,9 @@ async def test_back_office_records_a_verified_payment_with_audit_trail(harness):
     assert conn.sql_writes("UPDATE share_subscriptions")
     audit = conn.sql_writes("INSERT INTO audit_logs")
     assert audit and "record_payment" in audit[0][2]
+    (args, kwargs), = harness["notified"]
+    assert args[1] == "owner-1" and args[2] == "payment_received"
+    assert kwargs["path"] == f"/portfolio/{SUB_ID}" and kwargs["email"].to == "investor@example.test"
 
 
 async def test_super_admin_can_complete_a_subscription(harness):

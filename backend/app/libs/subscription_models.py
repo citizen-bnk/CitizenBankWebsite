@@ -9,10 +9,11 @@ from decimal import Decimal
 
 class SubscriptionRequest(BaseModel):
     """Request to subscribe for shares"""
-    full_name: str
-    email: EmailStr
-    phone: str
-    id_number: str  # National ID or passport
+    # Buyer details are read from the caller's profile server side; body copies are ignored.
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    id_number: Optional[str] = None
     num_shares: int
     payment_method: Literal["one-time", "installment"]
     installment_plan: Optional[Literal["3-months", "6-months", "12-months"]] = None

@@ -7,7 +7,7 @@ from app.auth import AuthorizedUser
 from app.libs.database import db_connection
 from app.libs.subscription_models import PaymentRecord, PaymentResponse
 from app.libs.rbac import check_user_has_any_role
-from app.libs.email_queue import enqueue_email
+from app.libs.notify import EmailSpec, notify
 from app.libs.email_templates import create_payment_receipt_email
 from app.libs.receipt_generator import generate_receipt
 from fastapi.concurrency import run_in_threadpool
@@ -149,22 +149,25 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             print(f"📄 Receipt generated and stored: {receipt_number}")
             documents_generated.append('receipt')
             
-            # Queue email with receipt
-            await enqueue_email(
-                recipient_email=subscription['email'],
-                recipient_name=subscription['full_name'],
-                subject=f"Payment Receipt - {receipt_number}",
-                body_html=create_payment_receipt_email(
+            # Inbox row + receipt email (email honours channel_email)
+            receipt_subject = f"Payment Receipt - {receipt_number}"
+            await notify(
+                conn, subscription['user_id'], "payment_received", receipt_subject,
+                f"We recorded your payment of M {float(payment.amount):,.2f} for subscription {payment.subscription_id}.",
+                path=f"/portfolio/{payment.subscription_id}",
+                email=EmailSpec(
+                    to=subscription['email'], subject=receipt_subject,
                     recipient_name=subscription['full_name'],
-                    receipt_number=receipt_number,
-                    payment_amount=float(payment.amount),
-                    payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
-                    payment_date=payment_date.strftime('%d %B %Y'),
-                    subscription_details=f"{subscription['num_shares']} shares"
+                    html=create_payment_receipt_email(
+                        recipient_name=subscription['full_name'],
+                        receipt_number=receipt_number,
+                        payment_amount=float(payment.amount),
+                        payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
+                        payment_date=payment_date.strftime('%d %B %Y'),
+                        subscription_details=f"{subscription['num_shares']} shares"
+                    ),
                 ),
-                recipient_id=subscription['user_id'],
-                created_by='system',
-                priority='high'
+                dedupe_key=f"payment-receipt:{receipt_number}",
             )
             print(f"📧 Payment receipt email queued: {receipt_number}")
             
@@ -267,7 +270,7 @@ async def payments_verify_payment(subscription_id: str, approved: bool, notes: s
     
     async with db_connection() as conn:
         subscription = await conn.fetchrow(
-            "SELECT id, subscription_id, email, full_name FROM share_subscriptions WHERE subscription_id = $1",
+            "SELECT id, subscription_id, user_id, email, full_name FROM share_subscriptions WHERE subscription_id = $1",
             subscription_id
         )
         
@@ -287,6 +290,12 @@ async def payments_verify_payment(subscription_id: str, approved: bool, notes: s
             
             print(f"✅ Payment proof verified for {subscription_id} by {user.sub}")
             message = "Payment proof verified successfully"
+            await notify(
+                conn, subscription['user_id'], "payment_verified", "Payment proof verified",
+                f"Your proof of payment for subscription {subscription_id} was verified.",
+                path=f"/portfolio/{subscription_id}", recipient_email=subscription['email'],
+                dedupe_key=f"payment-verified:{subscription_id}", dedupe_hours=1,
+            )
         else:
             # Reject
             await conn.execute("""
@@ -300,6 +309,13 @@ async def payments_verify_payment(subscription_id: str, approved: bool, notes: s
             
             print(f"❌ Payment proof rejected for {subscription_id} by {user.sub}")
             message = "Payment proof rejected"
+            await notify(
+                conn, subscription['user_id'], "payment_rejected", "Payment proof rejected",
+                f"Your proof of payment for subscription {subscription_id} was not accepted"
+                + (f": {notes}" if notes else ". Please upload a new proof of payment."),
+                path=f"/portfolio/{subscription_id}", recipient_email=subscription['email'],
+                dedupe_key=f"payment-rejected:{subscription_id}", dedupe_hours=1,
+            )
         
         # Log verification action
         await conn.execute("""
