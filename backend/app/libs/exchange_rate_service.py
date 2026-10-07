@@ -61,6 +61,32 @@ async def get_cached_rates() -> Optional[Dict[str, float]]:
         await conn.close()
 
 
+async def get_table_rates() -> Optional[Dict[str, float]]:
+    """Latest LSL-to-currency rate per currency from the exchange_rates table, or None when it has none.
+
+    Same columns the subscription code reads (base_currency, target_currency, rate, date). LSL itself is always 1.0.
+    """
+    try:
+        conn = await get_db_connection()
+        try:
+            rows = await conn.fetch("""
+                SELECT DISTINCT ON (target_currency) target_currency, rate
+                FROM exchange_rates
+                WHERE base_currency = 'LSL'
+                ORDER BY target_currency, date DESC
+            """)
+        finally:
+            await conn.close()
+    except Exception as e:
+        print(f"[ExchangeRate Service] exchange_rates table not readable: {e}")
+        return None
+    if not rows:
+        return None
+    rates = {r["target_currency"]: float(r["rate"]) for r in rows}
+    rates.setdefault("LSL", 1.0)
+    return rates
+
+
 async def get_cache_age() -> Optional[int]:
     """Get the age of the cache in days. Returns None if cache is empty."""
     conn = await get_db_connection()
@@ -233,8 +259,14 @@ async def get_rates_with_fallback() -> Tuple[Dict[str, float], str, int]:
         print(f"[ExchangeRate Service] ⚠ APIs failed, returning stale cache ({cache_age} days old)")
         return cached_rates, f"database_cache_stale_{cache_age}d", cache_age
     
-    # Step 5: Everything failed, return hardcoded rates
-    print("[ExchangeRate Service] ⚠ All sources failed, returning hardcoded fallback rates")
+    # Step 5: Everything failed. Prefer the rates stored in the exchange_rates table (visible and editable by
+    # administrators); the constant below is the last resort and is logged as such.
+    table_rates = await get_table_rates()
+    if table_rates:
+        print(f"[ExchangeRate Service] ⚠ All sources failed, using {len(table_rates)} rates from the exchange_rates table")
+        return table_rates, "exchange_rates_table", 999
+    print("[ExchangeRate Service] ⚠ LAST RESORT: all sources failed and the exchange_rates table has no rates; "
+          "using the HARDCODED_RATES constant")
     return HARDCODED_RATES.copy(), "hardcoded_fallback", 999
 
 

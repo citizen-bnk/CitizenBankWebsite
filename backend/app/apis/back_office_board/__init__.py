@@ -23,6 +23,7 @@ from app.libs.rbac import assign_role_to_user, remove_role_from_user, check_user
 from app.apis.board_portal import send_invitation_email
 from app.apis.invitation_permissions import check_invitation_permission
 from app.libs.url_helpers import get_frontend_path
+from app.libs.board_positions import is_valid_position
 
 router = APIRouter(prefix="/back-office")
 
@@ -196,6 +197,17 @@ async def get_dashboard_stats(user: AuthorizedUser) -> DashboardStatsResponse:
     finally:
         await conn.close()
 
+async def _require_valid_position(position: str) -> None:
+    """400 unless `position` names a row of board_positions (or one of the six legacy names when the table is empty)."""
+    conn = await get_db_connection()
+    try:
+        ok, names = await is_valid_position(conn, position)
+    finally:
+        await conn.close()
+    if not ok:
+        raise HTTPException(status_code=400, detail=f"Invalid position. Must be one of: {', '.join(names)}")
+
+
 @router.post("/invitations/create")
 async def create_invitation_endpoint(body: CreateInvitationRequest, user: AuthorizedUser):
     """Send an invitation to join as board member or investor."""
@@ -215,10 +227,9 @@ async def create_invitation_endpoint(body: CreateInvitationRequest, user: Author
     if body.role == 'board_member' and not body.position:
         raise HTTPException(status_code=400, detail="Position is required for board member invitations")
     
-    # Validate position
-    valid_positions = ['chairman', 'vice_chairman', 'director', 'secretary', 'treasurer', 'member']
-    if body.position and body.position not in valid_positions:
-        raise HTTPException(status_code=400, detail=f"Invalid position. Must be one of: {', '.join(valid_positions)}")
+    # Validate position against board_positions (the six legacy names keep working)
+    if body.position:
+        await _require_valid_position(body.position)
     
     try:
         # Check for existing pending invitation to same email
@@ -654,10 +665,8 @@ async def appoint_board_member_endpoint(body: AppointBoardMemberRequest, user: A
     if body.user_id and body.invitation_id:
         raise HTTPException(status_code=400, detail="Provide either user_id or invitation_id, not both")
     
-    # Validate position
-    valid_positions = ['chairman', 'vice_chairman', 'director', 'secretary', 'treasurer', 'member']
-    if body.position not in valid_positions:
-        raise HTTPException(status_code=400, detail=f"Invalid position. Must be one of: {', '.join(valid_positions)}")
+    # Validate position against board_positions (the six legacy names keep working)
+    await _require_valid_position(body.position)
     
     try:
         conn = await get_db_connection()
