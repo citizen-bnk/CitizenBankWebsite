@@ -1,5 +1,5 @@
 import { LucideIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "./EcosystemLink";
 
 interface Props {
   icon: LucideIcon;

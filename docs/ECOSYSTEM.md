@@ -52,6 +52,21 @@ Be precise about this, because the repositories look more joined than they are:
   `HUB_URL` is left unset.
 - Not yet tested against real Vercel, Neon or Stack Auth; the handoff was tested locally end to end.
 
+## Hub carve-out and demo sign-in
+
+- **Moving screens to the Hub.** My investments and the Board portal now live in `citizen-hub`. On the website, set
+  `VITE_HUB_URL` (build time) to the Hub's address and those paths (`MOVED_TO_HUB` in `src/utils/hub.ts`) redirect to the
+  same path there; also set `HUB_URL` on the backend so `/api/platform/services` and the launcher agree. With `VITE_HUB_URL`
+  unset nothing moves. The Hub marks paths it sends back with `from_hub=1` so a path it does not serve is shown here, never
+  bounced in a loop.
+- **No second login.** A signed-out Hub visit goes to the website sign-in and back. That is invisible only if Stack trusts
+  the parent domain (`**.citizenbank.co.ls`, shared cookie). On `*.vercel.app` the hosts cannot share a session, so the Hub
+  falls back to its own sign-in screen.
+- **Demo sign-in.** In the demo environment (`DEMO_MODE`, `DEMO_PASSWORD_DISPLAY`) the website's sign-in screen is a picker of
+  the seven demo accounts: one click signs in through Stack and continues to where the visitor was heading, or to the launcher.
+  "Use another account" shows the normal form (`?manual=1`). Outside the demo the endpoint answers 404 and the normal
+  sign-in is shown.
+
 ## Hosting map (all Vercel)
 
 | Vercel project | From repository | Runs | Data service |

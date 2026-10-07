@@ -3,7 +3,7 @@ import { Footer } from "components/Footer";
 import { MetricCard } from "components/MetricCard";
 import { PortalCard } from "components/PortalCard";
 import { CurrencyIndicator } from "components/CurrencyIndicator";
-import { Link } from "react-router-dom";
+import { Link } from "components/EcosystemLink";
 import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
 import { useUserRoles } from "utils/useUserRoles";
@@ -31,10 +31,10 @@ export default function App() {
 
   // Citizen Bank customer images
   const heroBackgrounds = [
-    '/brand/HappyCitizen%201.png',
-    '/brand/HappyCitizen%203.png',
-    '/brand/HappyCitizen%204.png',
-    '/brand/HappyCitizen%207.png',
+    '/brand/HappyCitizen%201.webp',
+    '/brand/HappyCitizen%203.webp',
+    '/brand/HappyCitizen%204.webp',
+    '/brand/HappyCitizen%207.webp',
   ];
 
   // Rotate background images every 2 minutes (120000ms)
@@ -167,7 +167,7 @@ export default function App() {
         <section 
           className="relative py-16 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url("/brand/HappyCitizen%207.png")',
+            backgroundImage: 'url("/brand/HappyCitizen%207.webp")',
           }}
         >
           {/* Overlay for better text readability */}
@@ -226,10 +226,10 @@ export default function App() {
         <div className="container mx-auto px-4">
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Bank Performance Overview
+              Illustrative demonstration metrics
             </h2>
             <p className="text-gray-600 mb-4">
-              Real-time metrics and key performance indicators
+              Sample values for demonstration; these are not actual operating results.
             </p>
             <CurrencyIndicator />
           </div>

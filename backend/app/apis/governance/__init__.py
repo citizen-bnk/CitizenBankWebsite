@@ -1577,6 +1577,9 @@ async def cancel_queued_email(
 @router.post("/email-queue/process")
 async def process_email_queue() -> dict:
     """Process pending emails in the queue (called by scheduler)"""
+    if os.environ.get("DEMO_MODE", "").lower() == "true":
+        return {"success": True, "processed": 0, "sent": 0, "failed": 0,
+                "message": "Demo mode: external email delivery is disabled"}
     
     try:
         import requests

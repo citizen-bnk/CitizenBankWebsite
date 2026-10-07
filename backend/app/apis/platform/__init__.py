@@ -8,7 +8,7 @@ from typing import Literal
 from urllib.parse import quote
 
 import asyncpg
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Request
 from pydantic import BaseModel
 
 from app.auth import AuthorizedUser
@@ -18,6 +18,45 @@ from app.libs.database import db_connection
 from app.libs.platform_people import ensure_person
 
 router = APIRouter(prefix="/platform")
+
+
+@router.api_route("/profile-service", methods=["GET", "PATCH"])
+async def profile_service(request: Request):
+    from app.libs.profile_service import verify_profile_proof
+    from app.libs.platform_people import legacy_roles
+    from app.libs.platform_backfill import PROVIDER
+    from app.auth import User
+    from app.apis.user_management import get_user_profile, update_user_profile, UserProfileUpdate
+    raw = await request.body()
+    try:
+        person_id = verify_profile_proof(request.headers.get("X-Citizen-Profile-Token", ""),
+                                        os.environ.get("PROFILE_SERVICE_SECRET", ""), request.method, raw)
+    except (ValueError, KeyError, TypeError):
+        raise HTTPException(401, "Invalid profile service request") from None
+    async with db_connection() as conn:
+        subject = await conn.fetchval("SELECT subject FROM platform.identity_mapping WHERE provider=$1 AND person_id=$2", PROVIDER, person_id)
+        if not subject:
+            raise HTTPException(404, "Linked profile not found")
+        roles = await legacy_roles(conn, subject)
+    user = User(sub=subject)
+    if request.method == "PATCH":
+        try:
+            data = await request.json()
+        except ValueError:
+            raise HTTPException(422, "Invalid profile update") from None
+        common = {"full_name", "phone", "street_address", "city", "country", "bio", "occupation", "employer", "version"}
+        investor = {"source_of_funds", "investor_type", "investment_purpose"}
+        allowed = common | (investor if {"investor", "shareholder"} & set(roles) else set())
+        if not isinstance(data, dict) or not data or set(data) - allowed:
+            raise HTTPException(422, "These profile fields cannot be changed here")
+        try:
+            update = UserProfileUpdate(**data)
+        except ValueError:
+            raise HTTPException(422, "Invalid profile fields") from None
+        profile = await update_user_profile(update, user)
+    else:
+        profile = await get_user_profile(user)
+    return {"linked": True, "profile": profile, "roles": roles}
 
 # service id -> (display name, env var holding its base URL, audience for handoff, roles that may enter)
 SERVICES: dict[str, dict] = {

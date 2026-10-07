@@ -1,10 +1,10 @@
-import { Link } from "react-router-dom";
+import { Link } from "./EcosystemLink";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
 
 export function Footer() {
-  const logoUrl = "/brand/logo.png";
+  const logoUrl = "/brand/logo-sm.webp";
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [platform, setPlatform] = useState('');
 
@@ -47,7 +47,7 @@ export function Footer() {
               <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Business Banking</Link></li>
               <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Loans & Credit</Link></li>
               <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Cards</Link></li>
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Mobile Banking</Link></li>
+              <li><Link to="/mobile-banking" className="hover:text-[#8f6ec4] transition-colors">Mobile Banking</Link></li>
             </ul>
           </div>
 

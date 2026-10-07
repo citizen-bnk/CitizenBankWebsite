@@ -286,8 +286,10 @@ async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
 
 
 @router.get("/profile/{user_id}")
-async def get_user_profile_by_id(user_id: str) -> UserDetailsResponse:
+async def get_user_profile_by_id(user_id: str, user: AuthorizedUser) -> UserDetailsResponse:
     """Get comprehensive user details by user ID (admin use)"""
+    if user_id != user.sub and not await check_user_has_role(user.sub, "super_admin"):
+        raise HTTPException(status_code=403, detail="You cannot access another user's profile")
     conn = await get_db_connection()
     
     try:
