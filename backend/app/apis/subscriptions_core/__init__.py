@@ -19,6 +19,7 @@ from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_payment_instructions_email
 from app.libs.profile_completion_reminders import schedule_profile_completion_reminder
 from app.libs.rbac import check_user_has_any_role
+from app.libs.payment_plans import check_subscription_plan, load_plans
 
 router = APIRouter(prefix="/subscriptions/core")
 
@@ -73,6 +74,9 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
     print(f"   Purchase currency: {getattr(request, 'purchase_currency', 'LSL')}")
     
     async with db_connection() as conn:
+        # The plan must be one of the active investor plans (payment_plans); 422 otherwise
+        plan_months = check_subscription_plan(await load_plans(conn), request.payment_method, request.installment_plan)
+
         # Check availability
         availability = await get_share_availability_data(conn)
         
@@ -104,8 +108,7 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         monthly_payment = None
         
         if request.payment_method == 'installment' and request.installment_plan:
-            months = int(request.installment_plan.split('-')[0])
-            monthly_payment = total_amount_lsl / months
+            monthly_payment = total_amount_lsl / plan_months
         
         # Get purchase currency from request (default to LSL)
         purchase_currency = getattr(request, 'purchase_currency', 'LSL') or 'LSL'

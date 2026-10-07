@@ -17,6 +17,7 @@ import base64
 from app.auth import AuthorizedUser
 from app.libs.board_management import get_db_connection, get_board_member_by_user_id
 from app.libs.rbac import check_user_has_role
+from app.libs.payment_plans import check_board_plan, load_plans
 
 router = APIRouter()
 
@@ -255,6 +256,13 @@ async def create_board_investment(body: InvestmentRequest, user: AuthorizedUser)
             status_code=400,
             detail="Installment months required for installment payment"
         )
+
+    # The plan must be an active board plan (payment_plans); 422 otherwise
+    conn = await get_db_connection()
+    try:
+        check_board_plan(await load_plans(conn), body.payment_method, body.installment_months)
+    finally:
+        await conn.close()
     
     try:
         # Get user profile for email and name

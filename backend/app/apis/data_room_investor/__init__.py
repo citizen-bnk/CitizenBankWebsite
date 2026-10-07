@@ -6,6 +6,7 @@ from app.auth import AuthorizedUser
 from datetime import datetime
 from app.libs.data_room_emails import send_document_access_alert
 from app.libs.database import db_connection
+from app.libs.agreement_texts import current_agreement, current_agreements, record_signature
 
 router = APIRouter(prefix="/data-room/investor")
 
@@ -40,6 +41,15 @@ class NCNDAResponse(BaseModel):
     version: str
     content: str
     effective_date: str
+
+class AgreementTextResponse(BaseModel):
+    agreement_type: str
+    version: str
+    title: str
+    content: str
+    effective_date: str
+    required: bool
+    display_order: int
 
 class SignAgreementRequest(BaseModel):
     agreement_version: str
@@ -255,6 +265,21 @@ async def get_current_ncnda() -> NCNDAResponse:
             effective_date=row['effective_date'].isoformat()
         )
 
+@router.get("/agreements/current")
+async def list_current_agreements() -> list[AgreementTextResponse]:
+    """The text in force for every agreement (NCNDA, terms, letter of intent), in display order."""
+    async with db_connection() as conn:
+        return [AgreementTextResponse(**a) for a in await current_agreements(conn)]
+
+@router.get("/agreements/{agreement_type}/current")
+async def get_current_agreement(agreement_type: str) -> AgreementTextResponse:
+    """The text currently in force for one agreement type ('ncnda', 'terms', 'letter_of_intent', ...)."""
+    async with db_connection() as conn:
+        row = await current_agreement(conn, agreement_type)
+        if not row:
+            raise HTTPException(status_code=404, detail=f"No active text found for agreement '{agreement_type}'")
+        return AgreementTextResponse(**row)
+
 @router.post("/agreements/sign-ncnda")
 async def sign_ncnda(
     request: Request,
@@ -265,19 +290,9 @@ async def sign_ncnda(
     async with db_connection() as conn:
         client_ip = request.client.host if request.client else None
         
-        # Insert or update agreement
-        row = await conn.fetchrow("""
-            INSERT INTO investor_agreements
-            (user_id, agreement_type, agreement_version, digital_signature, ip_address)
-            VALUES ($1, 'ncnda', $2, $3, $4)
-            ON CONFLICT (user_id, agreement_type)
-            DO UPDATE SET
-                agreement_version = EXCLUDED.agreement_version,
-                digital_signature = EXCLUDED.digital_signature,
-                signed_at = CURRENT_TIMESTAMP,
-                ip_address = EXCLUDED.ip_address
-            RETURNING signed_at
-        """, user.sub, sign_request.agreement_version, sign_request.digital_signature, client_ip)
+        # Insert or update agreement, recording which text version was read
+        row = await record_signature(conn, user.sub, 'ncnda', sign_request.agreement_version,
+                                     sign_request.digital_signature, client_ip)
         
         return SignAgreementResponse(
             success=True,
@@ -295,18 +310,8 @@ async def sign_terms(
     async with db_connection() as conn:
         client_ip = request.client.host if request.client else None
         
-        row = await conn.fetchrow("""
-            INSERT INTO investor_agreements
-            (user_id, agreement_type, agreement_version, digital_signature, ip_address)
-            VALUES ($1, 'terms', $2, $3, $4)
-            ON CONFLICT (user_id, agreement_type)
-            DO UPDATE SET
-                agreement_version = EXCLUDED.agreement_version,
-                digital_signature = EXCLUDED.digital_signature,
-                signed_at = CURRENT_TIMESTAMP,
-                ip_address = EXCLUDED.ip_address
-            RETURNING signed_at
-        """, user.sub, sign_request.agreement_version, sign_request.digital_signature, client_ip)
+        row = await record_signature(conn, user.sub, 'terms', sign_request.agreement_version,
+                                     sign_request.digital_signature, client_ip)
         
         return SignAgreementResponse(
             success=True,
@@ -351,18 +356,8 @@ async def agree_to_loi(
              loi_request.investment_purpose)
         
         # Record agreement
-        row = await conn.fetchrow("""
-            INSERT INTO investor_agreements
-            (user_id, agreement_type, agreement_version, digital_signature, ip_address)
-            VALUES ($1, 'letter_of_intent', $2, $3, $4)
-            ON CONFLICT (user_id, agreement_type)
-            DO UPDATE SET
-                agreement_version = EXCLUDED.agreement_version,
-                digital_signature = EXCLUDED.digital_signature,
-                signed_at = CURRENT_TIMESTAMP,
-                ip_address = EXCLUDED.ip_address
-            RETURNING signed_at
-        """, user.sub, loi_request.agreement_version, loi_request.digital_signature, client_ip)
+        row = await record_signature(conn, user.sub, 'letter_of_intent', loi_request.agreement_version,
+                                     loi_request.digital_signature, client_ip)
         
         return SignAgreementResponse(
             success=True,

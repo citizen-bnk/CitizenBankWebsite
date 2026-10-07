@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from typing import List
 from datetime import datetime, date
 from app.libs.email_queue import enqueue_email
+from app.libs.share_price import amount_for, current_share_price
 import os
 
 router = APIRouter(prefix="/board-positions")
@@ -98,7 +99,8 @@ class InvestmentStatus(BaseModel):
     total_shares: int
     required_shares: int
     shares_needed: int
-    investment_needed: int  # In Maloti
+    investment_needed: int  # In Maloti, at price_per_share
+    price_per_share: float | None = None  # the share price used (share_classes / share_config)
 
 class DocumentCompliance(BaseModel):
     """Document compliance status for a board member"""
@@ -152,13 +154,15 @@ async def check_investment_requirement(conn, user_id: str, required_shares: int)
     
     meets_requirement = total_shares >= required_shares
     shares_needed = max(0, required_shares - total_shares)
+    price = await current_share_price(conn)
     
     return {
         "meets_requirement": meets_requirement,
         "total_shares": total_shares,
         "required_shares": required_shares,
         "shares_needed": shares_needed,
-        "investment_needed": shares_needed * 10  # M10 per share
+        "investment_needed": amount_for(shares_needed, price),  # at the actual share price
+        "price_per_share": float(price),
     }
 
 async def send_investment_reminder_email(conn, board_member: dict, position: dict, investment_status: dict):
@@ -225,7 +229,7 @@ async def send_investment_reminder_email(conn, board_member: dict, position: dic
                 'full_name': board_member['full_name'],
                 'position_name': position['position_name'],
                 'required_shares': str(investment_status['required_shares']),
-                'required_amount': f"{investment_status['required_shares'] * 10:,}",
+                'required_amount': f"{amount_for(investment_status['required_shares'], await current_share_price(conn)):,}",
                 'shares_needed': str(investment_status['shares_needed']),
                 'investment_needed': f"{investment_status['investment_needed']:,}"
             },

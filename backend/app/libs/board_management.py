@@ -8,6 +8,7 @@ import uuid
 import json
 from app.libs.database import get_db_connection
 from app.libs.rbac import assign_role_to_user
+from app.libs.board_positions import resolve_position
 
 # Import welcome email function
 from app.apis.board_document_emails import send_welcome_checklist_email
@@ -232,17 +233,11 @@ async def appoint_board_member(
         board_member_id = board_member['id']
         appointed_at = board_member['appointed_date']
         
-        # Auto-create position assignment in board_member_positions table
-        # Map legacy position string to position_id
-        position_map = {
-            'chairman': 1,
-            'vice_chairman': 2,
-            'director': 5,
-            'secretary': 6,
-            'treasurer': 7,
-            'member': 8
-        }
-        position_id = position_map.get(position.lower(), 8)  # Default to Member
+        # Auto-create position assignment in board_member_positions table.
+        # The position id comes from board_positions (matched by name, e.g. 'vice_chairman' finds 'Vice Chairman'),
+        # so a position created on the Positions page can be appointed. Unknown names fall back to 'member'.
+        position_row = await resolve_position(conn, position) or await resolve_position(conn, 'member')
+        position_id = position_row['id'] if position_row else None
         
         # End any current position assignment for this board member
         await conn.execute("""
@@ -251,12 +246,15 @@ async def appoint_board_member(
             WHERE board_member_id = $1 AND is_current = TRUE
         """, board_member_id)
         
-        # Create new position assignment
-        await conn.execute("""
-            INSERT INTO board_member_positions 
-            (board_member_id, position_id, appointed_at, appointed_by, is_current, notes)
-            VALUES ($1, $2, $3, $4, TRUE, $5)
-        """, board_member_id, position_id, appointed_at, appointed_by, f'Auto-assigned during board member appointment')
+        if position_id is None:
+            print(f"⚠️ No board_positions row for '{position}' and no 'member' fallback: no position assignment created")
+        else:
+            # Create new position assignment
+            await conn.execute("""
+                INSERT INTO board_member_positions 
+                (board_member_id, position_id, appointed_at, appointed_by, is_current, notes)
+                VALUES ($1, $2, $3, $4, TRUE, $5)
+            """, board_member_id, position_id, appointed_at, appointed_by, f'Auto-assigned during board member appointment')
         
         print(f"✅ Created position assignment: board_member_id={board_member_id}, position_id={position_id}")
         

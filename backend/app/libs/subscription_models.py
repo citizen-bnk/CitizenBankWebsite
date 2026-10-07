@@ -15,7 +15,7 @@ class SubscriptionRequest(BaseModel):
     id_number: str  # National ID or passport
     num_shares: int
     payment_method: Literal["one-time", "installment"]
-    installment_plan: Optional[Literal["3-months", "6-months", "12-months"]] = None
+    installment_plan: Optional[str] = None  # a code from payment_plans; checked against the active plans on subscribe
     purchase_currency: Optional[str] = "LSL"  # Currency used for purchase (LSL, USD, EUR, GBP, ZAR)
     tracking_token: Optional[str] = None  # Token from investor invitation for lead tracking
     
