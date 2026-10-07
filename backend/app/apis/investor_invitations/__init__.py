@@ -6,7 +6,8 @@ import os
 from datetime import datetime
 import secrets
 from app.auth import AuthorizedUser
-from app.libs.email_queue import get_db_connection, enqueue_email
+from app.libs.email_queue import get_db_connection
+from app.libs.notify import EmailSpec, notify
 from app.libs.rbac import check_user_has_any_role
 from app.libs.email_templates import create_investor_invitation_email
 from app.libs.url_helpers import get_frontend_path
@@ -112,7 +113,7 @@ async def send_invitation(
         tracking_token = secrets.token_urlsafe(32)
         
         # Create subscription link with tracking
-        subscription_url = f"{get_frontend_path()}/share-subscription?invite={tracking_token}"
+        subscription_url = get_frontend_path(f"/share-subscription?invite={tracking_token}")
         
         # Create invitation record in unified invitations table
         invitation = await conn.fetchrow(
@@ -144,17 +145,15 @@ async def send_invitation(
             contact_phone=body.contact_phone
         )
         
-        # Queue email for sending
-        await enqueue_email(
-            to_email=lead['email'],
-            subject="Exclusive Investment Opportunity - Citizen Digital Bank",
-            html_content=email_html,
-            template_key='investor_invitation',
-            metadata={
-                'lead_id': body.lead_id,
-                'invitation_id': invitation['id'],
-                'tracking_token': tracking_token
-            }
+        # Inbox row (linked to the account by email if/when it exists) + email, one delivery path.
+        await notify(
+            conn, None, 'investor_invitation', "Exclusive Investment Opportunity - Citizen Digital Bank",
+            "You have been invited to invest in Citizen Digital Bank.",
+            path=f"/portfolio/buy?invite={tracking_token}",
+            email=EmailSpec(to=lead['email'], subject="Exclusive Investment Opportunity - Citizen Digital Bank",
+                            html=email_html, recipient_name=lead['full_name']),
+            recipient_email=lead['email'],
+            extra={"lead_id": body.lead_id, "invitation_id": invitation['id']},
         )
         
         # Update lead status to 'invited' if not already
@@ -233,7 +232,7 @@ async def bulk_send_invitations(
                 
                 # Generate tracking token
                 tracking_token = secrets.token_urlsafe(32)
-                subscription_url = f"{get_frontend_path()}/share-subscription?invite={tracking_token}"
+                subscription_url = get_frontend_path(f"/share-subscription?invite={tracking_token}")
                 
                 # Create invitation in unified table
                 invitation = await conn.fetchrow(
@@ -265,17 +264,15 @@ async def bulk_send_invitations(
                     contact_phone=body.contact_phone
                 )
                 
-                # Queue email
-                await enqueue_email(
-                    to_email=lead['email'],
-                    subject="Exclusive Investment Opportunity - Citizen Digital Bank",
-                    html_content=email_html,
-                    template_key='investor_invitation_bulk',
-                    metadata={
-                        'lead_id': lead_id,
-                        'invitation_id': invitation['id'],
-                        'tracking_token': tracking_token
-                    }
+                # Inbox row (linked to the account by email if/when it exists) + email, one delivery path.
+                await notify(
+                    conn, None, 'investor_invitation', "Exclusive Investment Opportunity - Citizen Digital Bank",
+                    "You have been invited to invest in Citizen Digital Bank.",
+                    path=f"/portfolio/buy?invite={tracking_token}",
+                    email=EmailSpec(to=lead['email'], subject="Exclusive Investment Opportunity - Citizen Digital Bank",
+                                    html=email_html, recipient_name=lead['full_name']),
+                    recipient_email=lead['email'],
+                    extra={"lead_id": lead_id, "invitation_id": invitation['id']},
                 )
                 
                 # Update lead status

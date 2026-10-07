@@ -179,6 +179,19 @@ async def _already_sent(conn, dedupe_key: str, user_id: Optional[str], recipient
         return False
 
 
+async def _profile_user_id(conn, email: str) -> Optional[str]:
+    """Link an email-only recipient to their account (if any) so preferences apply."""
+    if not email:
+        return None
+    try:
+        async with _savepoint(conn):
+            return await conn.fetchval(
+                "SELECT user_id FROM user_profiles WHERE LOWER(email) = $1 LIMIT 1", email
+            )
+    except Exception:  # noqa: BLE001
+        return None
+
+
 async def _profile_email(conn, user_id: str) -> str:
     try:
         async with _savepoint(conn):
@@ -222,6 +235,8 @@ async def notify(
         if not recipient and user_id:
             recipient = await _profile_email(conn, user_id)
         recipient = (recipient or "").strip().lower()
+        if not user_id:
+            user_id = await _profile_user_id(conn, recipient)
 
         if dedupe_key and await _already_sent(conn, dedupe_key, user_id, recipient, dedupe_hours):
             result["deduped"] = True

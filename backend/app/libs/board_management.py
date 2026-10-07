@@ -189,6 +189,18 @@ async def accept_invitation(
                 term_years, term_end_date, invitation['invited_by']
             )
         
+        # Tell whoever sent the invitation (inbox only; they did not ask for an email).
+        if invitation['invited_by']:
+            from app.libs.notify import notify
+            who = user_name or user_email
+            await notify(
+                conn, invitation['invited_by'], "invitation_accepted",
+                f"{who} accepted the invitation",
+                f"{who} ({user_email}) accepted the invitation as {invitation['role']}.",
+                path="/invitations",
+                dedupe_key=f"invitation-accepted:{invitation['id']}",
+            )
+
         return {
             "success": True,
             "role": invitation['role'],

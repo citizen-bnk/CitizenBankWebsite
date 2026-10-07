@@ -25,6 +25,7 @@ class FakeConn:
         self.insert_error = insert_error
         self.profile_email = profile_email
         self.profile = profile
+        self.account_user_id = None
         self.writes = []
         self.queries = []
         self.closed = False
@@ -41,6 +42,8 @@ class FakeConn:
             return self.channel_email
         if "dedupe_key" in sql:
             return 1 if self.existing_dedupe else None
+        if "SELECT user_id FROM user_profiles" in sql:
+            return self.account_user_id
         if "FROM user_profiles" in sql:
             return self.profile_email if self.profile else None
         if "COUNT(*)" in sql:
@@ -303,3 +306,11 @@ async def test_webhook_rejects_unsigned_when_secret_set(monkeypatch):
     with pytest.raises(HTTPException) as e:
         await webhooks.resend_webhook(_Req(b"{}"), None, None, None)
     assert e.value.status_code == 401
+
+
+async def test_email_only_recipient_is_linked_to_their_account_so_preferences_apply(sent):
+    conn = FakeConn(channel_email=False)
+    conn.account_user_id = "u9"
+    res = await notify(conn, None, "invitation", "T", "B", email=SPEC)
+    assert conn.writes[0][0] == "u9"
+    assert res["email"] == "skipped_preference"
