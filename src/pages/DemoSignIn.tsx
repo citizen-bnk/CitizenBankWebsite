@@ -1,13 +1,13 @@
 import { useStackApp } from "@stackframe/react";
 import { Check, Copy, FlaskConical, LogIn } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MANUAL_PARAM, afterSignInTarget, opensLabels } from "utils/demoSignIn";
-import { type DemoAccount, type DemoAccounts, getDemoAccounts, reasonMessage } from "utils/platform";
+import { type DemoAccount, type DemoAccounts, getDemoAccounts, reasonMessage, startHandoff } from "utils/platform";
 
 /**
  * Sign-in page for the demonstration environment. Pick an account and you are signed in with no typing, then taken where you
@@ -17,6 +17,7 @@ import { type DemoAccount, type DemoAccounts, getDemoAccounts, reasonMessage } f
  */
 export default function DemoSignIn() {
   const app = useStackApp();
+  const autoStarted = useRef(false);
   const [data, setData] = useState<DemoAccounts | null | undefined>(undefined);
   const [copied, setCopied] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -44,6 +45,11 @@ export default function DemoSignIn() {
     try {
       const result = await app.signInWithCredential({ email: account.email, password: data.password, noRedirect: true });
       if (result.status === "error") throw new Error(result.error?.message || "Sign-in failed");
+      const service = new URLSearchParams(window.location.search).get("service");
+      if ((service === "banking" || service === "app") && account.roles.includes("customer")) {
+        window.location.assign(await startHandoff(service));
+        return;
+      }
       const next = afterSignInTarget(new URLSearchParams(window.location.search).get("after_auth_return_to"), window.location.origin);
       window.location.assign(next);
     } catch (e) {
@@ -51,6 +57,12 @@ export default function DemoSignIn() {
       setBusy(null);
     }
   };
+
+  useEffect(() => {
+    const key = new URLSearchParams(window.location.search).get("demo_account");
+    const account = data?.accounts.find(a => a.key === key);
+    if (account && data?.password && !autoStarted.current) { autoStarted.current = true; void signInAs(account); }
+  }, [data]);
 
   const manualSignIn = () => {
     const params = new URLSearchParams(window.location.search);
@@ -86,6 +98,7 @@ export default function DemoSignIn() {
               <FlaskConical className="h-6 w-6 text-amber-600" />
               <div>
                 <CardTitle className="text-2xl">Citizen Bank demonstration</CardTitle>
+                <Link to="/" className="underline">Back to Citizen Bank website</Link>
                 <CardDescription>
                   Pick an account to be signed in at once and try every part of the platform it opens. Banking is simulated and no real money
                   moves. Citizen Digital Ltd (Reg. 99073) is the applicant for a Central Bank of Lesotho banking

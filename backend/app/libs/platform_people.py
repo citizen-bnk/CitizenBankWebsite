@@ -48,6 +48,11 @@ async def ensure_person(conn: asyncpg.Connection, subject: str) -> dict:
     for role in roles:
         if role in known:
             await bf.grant_membership(conn, person_id, role, f"{SIGNIN_SOURCE}:user_roles")
+    if profile:
+        await conn.execute(
+            "UPDATE platform.person SET display_name=$2, primary_email=$3 WHERE id=$1",
+            person_id, profile["full_name"], profile["email"].strip().lower() if profile["email"] else None,
+        )
     person = await conn.fetchrow(
         "SELECT display_name, primary_email FROM platform.person WHERE id = $1", person_id
     )

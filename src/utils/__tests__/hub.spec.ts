@@ -23,7 +23,7 @@ describe("hubRedirectTarget", () => {
     expect(hubRedirectTarget("/board-portal/", "", "", HUB)).toBe(`${HUB}/board-portal`);
   });
   it("leaves other screens alone, including look-alikes", () => {
-    for (const p of ["/", "/admin-dashboard", "/back-office-board-documents", "/board-portal-invitations", "/demo"]) {
+    for (const p of ["/", "/board-portal-extra", "/contact"]) {
       expect(hubRedirectTarget(p, "", "", HUB)).toBeNull();
     }
   });
@@ -38,11 +38,11 @@ describe("hubUrl and workspaceHref", () => {
     expect(hubUrl("//evil.example", HUB)).toBe(`${HUB}/`);
     expect(hubUrl("/x", null)).toBeNull();
   });
-  it("only investor and board workspaces open on the Hub", () => {
+  it("all Hub workspaces open on the Hub", () => {
     expect(workspaceHref("/my-subscriptions", HUB)).toBe(`${HUB}/my-subscriptions`);
     expect(workspaceHref("/board-portal", HUB)).toBe(`${HUB}/board-portal`);
-    expect(workspaceHref("/admin-dashboard", HUB)).toBeNull();
-    expect(workspaceHref("/back-office-dashboard", HUB)).toBeNull();
+    expect(workspaceHref("/admin-dashboard", HUB)).toBe(`${HUB}/admin-dashboard`);
+    expect(workspaceHref("/back-office-dashboard", HUB)).toBe(`${HUB}/back-office-dashboard`);
     expect(workspaceHref("/my-subscriptions", null)).toBeNull();
   });
 });

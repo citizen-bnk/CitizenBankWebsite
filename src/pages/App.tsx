@@ -3,7 +3,7 @@ import { Footer } from "components/Footer";
 import { MetricCard } from "components/MetricCard";
 import { PortalCard } from "components/PortalCard";
 import { CurrencyIndicator } from "components/CurrencyIndicator";
-import { Link } from "react-router-dom";
+import { Link } from "components/EcosystemLink";
 import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
 import { useUserRoles } from "utils/useUserRoles";

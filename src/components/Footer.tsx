@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "./EcosystemLink";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';

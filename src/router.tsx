@@ -4,7 +4,7 @@ import { userRoutes } from "./user-routes.tsx";
 import { AppProvider } from "./components/AppProvider.tsx";
 
 export const SuspenseWrapper = ({ children }: { children: ReactNode }) => {
-  return <Suspense>{children}</Suspense>;
+  return <Suspense fallback={<main role="status" className="flex min-h-screen items-center justify-center">Loading Citizen Bank…</main>}>{children}</Suspense>;
 };
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.tsx"));
@@ -16,11 +16,11 @@ export const router = createBrowserRouter(
   [
     {
       element: (
-        <AppProvider>
-          <SuspenseWrapper>
+        <SuspenseWrapper>
+          <AppProvider>
             <Outlet />
-          </SuspenseWrapper>
-        </AppProvider>
+          </AppProvider>
+        </SuspenseWrapper>
       ),
       children: userRoutes
     },

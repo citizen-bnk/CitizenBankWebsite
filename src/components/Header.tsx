@@ -1,5 +1,6 @@
 import { Building2, ChevronDown, User, Settings, LogOut, Home, UserCircle, Shield, Globe } from "lucide-react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link } from "./EcosystemLink";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { useUser } from "@stackframe/react";
 import { stackClientApp } from "app/auth";
