@@ -295,38 +295,17 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
     Public endpoint - accessible by any logged-in user to view their own subscriptions.
     """
     async with db_connection() as conn:
-        # Get user's email from user_profiles
-        user_email = None
-        profile = await conn.fetchrow(
-            "SELECT email FROM user_profiles WHERE user_id = $1",
-            user.sub
-        )
-        if profile:
-            user_email = profile['email']
-        
-        # Get user's subscriptions - match by user_id OR email
-        if user_email:
-            subscriptions = await conn.fetch("""
-                SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
-                       installment_plan, status, certificate_number, certificate_issued_date,
-                       certificate_url, payment_deadline, created_at, updated_at,
-                       created_by_admin, admin_user_id
-                FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
-                ORDER BY created_at DESC
-            """, user.sub, user_email)
-        else:
-            subscriptions = await conn.fetch("""
-                SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
-                       installment_plan, status, certificate_number, certificate_issued_date,
-                       certificate_url, payment_deadline, created_at, updated_at,
-                       created_by_admin, admin_user_id
-                FROM share_subscriptions
-                WHERE user_id = $1
-                ORDER BY created_at DESC
-            """, user.sub)
+        # Ownership follows the authenticated identity, never an editable email.
+        subscriptions = await conn.fetch("""
+            SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
+                   num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                   installment_plan, status, certificate_number, certificate_issued_date,
+                   certificate_url, payment_deadline, created_at, updated_at,
+                   created_by_admin, admin_user_id
+            FROM share_subscriptions
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+        """, user.sub)
         
         # Calculate summary
         total_shares = sum(s['num_shares'] for s in subscriptions if s['status'] in ['completed', 'partial', 'pending'])
@@ -403,36 +382,16 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
         )
     
     async with db_connection() as conn:
-        # Get user's email from user_profiles
-        user_email = None
-        profile = await conn.fetchrow(
-            "SELECT email FROM user_profiles WHERE user_id = $1",
-            user.sub
-        )
-        if profile:
-            user_email = profile['email']
-        
-        # Get user's subscriptions - match by user_id OR email
-        if user_email:
-            subscriptions = await conn.fetch("""
-                SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
-                       installment_plan, status, certificate_number, certificate_issued_date,
-                       certificate_url, created_at, updated_at
-                FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
-                ORDER BY created_at DESC
-            """, user.sub, user_email)
-        else:
-            subscriptions = await conn.fetch("""
-                SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
-                       installment_plan, status, certificate_number, certificate_issued_date,
-                       certificate_url, created_at, updated_at
-                FROM share_subscriptions
-                WHERE user_id = $1
-                ORDER BY created_at DESC
-            """, user.sub)
+        # Ownership follows the authenticated identity, never an editable email.
+        subscriptions = await conn.fetch("""
+            SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
+                   num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                   installment_plan, status, certificate_number, certificate_issued_date,
+                   certificate_url, created_at, updated_at
+            FROM share_subscriptions
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+        """, user.sub)
         
         # Calculate summary
         total_shares = sum(s['num_shares'] for s in subscriptions if s['status'] in ['completed', 'partial', 'pending'])
@@ -477,13 +436,6 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
 async def core_get_subscription_details(subscription_id: str, user: AuthorizedUser) -> dict:
     """Get detailed subscription info with payment history and certificate"""
     async with db_connection() as conn:
-        # Get user email
-        profile = await conn.fetchrow(
-            "SELECT email FROM user_profiles WHERE user_id = $1",
-            user.sub
-        )
-        user_email = profile['email'] if profile else None
-        
         # Get subscription
         sub = await conn.fetchrow("""
             SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
@@ -491,8 +443,8 @@ async def core_get_subscription_details(subscription_id: str, user: AuthorizedUs
                    installment_plan, status, certificate_number, certificate_issued_date,
                    certificate_url, created_at, updated_at
             FROM share_subscriptions
-            WHERE subscription_id = $1 AND (user_id = $2 OR email = $3)
-        """, subscription_id, user.sub, user_email)
+            WHERE subscription_id = $1 AND user_id = $2
+        """, subscription_id, user.sub)
         
         if not sub:
             raise HTTPException(status_code=404, detail="Subscription not found")
