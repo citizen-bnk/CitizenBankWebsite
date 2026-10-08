@@ -9,6 +9,6 @@ export function ecosystemDestination(path: string): string | null {
  if (path === "/mobile-banking") return app ? new URL("/login",app).href : null;
  if (!hub) return null;
  if (path === "/demo/launch") return hub + "/";
- if (path === "/demo" || path.startsWith("/auth/") || MOVED_TO_HUB.includes(path)) return hub + path;
+ if (path === "/demo" || path.startsWith("/auth/") || path.startsWith("/board-meetings/") || MOVED_TO_HUB.includes(path)) return hub + path;
  return null;
 }

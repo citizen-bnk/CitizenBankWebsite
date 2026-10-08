@@ -36,8 +36,11 @@ import UnauthorizedPage from "./pages/UnauthorizedPage.tsx";
 import VerifyCertificate from "./pages/VerifyCertificate.tsx";
 
 import ServiceRedirect from "./components/ServiceRedirect";
+import { MOVED_TO_HUB } from "./utils/hub";
 
 export const userRoutes: RouteObject[] = [
+  ...MOVED_TO_HUB.map(path => ({ path, element: <ServiceRedirect /> })),
+  { path: "/board-meetings/*", element: <ServiceRedirect /> },
   ...["/auth/sign-in", "/auth/sign-up", "/demo", "/demo/launch", "/customer-portal", "/customerportal", "/open-account", "/mobile-banking", "/profile", "/complete-profile", "/completeprofile", "/notification-preferences", "/notificationpreferences"].map(path => ({path, element:<ServiceRedirect />})),
 
 	{ path: "/auth/redirect", element: <LoginRedirect /> },
