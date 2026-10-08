@@ -1,0 +1,2 @@
+"use client";
+export default function GlobalError(){return <html lang="en"><body style={{background:'#091021',color:'#fff',fontFamily:'sans-serif',padding:48}}><h1>Citizen Bank could not open.</h1><p>The page could not finish loading. Retry or return to the website.</p><button onClick={()=>location.reload()}>Retry</button> <button onClick={()=>history.back()}>Go back</button> <a href="/" style={{color:'#d1c5ff'}}>Cancel</a></body></html>;}

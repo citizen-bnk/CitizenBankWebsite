@@ -1,0 +1,2 @@
+"use client";
+export function Recovery({message,reference}:{message:string;reference?:string}){return <section className="recovery"><span className="eyebrow">LET’S GET YOU BACK</span><h1>This page could not open.</h1><p>{message}</p>{reference&&<small>Reference: {reference}</small>}<div className="actions"><button className="button primary" onClick={()=>window.location.reload()}>Retry</button><button className="button quiet" onClick={()=>history.length>1?history.back():location.assign('/')}>Go back</button><a className="button quiet" href="/">Cancel</a></div></section>;}

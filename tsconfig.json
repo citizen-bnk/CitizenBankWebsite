@@ -1,56 +1,40 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "allowJs": true,
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "skipLibCheck": true,
-    "esModuleInterop": false,
-    "allowSyntheticDefaultImports": true,
-    "allowImportingTsExtensions": true,
-    "strict": false,
-    "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
-    "isolatedModules": false,
+    "strict": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "baseUrl": ".",
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "brain": ["./src/brain"], // Kept for backwards compatibility
-      "types": ["./src/apiclient/data-contracts.ts"], // Kept for backwards compatibility
-      // "apiclient": ["./src/apiclient"], // Not exposing directly, import via "app" instead
-      "components/*": ["./src/components/*"],
-      "pages/*": ["./src/pages/*"],
-      "app": ["./src/app"],
-      "app/*": ["./src/app/*"],
-      "utils/*": ["./src/utils/*"],
-      "@/*": ["./src/*"],
-      "@/hooks/*": ["./src/extensions/shadcn/hooks/*"],
-      "@/components/hooks/*": ["./src/extensions/shadcn/hooks/*"],
-      "@/components/ui/*": ["./src/extensions/shadcn/components/*"]
-    }
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowJs": true
   },
-  "include": ["env.d.ts", "src"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
   "exclude": [
-    "src/brain/Brain.ts",
-    "src/brain/BrainRoute.ts",
-    "src/brain/data-contracts.ts",
-    "src/brain/http-client.ts",
-    "src/apiclient/Apiclient.ts",
-    "src/apiclient/ApiclientRoute.ts",
-    "src/apiclient/data-contracts.ts",
-    "src/apiclient/http-client.ts"
-  ],
-  "references": [
-    {
-      "path": "./tsconfig.node.json"
-    }
-  ],
-  "ts-node": {
-    "compilerOptions": {
-      "module": "CommonJS"
-    }
-  }
+    "node_modules"
+  ]
 }
