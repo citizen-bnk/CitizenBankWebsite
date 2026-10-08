@@ -1,0 +1,6 @@
+import {NextResponse} from 'next/server';
+import {serviceURL} from '@/lib/services';
+const allowed=new Set(['jwks.json','demo-accounts','profile-service']);
+async function proxy(request:Request,context:{params:Promise<{endpoint:string}>}){const{endpoint}=await context.params;if(!allowed.has(endpoint)||request.method==='PATCH'&&endpoint!=='profile-service')return NextResponse.json({error:'This service has moved to Citizen Hub.',recovery:'open_hub'},{status:404});try{const body=request.method==='PATCH'?await request.text():undefined;if(body&&body.length>16000)return NextResponse.json({error:'Profile update is too large.'},{status:422});const token=request.headers.get('x-citizen-profile-token');const response=await fetch(serviceURL('hub',`/api/platform/${endpoint}`),{method:request.method,headers:{'Content-Type':'application/json',...(token?{'X-Citizen-Profile-Token':token}:{})},body,cache:'no-store',signal:AbortSignal.timeout(12000)});return new Response(await response.text(),{status:response.status,headers:{'Content-Type':response.headers.get('content-type')||'application/json','Cache-Control':'no-store'}});}catch{return NextResponse.json({error:'Citizen Hub could not be reached. Retry the request.',code:'HUB_UNAVAILABLE',recovery:'retry'},{status:503});}}
+export const GET=proxy;
+export const PATCH=proxy;
