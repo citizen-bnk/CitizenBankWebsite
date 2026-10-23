@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
 import { useUserRoles } from "utils/useUserRoles";
+import { bankingDestination } from "utils/bankingDestination";
 import {
   Users,
   TrendingUp,
@@ -90,13 +91,13 @@ export default function App() {
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               {!user ? (
                 <>
-                  <Link
-                    to="/auth/sign-up"
+                  <a
+                    href={bankingDestination("/register")}
                     className="px-6 sm:px-8 py-3 bg-white text-[#6d52a2] rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
                     <UserPlus className="h-5 w-5" />
                     Open an Account
-                  </Link>
+                  </a>
                   <Link
                     to="/auth/sign-in"
                     className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors text-center text-sm sm:text-base"
