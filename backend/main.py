@@ -7,6 +7,7 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import asyncpg
 
 logger = logging.getLogger(__name__)
@@ -144,6 +145,24 @@ def create_app() -> FastAPI:
 
     app = FastAPI()
     app.include_router(import_api_routers())
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(_request, exc):
+        if exc.status_code >= 500:
+            reason = str(exc.detail).lower()
+            if "does not exist" in reason and ("relation" in reason or "column" in reason):
+                code, message, recovery = "DATA_SCHEMA_INCOMPLETE", "This feature's data is being restored.", "retry_later"
+            elif "connect" in reason or "timeout" in reason:
+                code, message, recovery = "DATA_CONNECTION_UNAVAILABLE", "The data service is temporarily unavailable.", "retry"
+            else:
+                code, message, recovery = "ACTION_FAILED", "This action could not be completed. Check its status before retrying.", "check_status"
+            logger.error("API HTTP %s: %s", exc.status_code, exc.detail)
+            return JSONResponse(status_code=exc.status_code, content={"detail": message, "code": code, "recovery": recovery}, headers=getattr(exc, "headers", None))
+        if exc.status_code in (401, 403):
+            code = "SIGN_IN_REQUIRED" if exc.status_code == 401 else "ACCESS_DENIED"
+            recovery = "sign_in" if exc.status_code == 401 else "go_back"
+            return JSONResponse(status_code=exc.status_code, content={"detail": str(exc.detail), "code": code, "recovery": recovery}, headers=getattr(exc, "headers", None))
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=getattr(exc, "headers", None))
 
     @app.exception_handler(asyncpg.UndefinedTableError)
     async def schema_error(_request, exc):
