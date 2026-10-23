@@ -1336,7 +1336,6 @@ export default function ShareSubscription() {
                             <Button variant="ghost" size="sm" onClick={() => {
                               setSelectedCrypto('');
                               setCryptoWallet(null);
-                              setQrCode('');
                             }}>
                               Change Crypto
                             </Button>

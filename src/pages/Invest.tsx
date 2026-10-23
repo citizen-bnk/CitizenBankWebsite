@@ -223,11 +223,11 @@ export default function Invest() {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <p className="text-white/80 text-xs sm:text-sm">Total Shares</p>
-                              <p className="text-xl sm:text-2xl font-bold">{(subscriptions.summary.total_shares_owned ?? 0).toLocaleString()}</p>
+                              <p className="text-xl sm:text-2xl font-bold">{Number(subscriptions.summary.total_shares_owned ?? 0).toLocaleString()}</p>
                             </div>
                             <div>
                               <p className="text-white/80 text-xs sm:text-sm">Total Investment</p>
-                              <p className="text-xl sm:text-2xl font-bold">{formatCurrency(parseFloat(subscriptions.summary.total_investment_amount ?? '0'))}</p>
+                              <p className="text-xl sm:text-2xl font-bold">{formatCurrency(Number(subscriptions.summary.total_investment_amount ?? 0))}</p>
                             </div>
                           </div>
                         </div>
@@ -240,7 +240,7 @@ export default function Invest() {
                             <div className="flex justify-between items-start mb-2">
                               <div>
                                 <p className="font-semibold text-gray-900">{(sub.num_shares ?? 0).toLocaleString()} shares</p>
-                                <p className="text-xs sm:text-sm text-gray-600">{sub.share_class ?? 'Class B'}</p>
+                                <p className="text-xs sm:text-sm text-gray-600">{sub.share_class || 'Ordinary shares'}</p>
                               </div>
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -304,32 +304,22 @@ export default function Invest() {
                   {investment ? (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Investment Type:</span>
-                        <span className="font-semibold text-gray-900 text-sm sm:text-base">{investment.option_name}</span>
+                        <span className="text-sm text-gray-600">Share classes:</span>
+                        <span className="font-semibold text-gray-900 text-sm sm:text-base">{investment.class_breakdown.map(item => item.share_class).join(', ') || 'None'}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Amount Invested:</span>
+                        <span className="text-sm text-gray-600">Subscribed value:</span>
                         <span className="font-semibold text-[#6d52a2] text-base sm:text-lg">
-                          {formatCurrency(investment.amount)}
+                          {formatCurrency(investment.total_invested)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Status:</span>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
-                            investment.status === 'approved'
-                              ? 'bg-green-100 text-green-800'
-                              : investment.status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                          }`}
-                        >
-                          {investment.status}
-                        </span>
+                        <span className="text-sm text-gray-600">Reference shares:</span>
+                        <span className="font-semibold text-gray-900">{investment.total_shares_owned.toLocaleString()}</span>
                       </div>
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <p className="text-xs sm:text-sm text-gray-600">
-                          Submitted: {new Date(investment.created_at).toLocaleDateString()}
+                          {investment.all_subscriptions.length} subscription{investment.all_subscriptions.length === 1 ? '' : 's'}
                         </p>
                       </div>
                     </div>

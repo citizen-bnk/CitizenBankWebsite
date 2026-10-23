@@ -24,7 +24,7 @@ export function useUserRoles() {
           throw new Error(`Failed to fetch user roles: ${response.statusText}`);
         }
         const data: UserRolesResponse = await response.json();
-        return data.roles;
+        return Array.isArray(data.roles) ? data.roles : [];
       } catch (err) {
         console.error('Failed to fetch user roles:', err);
         // Let react-query handle the error state
@@ -41,8 +41,6 @@ export function useUserRoles() {
     refetchIntervalInBackground: false,
     // Retry failed requests up to 2 times
     retry: 2,
-    // IMPORTANT: Disable suspense to prevent "component suspended" errors
-    suspense: false,
   });
 
   /**
