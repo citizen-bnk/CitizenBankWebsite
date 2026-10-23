@@ -2,6 +2,7 @@ import { auth } from "app/auth";
 import { API_HOST, API_PATH } from "../constants";
 import { Apiclient } from "./Apiclient";
 import type { RequestParams } from "./http-client";
+import { resilientFetch } from "./resilient-fetch";
 
 const constructBaseUrl = (): string => {
   // Always use the current origin for the API base path in production/deployment
@@ -26,7 +27,7 @@ const constructClient = () => {
     baseApiParams,
     customFetch: (url, options) => {
       // Ensure we always call /api endpoints
-      return fetch(url, options);
+      return resilientFetch(url, options);
     },
     securityWorker: async () => {
       return {

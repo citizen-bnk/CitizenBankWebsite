@@ -4,13 +4,11 @@ import { userRoutes } from "./user-routes.tsx";
 import { AppProvider } from "./components/AppProvider.tsx";
 
 export const SuspenseWrapper = ({ children }: { children: ReactNode }) => {
-  return <Suspense>{children}</Suspense>;
+  return <Suspense fallback={<div role="status" style={{ minHeight: "40vh", display: "grid", placeItems: "center", color: "#5a4289" }}>Opening page…</div>}>{children}</Suspense>;
 };
 
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage.tsx"));
-const SomethingWentWrongPage = lazy(
-  () => import("./pages/SomethingWentWrongPage.tsx"),
-);
+import SomethingWentWrongPage from "./pages/SomethingWentWrongPage.tsx";
 
 export const router = createBrowserRouter(
   [
@@ -22,6 +20,7 @@ export const router = createBrowserRouter(
           </SuspenseWrapper>
         </AppProvider>
       ),
+      errorElement: <SomethingWentWrongPage />,
       children: userRoutes
     },
     {

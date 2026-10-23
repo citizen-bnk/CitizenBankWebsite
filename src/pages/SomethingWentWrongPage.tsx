@@ -1,5 +1,7 @@
-import { ProdErrorPage } from "../prod-components/ProdErrorPage";
+import { useRouteError } from "react-router-dom";
+import { RecoveryPage, recoveryFor } from "../prod-components/RecoveryPage";
 
 export default function SomethingWentWrongPage() {
-  return <ProdErrorPage text="Something went wrong." canRefresh={true} />;
+  const recovery = recoveryFor(useRouteError());
+  return <RecoveryPage {...recovery} retry={() => window.location.reload()} />;
 }
