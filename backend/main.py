@@ -3,6 +3,7 @@ import pathlib
 import json
 import dotenv
 from fastapi import FastAPI, APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -136,6 +137,31 @@ def create_app() -> FastAPI:
 
     app = FastAPI()
     app.include_router(import_api_routers())
+
+    @app.get("/api/health/ready", include_in_schema=False)
+    async def readiness():
+        """A bounded check for the original investor database before promotion."""
+        import asyncpg
+
+        db_url = os.environ.get("DATABASE_URL_PROD") or os.environ.get("DATABASE_URL")
+        if not db_url:
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DATABASE_NOT_CONFIGURED"})
+        try:
+            conn = await asyncpg.connect(db_url, timeout=4, statement_cache_size=0)
+            try:
+                rows = await conn.fetch("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = ANY($1::text[])
+                """, ["user_profiles", "share_classes", "share_subscriptions", "subscription_payments"])
+            finally:
+                await conn.close()
+        except Exception:
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DATABASE_CONNECTION_FAILED"})
+        found = {row["table_name"] for row in rows}
+        required = {"user_profiles", "share_classes", "share_subscriptions", "subscription_payments"}
+        if missing := sorted(required - found):
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "INVESTMENT_SCHEMA_INCOMPLETE", "missing_tables": missing})
+        return {"status": "ready", "investment_tables": len(required)}
 
     @app.on_event("startup")
     async def start_scheduler():
