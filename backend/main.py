@@ -1,11 +1,17 @@
 import os
 import pathlib
 import json
+import logging
 import dotenv
 from fastapi import FastAPI, APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import asyncpg
+
+logger = logging.getLogger(__name__)
+ROUTER_IMPORT_ERRORS: dict[str, str] = {}
+CRITICAL_ROUTERS = {"subscriptions_core", "subscriptions_payments", "subscriptions_certificates", "shares_management", "portfolio", "admin_subscriptions"}
 
 # Load environment files
 # First load shared .env file
@@ -69,7 +75,8 @@ def import_api_routers() -> APIRouter:
                     ),
                 )
         except Exception as e:
-            print(e)
+            ROUTER_IMPORT_ERRORS[name] = type(e).__name__
+            logger.exception("Unable to load API router %s", name)
             continue
 
     print(routes.routes)
@@ -138,10 +145,41 @@ def create_app() -> FastAPI:
     app = FastAPI()
     app.include_router(import_api_routers())
 
+    @app.exception_handler(asyncpg.UndefinedTableError)
+    async def schema_error(_request, exc):
+        logger.error("API database schema is incomplete", exc_info=(type(exc), exc, exc.__traceback__))
+        return JSONResponse(status_code=503, content={
+            "detail": "This feature's data is being restored. Please retry later.",
+            "code": "DATA_SCHEMA_INCOMPLETE",
+            "recovery": "retry_later",
+        })
+
+    @app.exception_handler(asyncpg.PostgresConnectionError)
+    async def database_error(_request, exc):
+        logger.error("API database connection failed", exc_info=(type(exc), exc, exc.__traceback__))
+        return JSONResponse(status_code=503, content={
+            "detail": "The data service is temporarily unavailable. Please try again.",
+            "code": "DATA_CONNECTION_UNAVAILABLE",
+            "recovery": "retry",
+        })
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(_request, exc):
+        logger.error("Unhandled API error", exc_info=(type(exc), exc, exc.__traceback__))
+        return JSONResponse(status_code=500, content={
+            "detail": "This action could not be completed. Check its status before retrying.",
+            "code": "ACTION_FAILED",
+            "recovery": "check_status",
+        })
+
     @app.get("/api/health/ready", include_in_schema=False)
     async def readiness():
         """A bounded check for the original investor database before promotion."""
         import asyncpg
+
+        missing_routers = sorted(CRITICAL_ROUTERS & ROUTER_IMPORT_ERRORS.keys())
+        if missing_routers:
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "API_ROUTERS_UNAVAILABLE", "routers": missing_routers})
 
         db_url = os.environ.get("DATABASE_URL_PROD") or os.environ.get("DATABASE_URL")
         if not db_url:
@@ -152,13 +190,15 @@ def create_app() -> FastAPI:
                 rows = await conn.fetch("""
                     SELECT table_name FROM information_schema.tables
                     WHERE table_schema = 'public' AND table_name = ANY($1::text[])
-                """, ["user_profiles", "share_classes", "share_subscriptions", "subscription_payments"])
+                """, ["user_profiles", "roles", "user_roles", "share_classes", "share_config",
+                      "share_subscriptions", "subscription_payments", "share_certificates", "audit_logs"])
             finally:
                 await conn.close()
         except Exception:
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DATABASE_CONNECTION_FAILED"})
         found = {row["table_name"] for row in rows}
-        required = {"user_profiles", "share_classes", "share_subscriptions", "subscription_payments"}
+        required = {"user_profiles", "roles", "user_roles", "share_classes", "share_config",
+                    "share_subscriptions", "subscription_payments", "share_certificates", "audit_logs"}
         if missing := sorted(required - found):
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "INVESTMENT_SCHEMA_INCOMPLETE", "missing_tables": missing})
         return {"status": "ready", "investment_tables": len(required)}

@@ -333,11 +333,12 @@ async def validate_share_availability(
     Raises:
         HTTPException(400) if insufficient shares available
     """
-    # Get current availability from subscription config
+    # Share configuration is the single source of truth for available shares.
     config = await conn.fetchrow("""
-        SELECT total_shares, allocated_shares
-        FROM subscription_config
-        WHERE id = 1
+        SELECT available_shares
+        FROM share_config
+        WHERE is_active = TRUE
+        ORDER BY updated_at DESC, id DESC LIMIT 1
     """)
     
     if not config:
@@ -346,7 +347,7 @@ async def validate_share_availability(
             detail="Subscription configuration not found"
         )
     
-    available = config['total_shares'] - config['allocated_shares']
+    available = config['available_shares']
     
     if requested_shares > available:
         message = error_message or f"Only {available:,} shares remaining. Requested {requested_shares:,}."

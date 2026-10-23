@@ -567,23 +567,26 @@ async def core_get_subscription_config() -> SubscriptionConfig:
     """Get subscription system configuration"""
     async with db_connection() as conn:
         config = await conn.fetchrow("""
-            SELECT price_per_share, min_shares, max_shares, total_shares_available,
-                   total_shares_issued, offering_status, offering_start_date,
-                   offering_end_date, auto_issue_certificate, payment_methods,
-                   bank_account_details
-            FROM subscription_config
-            ORDER BY id DESC LIMIT 1
+            SELECT price_per_share, min_subscription, max_subscription,
+                   available_shares, total_issued, is_active
+            FROM share_config
+            WHERE is_active = TRUE
+            ORDER BY updated_at DESC, id DESC LIMIT 1
         """)
         
         if not config:
             raise HTTPException(status_code=404, detail="Configuration not found")
         
-        # Parse JSON fields
-        import json
-        config_dict = dict(config)
-        if isinstance(config_dict.get('payment_methods'), str):
-            config_dict['payment_methods'] = json.loads(config_dict['payment_methods'])
-        if isinstance(config_dict.get('bank_account_details'), str):
-            config_dict['bank_account_details'] = json.loads(config_dict['bank_account_details'])
-        
-        return SubscriptionConfig(**config_dict)
+        return SubscriptionConfig(
+            price_per_share=config['price_per_share'],
+            min_shares=config['min_subscription'],
+            max_shares=config['max_subscription'],
+            total_shares_available=config['available_shares'],
+            total_shares_issued=config['total_issued'],
+            offering_status='open' if config['is_active'] else 'closed',
+            offering_start_date=None,
+            offering_end_date=None,
+            auto_issue_certificate=False,
+            payment_methods=['Bank Transfer'],
+            bank_account_details=None,
+        )
