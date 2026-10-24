@@ -1,7 +1,8 @@
-"""File storage on an S3-compatible bucket (Cloudflare R2). `binary` has get/put/delete/list.
+"""Private binary document storage. `binary` has get/put/delete/list.
 
-Env vars: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
-(or S3_ENDPOINT_URL instead of R2_ACCOUNT_ID for any other S3 provider).
+Prefer a connected private Vercel Blob store (BLOB_STORE_ID and Vercel OIDC).
+Existing S3 installations can supply R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+R2_SECRET_ACCESS_KEY, R2_BUCKET (or S3_ENDPOINT_URL).
 
 The client is built on first use, so importing this module needs no settings. When they are missing every call fails
 with a message naming them, instead of silently losing files.
@@ -59,14 +60,40 @@ class S3BinaryStorage:
         return entries
 
 
+class VercelBlobBinaryStorage:
+    """Keep database document keys stable while storing bytes in a private Blob store."""
+
+    def __init__(self):
+        from vercel.blob import sync as blob
+        self.blob = blob
+
+    def put(self, key: str, value: bytes) -> None:
+        self.blob.put_blob(key, value, access="private", allow_overwrite=False)
+
+    def get(self, key: str, *, default: Optional[bytes] = None) -> Optional[bytes]:
+        try:
+            return self.blob.get_blob(key, access="private").body
+        except self.blob.BlobNotFoundError as error:
+            if default is not None:
+                return default
+            raise FileNotFoundError(key) from error
+
+    def delete(self, key: str) -> None:
+        self.blob.delete_blob(key)
+
+    def list(self) -> list[FileListEntry]:
+        return [FileListEntry(name=item.pathname, size=item.size)
+                for item in self.blob.query_blobs()]
+
+
 
 
 class _LazyStorage:
     def __init__(self):
-        self._impl: S3BinaryStorage | None = None
+        self._impl: S3BinaryStorage | VercelBlobBinaryStorage | None = None
         self._lock = threading.Lock()
 
-    def _get(self) -> S3BinaryStorage:
+    def _get(self) -> S3BinaryStorage | VercelBlobBinaryStorage:
         if self._impl is None:
             with self._lock:
                 if self._impl is None:
@@ -86,7 +113,9 @@ class _LazyStorage:
         return self._get().list()
 
 
-def _build() -> S3BinaryStorage:
+def _build() -> S3BinaryStorage | VercelBlobBinaryStorage:
+    if os.environ.get("BLOB_STORE_ID") or os.environ.get("BLOB_READ_WRITE_TOKEN"):
+        return VercelBlobBinaryStorage()
     bucket = os.environ.get("R2_BUCKET") or os.environ.get("S3_BUCKET")
     access_key = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("S3_ACCESS_KEY_ID")
     secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("S3_SECRET_ACCESS_KEY")
@@ -96,8 +125,8 @@ def _build() -> S3BinaryStorage:
         endpoint = f"https://{account_id}.r2.cloudflarestorage.com"
     if not (bucket and access_key and secret_key and endpoint):
         raise RuntimeError(
-            "File storage is not configured. Set R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and "
-            "R2_ACCOUNT_ID (or S3_ENDPOINT_URL) to enable uploads."
+            "File storage is not configured. Connect a private Vercel Blob store (BLOB_STORE_ID) "
+            "or configure the existing S3 storage settings to enable uploads."
         )
     return S3BinaryStorage(bucket, endpoint, access_key, secret_key)
 

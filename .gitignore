@@ -33,3 +33,4 @@ serviceAccountKey.json
 **/.venv
 __pycache__
 .vercel
+.env*

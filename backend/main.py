@@ -211,6 +211,14 @@ def create_app() -> FastAPI:
                     WHERE table_schema = 'public' AND table_name = ANY($1::text[])
                 """, ["user_profiles", "roles", "user_roles", "share_classes", "share_config",
                       "share_subscriptions", "subscription_payments", "share_certificates", "audit_logs"])
+                demo_offering = False
+                if any(row["table_name"] == "share_classes" for row in rows):
+                    demo_offering = await conn.fetchval("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM share_classes
+                            WHERE is_active AND (class_name ILIKE '%demo%' OR display_name ILIKE '%demo%')
+                        )
+                    """)
             finally:
                 await conn.close()
         except Exception:
@@ -220,8 +228,12 @@ def create_app() -> FastAPI:
                     "share_subscriptions", "subscription_payments", "share_certificates", "audit_logs"}
         if missing := sorted(required - found):
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "INVESTMENT_SCHEMA_INCOMPLETE", "missing_tables": missing})
+        if demo_offering:
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "OFFERING_RECONCILIATION_REQUIRED"})
+        blob_ready = bool(os.environ.get("BLOB_STORE_ID") or os.environ.get("BLOB_READ_WRITE_TOKEN"))
         storage_keys = ("R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
-        if not all(os.environ.get(key) for key in storage_keys) or not (os.environ.get("R2_ACCOUNT_ID") or os.environ.get("S3_ENDPOINT_URL")):
+        s3_ready = all(os.environ.get(key) for key in storage_keys) and bool(os.environ.get("R2_ACCOUNT_ID") or os.environ.get("S3_ENDPOINT_URL"))
+        if not (blob_ready or s3_ready):
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DOCUMENT_STORAGE_NOT_CONFIGURED"})
         return {"status": "ready", "investment_tables": len(required)}
 
