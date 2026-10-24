@@ -20,6 +20,12 @@ from app.libs.email_queue import enqueue_email
 from app import runtime
 from app.env import Mode, mode
 from app.libs.url_helpers import get_api_base_url
+from app.libs.database import db_connection
+from app.libs.rbac import check_user_has_any_role
+from app.libs.share_subscription import generate_certificate_number, generate_verification_code, generate_qr_code_svg
+from app.libs.certificate_generator import generate_certificate_legacy as generate_certificate
+from app.libs.email_templates import create_share_certificate_email
+from fastapi.concurrency import run_in_threadpool
 import json
 
 router = APIRouter(prefix="/subscriptions/certificates")
@@ -110,13 +116,13 @@ async def certificates_issue_certificate(
         # Create certificate record
         await conn.execute("""
             INSERT INTO share_certificates (
-                certificate_number, subscription_id, user_id, shareholder_name,
+                certificate_number, subscription_id, user_id, full_name,
                 shares_count, issue_date, verification_code, qr_code_svg_data,
-                certificate_url, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                certificate_url, pdf_storage_key, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         """, cert_number, subscription['id'], subscription['user_id'], subscription['full_name'],
             subscription['num_shares'], datetime.now(), verification_code, qr_code_base64,
-            cert_url, 'active')
+            cert_url, storage_key, 'active')
         
         # Update subscription
         await conn.execute("""
@@ -494,14 +500,14 @@ async def certificates_bulk_issue(user: AuthorizedUser):
                 # Create certificate record
                 await conn.execute("""
                     INSERT INTO share_certificates (
-                        certificate_number, subscription_id, user_id, shareholder_name,
+                        certificate_number, subscription_id, user_id, full_name,
                         shares_count, issue_date, verification_code, qr_code_svg_data,
-                        certificate_url, status
+                        certificate_url, pdf_storage_key, status
                     )
-                    SELECT $1, id, $2, $3, $4, $5, $6, $7, $8, $9
-                    FROM share_subscriptions WHERE subscription_id = $10
+                    SELECT $1, id, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                    FROM share_subscriptions WHERE subscription_id = $11
                 """, cert_number, sub['user_id'], sub['full_name'], sub['num_shares'],
-                    datetime.now(), verification_code, qr_code_base64, cert_url, 'active',
+                    datetime.now(), verification_code, qr_code_base64, cert_url, storage_key, 'active',
                     sub['subscription_id'])
                 
                 # Update subscription

@@ -220,6 +220,9 @@ def create_app() -> FastAPI:
                     "share_subscriptions", "subscription_payments", "share_certificates", "audit_logs"}
         if missing := sorted(required - found):
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "INVESTMENT_SCHEMA_INCOMPLETE", "missing_tables": missing})
+        storage_keys = ("R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
+        if not all(os.environ.get(key) for key in storage_keys) or not (os.environ.get("R2_ACCOUNT_ID") or os.environ.get("S3_ENDPOINT_URL")):
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DOCUMENT_STORAGE_NOT_CONFIGURED"})
         return {"status": "ready", "investment_tables": len(required)}
 
     @app.on_event("startup")

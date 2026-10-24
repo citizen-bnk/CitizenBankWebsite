@@ -20,9 +20,9 @@ from app.libs.share_subscription import (
     generate_certificate_html
 )
 from app.libs.certificate_generator import (
-    generate_certificate,
     CertificateData,
-    generate_certificate as generate_certificate_from_template,
+    fill_pdf_template,
+    generate_certificate_legacy as generate_certificate,
     get_active_template,
     get_certificate_by_token
 )
@@ -86,7 +86,7 @@ async def issue_certificate_for_subscription(
         print(f"ℹ️ No template found for {share_class}, using legacy generation")
     
     pdf_bytes = None
-    html_content = None
+    storage_key = None
     qr_code_svg = None
     template_id = None
     
@@ -94,6 +94,8 @@ async def issue_certificate_for_subscription(
     base_url = get_frontend_base_url()
     
     if template:
+        if template['template_type'] != 'pdf':
+            raise HTTPException(status_code=409, detail="A PDF certificate template is required for issuance")
         # Use template-based generation
         print(f"📋 Using template {template['id']} for certificate")
         template_id = template['id']
@@ -110,25 +112,12 @@ async def issue_certificate_for_subscription(
             template_id=template_id,
         )
         
-        result = await generate_certificate_from_template(
-            cert_data=cert_data,
-            issued_by=issued_by,
-            base_url=base_url,
-            template_id=template_id,
-            preview_only=False
-        )
-        
-        # Extract result based on template type
-        if template['template_type'] == 'pdf':
-            # PDF already stored by generator
-            storage_key = f"certificates_{cert_number}.pdf"
-            pdf_bytes = runtime.storage.binary.get(storage_key)
-        else:
-            html_content = result.get('html_content')
-        
         # Generate QR code for the new verification URL
         cert_url = f"{base_url}/verify-certificate?token={verification_token}"
         qr_code_svg = await run_in_threadpool(generate_qr_code_svg, cert_url)
+        pdf_bytes = await run_in_threadpool(fill_pdf_template, template['pdf_storage_key'], cert_data, qr_code_svg)
+        storage_key = f"certificates/{cert_number}.pdf"
+        runtime.storage.binary.put(storage_key, pdf_bytes)
         
     else:
         # Use legacy ReportLab generation
@@ -149,34 +138,22 @@ async def issue_certificate_for_subscription(
         storage_key = f"certificates/{cert_number}.pdf"
         runtime.storage.binary.put(storage_key, pdf_bytes)
     
-    # Upload to Google Drive (if configured)
-    drive_file_id = None
-    google_drive_url = None
-    if pdf_bytes:
-        try:
-            drive_file_id, google_drive_url = await upload_certificate_to_drive(
-                conn, pdf_bytes, cert_number, cert_url
-            )
-        except Exception as e:
-            print(f"⚠️ Google Drive upload failed: {e}")
-            google_drive_url = cert_url
-    
-    # Store certificate in database
+    # Keep the PDF in private object storage and only its key in the database.
     await conn.execute("""
         INSERT INTO share_certificates (
             certificate_number, subscription_id, user_id, full_name,
             shares_count, share_class, id_number, issue_date,
             certificate_url, verification_code, qr_code_svg_data,
-            issued_by, status, drive_file_id, template_id,
-            verification_token, html_content
+            issued_by, status, pdf_storage_key, template_id,
+            verification_token
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
     """, cert_number, subscription['id'], subscription['user_id'],
         subscription['full_name'], subscription['num_shares'],
         share_class, subscription.get('id_number'), datetime.now().date(),
-        google_drive_url or cert_url, verification_code, qr_code_svg,
-        issued_by, 'active', drive_file_id, template_id,
-        verification_token, html_content)
+        cert_url, verification_code, qr_code_svg,
+        issued_by, 'active', storage_key, template_id,
+        verification_token)
     
     # Update subscription
     await conn.execute("""
@@ -198,7 +175,7 @@ async def issue_certificate_for_subscription(
             shares=subscription['num_shares'],
             total_amount=float(subscription['total_amount']),
             qr_code_base64=qr_code_svg,
-            certificate_url=google_drive_url
+            certificate_url=cert_url
         ),
         recipient_id=subscription['user_id'],
         created_by='system',
