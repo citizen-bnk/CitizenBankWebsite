@@ -211,14 +211,14 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
 
 
 @router.get("/subscription/{subscription_id}")
-async def core_get_subscription_status(subscription_id: str) -> SubscriptionStatus:
+async def core_get_subscription_status(subscription_id: str, user: AuthorizedUser) -> SubscriptionStatus:
     """
     Get the current status of a subscription.
     Shows payment progress and remaining balance.
     """
     async with db_connection() as conn:
         subscription = await conn.fetchrow("""
-            SELECT subscription_id, full_name, email, num_shares, total_amount,
+            SELECT subscription_id, user_id, full_name, email, num_shares, total_amount,
                    amount_paid, payment_method, installment_plan, status,
                    created_at, updated_at
             FROM share_subscriptions
@@ -227,6 +227,19 @@ async def core_get_subscription_status(subscription_id: str) -> SubscriptionStat
         
         if not subscription:
             raise HTTPException(status_code=404, detail="Subscription not found")
+
+        profile = await conn.fetchrow("SELECT email FROM user_profiles WHERE user_id = $1", user.sub)
+        owns_subscription = subscription['user_id'] == user.sub or (
+            profile and profile['email'] and profile['email'].casefold() == subscription['email'].casefold()
+        )
+        if not owns_subscription:
+            role = await conn.fetchrow("""
+                SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = $1 AND r.role_name IN ('admin', 'super_admin')
+                LIMIT 1
+            """, user.sub)
+            if not role:
+                raise HTTPException(status_code=403, detail="You do not have access to this subscription")
         
         total_amount = Decimal(str(subscription['total_amount']))
         amount_paid = Decimal(str(subscription['amount_paid']))
@@ -248,9 +261,16 @@ async def core_get_subscription_status(subscription_id: str) -> SubscriptionStat
 
 
 @router.get("/subscriptions")
-async def core_list_all_subscriptions() -> SubscriptionListResponse:
+async def core_list_all_subscriptions(user: AuthorizedUser) -> SubscriptionListResponse:
     """List all subscriptions with summary statistics. For admin/monitoring purposes."""
     async with db_connection() as conn:
+        role = await conn.fetchrow("""
+            SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+            WHERE ur.user_id = $1 AND r.role_name IN ('admin', 'super_admin')
+            LIMIT 1
+        """, user.sub)
+        if not role:
+            raise HTTPException(status_code=403, detail="Administrator access is required")
         subscriptions = await conn.fetch("""
             SELECT subscription_id, full_name, email, num_shares, 
                    total_amount, amount_paid, payment_method, status, payment_status, created_at,
@@ -329,11 +349,11 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
             """, user.sub)
         
         # Calculate summary
-        total_shares = sum(s['num_shares'] for s in subscriptions if s['status'] in ['completed', 'partial', 'pending'])
+        total_shares = sum(s['num_shares'] for s in subscriptions if s['status'] in ['active', 'completed', 'partial', 'pending'])
         total_investment = sum(Decimal(str(s['total_amount'])) for s in subscriptions if s['status'] != 'cancelled')
-        active_subs = sum(1 for s in subscriptions if s['status'] in ['pending', 'partial', 'completed'])
+        active_subs = sum(1 for s in subscriptions if s['status'] in ['active', 'pending', 'partial', 'completed'])
         pending_payments = sum(Decimal(str(s['total_amount'])) - Decimal(str(s['amount_paid'])) 
-                             for s in subscriptions if s['status'] in ['pending', 'partial'])
+                             for s in subscriptions if s['status'] in ['active', 'pending', 'partial'])
         certificates_issued = sum(1 for s in subscriptions if s['certificate_number'])
         
         # Check if any admin-created subscriptions exist
