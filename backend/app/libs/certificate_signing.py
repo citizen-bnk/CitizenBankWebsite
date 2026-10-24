@@ -228,7 +228,7 @@ async def sign_certificate(
         raise ValueError("Certificate already signed")
     
     # Get original certificate PDF from storage
-    storage_key = f"certificates_{cert['certificate_number']}.pdf"
+    storage_key = cert['pdf_storage_key'] or f"certificates/{cert['certificate_number']}.pdf"
     try:
         original_pdf_bytes = runtime.storage.binary.get(storage_key)
     except Exception as e:
@@ -240,8 +240,8 @@ async def sign_certificate(
         signature_image_base64
     )
     
-    # Store signed PDF (replace original)
-    signed_storage_key = f"certificates_{cert['certificate_number']}_signed.pdf"
+    # Keep the unsigned original and write the signed version to a new object.
+    signed_storage_key = f"certificates/{cert['certificate_number']}/v{cert['version'] + 1}_signed.pdf"
     runtime.storage.binary.put(signed_storage_key, signed_pdf_bytes)
     
     # Store signature image separately
@@ -259,6 +259,8 @@ async def sign_certificate(
             signer_role = $4,
             signature_image_url = $5,
             certificate_url = $6,
+            pdf_storage_key = $8,
+            version = version + 1,
             updated_at = NOW()
         WHERE id = $7
     """,
@@ -268,11 +270,9 @@ async def sign_certificate(
         signer_role,
         signature_storage_key,
         f"/api/share-subscription/certificate/{cert['certificate_number']}/download",
-        certificate_id
+        certificate_id,
+        signed_storage_key
     )
-    
-    # Also replace the main storage key with signed version
-    runtime.storage.binary.put(storage_key, signed_pdf_bytes)
     
     # Log to audit trail
     await conn.execute("""

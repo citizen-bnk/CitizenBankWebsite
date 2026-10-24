@@ -101,23 +101,25 @@ async def view_certificate_public(cert_number: str, verification_code: str) -> R
 
 
 @router.get("/certificates/{cert_number}")
-async def view_latest_certificate_public(cert_number: str) -> Response:
+async def view_latest_certificate_public(cert_number: str, verification_code: str | None = None) -> Response:
     """
     View latest version of certificate - REQUIRES verification code in database.
     This endpoint is for backward compatibility with older QR codes.
     """
+    if not verification_code:
+        raise HTTPException(status_code=403, detail="A certificate verification code is required")
     conn = await get_db_connection()
     
     try:
-        # Get latest certificate with verification code
         cert = await conn.fetchrow("""
             SELECT verification_code
             FROM share_certificates
             WHERE certificate_number = $1
+              AND verification_code = $2
               AND status = 'active'
             ORDER BY version DESC
             LIMIT 1
-        """, cert_number)
+        """, cert_number, verification_code)
         
         if not cert:
             raise HTTPException(

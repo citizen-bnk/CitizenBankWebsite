@@ -203,18 +203,19 @@ async def certificates_download_certificate(cert_number: str, verification_code:
     Download certificate PDF.
     Requires verification code for public access, or admin role.
     """
+    if not verification_code:
+        raise HTTPException(status_code=403, detail="A certificate verification code is required")
     async with db_connection() as conn:
-        if verification_code:
-            # Public access with verification code
-            cert = await conn.fetchrow(
-                "SELECT id FROM share_certificates WHERE certificate_number = $1 AND verification_code = $2 AND status = 'active'",
-                cert_number, verification_code
-            )
-            if not cert:
-                raise HTTPException(status_code=404, detail="Certificate not found or invalid verification code")
+        cert = await conn.fetchrow(
+            """SELECT pdf_storage_key FROM share_certificates
+            WHERE certificate_number = $1 AND verification_code = $2 AND status = 'active'""",
+            cert_number, verification_code
+        )
+        if not cert:
+            raise HTTPException(status_code=404, detail="Certificate not found or invalid verification code")
         
         # Check if PDF exists in storage
-        storage_key = f"certificates/{cert_number}.pdf"
+        storage_key = cert['pdf_storage_key'] or f"certificates/{cert_number}.pdf"
         try:
             pdf_bytes = runtime.storage.binary.get(storage_key)
             return Response(
@@ -235,7 +236,7 @@ async def certificates_get_my_certificates(user: AuthorizedUser):
     """
     async with db_connection() as conn:
         certificates = await conn.fetch("""
-            SELECT c.certificate_number, c.shareholder_name, c.shares_count,
+            SELECT c.certificate_number, COALESCE(c.full_name, c.shareholder_name) AS shareholder_name, c.shares_count,
                    c.issue_date, c.status, c.certificate_url, c.signed_at,
                    s.share_class, s.subscription_id
             FROM share_certificates c
@@ -319,7 +320,7 @@ async def certificates_regenerate_certificate(cert_id: int, user: AuthorizedUser
     
     async with db_connection() as conn:
         cert = await conn.fetchrow("""
-            SELECT c.id, c.certificate_number, c.verification_code, c.shareholder_name,
+            SELECT c.id, c.certificate_number, c.verification_code, COALESCE(c.full_name, c.shareholder_name) AS shareholder_name,
                    c.shares_count, s.id_number
             FROM share_certificates c
             JOIN share_subscriptions s ON c.subscription_id = s.id

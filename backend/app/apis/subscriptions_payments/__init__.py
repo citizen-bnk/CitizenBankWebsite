@@ -146,6 +146,10 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             # Store receipt in storage
             receipt_storage_key = f"receipts/{payment.subscription_id}/{receipt_number}.pdf"
             runtime.storage.binary.put(receipt_storage_key, receipt_pdf)
+            await conn.execute(
+                "UPDATE subscription_payments SET receipt_url = $1 WHERE id = $2",
+                receipt_storage_key, payment_row['id']
+            )
             print(f"📄 Receipt generated and stored: {receipt_number}")
             documents_generated.append('receipt')
             
@@ -175,14 +179,19 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
         if new_status == 'completed' and subscription['user_id']:
             try:
                 has_investor_role = await conn.fetchval(
-                    "SELECT COUNT(*) > 0 FROM user_roles WHERE user_id = $1 AND role = 'investor'",
+                    """SELECT EXISTS (
+                        SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                        WHERE ur.user_id = $1 AND r.role_name = 'investor'
+                    )""",
                     subscription['user_id']
                 )
                 
                 if not has_investor_role:
                     await conn.execute(
-                        "INSERT INTO user_roles (user_id, role) VALUES ($1, $2)",
-                        subscription['user_id'], 'investor'
+                        """INSERT INTO user_roles (user_id, role_id, assigned_by)
+                        SELECT $1, id, $2 FROM roles WHERE role_name = 'investor'
+                        ON CONFLICT DO NOTHING""",
+                        subscription['user_id'], user.sub
                     )
                     print(f"✅ Investor role assigned to user {subscription['user_id']}")
             except Exception as e:
