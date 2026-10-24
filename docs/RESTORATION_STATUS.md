@@ -12,6 +12,8 @@ The `codex/restore-original-website` branch restores the original website and it
 
 ## Release blockers
 
+- Vercel rejected the 24 October 2026 deployment attempt with `Your team has an overdue balance. Please add a valid payment method to reactivate your account.` A team owner must restore the SmartMyCompany billing state before any new preview or production deployment can be verified.
+
 - The connected website Neon database contains seven clearly fictional `demo.citizenbank.test` profiles and three sample subscriptions. Additive investment migrations now provide a legacy audit view, certificate metadata table, and missing subscription columns; the three existing subscriptions remained intact. The preview's `/api/health/ready` passed its table check after migration. This is a schema check, not an end-to-end transaction check. Do not import Core's demo bootstrap migration over this database: it contains fictional share terms and could conflict with existing records.
 - The demo database's R10 price matched the agreed price, but its 100-share minimum did not. The active demo share configuration and class were corrected to 1,000 shares (R10,000). The sole configured class is still labelled `Class A (demo)` while all three sample subscriptions say `Class C`; the authorized/issued/offered totals are fictional and need reconciliation before real investor subscriptions.
 - The original frontend has extensive existing TypeScript errors, including calls to API methods absent from its generated client. The Vite build passing does not validate those flows.
