@@ -59,7 +59,7 @@ async def get_share_availability_data(conn: asyncpg.Connection) -> ShareAvailabi
         SELECT COALESCE(SUM(num_shares), 0) as total_subscribed,
                COALESCE(SUM(amount_paid), 0) as total_raised
         FROM share_subscriptions
-        WHERE status IN ('pending', 'partial', 'completed')
+        WHERE status IN ('active', 'pending', 'partial', 'completed')
     """)
     
     subscribed = subscribed_data['total_subscribed']
