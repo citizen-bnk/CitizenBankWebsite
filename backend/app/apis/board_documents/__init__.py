@@ -539,14 +539,11 @@ async def download_document(document_id: int, user: AuthorizedUser):
         
         print(f"✅ Document found: file_url={doc['file_url']}, user_id={doc['user_id']}")
         
-        # Simplified authorization: trust that protected pages enforce access control
-        # Board members can view their own documents, back office can view all
-        # (Back office pages are already protected at the page level)
         is_owner = doc["user_id"] == user.sub
         
-        # If not the owner, assume back office access (page-level protection handles this)
-        # This simplifies the flow and avoids redundant role checks
         if not is_owner:
+            if not await check_user_has_any_role(user.sub, ["super_admin", "admin", "back_office_staff", "back_office"]):
+                raise HTTPException(status_code=403, detail="You do not have access to this document")
             print(f"📋 Back office user {user.sub} accessing document {document_id}")
         else:
             print(f"👤 Document owner {user.sub} accessing their document")

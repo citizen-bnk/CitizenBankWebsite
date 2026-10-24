@@ -202,13 +202,20 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
 @router.post("/upload-payment-proof")
 async def payments_upload_payment_proof(
     subscription_id: str,
+    user: AuthorizedUser,
     file: UploadFile = File(...),
-    user: AuthorizedUser = None
 ):
     """
     Upload payment proof for a subscription.
     Stores file and marks subscription as awaiting verification.
     """
+    if user is None:
+        raise HTTPException(status_code=401, detail="Sign in to upload payment proof")
+
+    allowed_types = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=415, detail="Upload a PDF, JPEG or PNG payment proof")
+
     async with db_connection() as conn:
         # Get subscription
         subscription = await conn.fetchrow(
@@ -220,20 +227,24 @@ async def payments_upload_payment_proof(
             raise HTTPException(status_code=404, detail="Subscription not found")
         
         # Verify user owns this subscription
-        if user and subscription['user_id'] != user.sub:
+        if subscription['user_id'] != user.sub:
             # Check if email matches
             profile = await conn.fetchrow(
                 "SELECT email FROM user_profiles WHERE user_id = $1",
                 user.sub
             )
-            if not profile or profile['email'] != subscription['email']:
+            if not profile or not profile['email'] or profile['email'].casefold() != subscription['email'].casefold():
                 raise HTTPException(status_code=403, detail="Not authorized to upload proof for this subscription")
         
         # Read file content
-        file_content = await file.read()
+        file_content = await file.read(10 * 1024 * 1024 + 1)
+        if len(file_content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Payment proof must be 10 MB or smaller")
+        if not file_content:
+            raise HTTPException(status_code=400, detail="The payment proof file is empty")
         
         # Store in file storage
-        storage_key = f"payment_proofs/{subscription_id}/{uuid.uuid4()}_{file.filename}"
+        storage_key = f"payment_proofs/{subscription['id']}/{uuid.uuid4().hex}{allowed_types[file.content_type]}"
         runtime.storage.binary.put(storage_key, file_content)
         
         # Update subscription
