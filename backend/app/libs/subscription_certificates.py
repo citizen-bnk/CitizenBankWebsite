@@ -7,7 +7,7 @@ Phase 1: Library creation (original API file remains intact).
 import asyncpg
 from decimal import Decimal
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from fastapi import HTTPException, Response
 from fastapi.responses import HTMLResponse
 from fastapi.concurrency import run_in_threadpool
@@ -15,6 +15,7 @@ from app import runtime
 import secrets
 from app.libs.share_subscription import (
     generate_certificate_number,
+    generate_certificate_number_for_subscription,
     generate_verification_code,
     generate_qr_code_svg,
     generate_certificate_html
@@ -28,9 +29,7 @@ from app.libs.certificate_generator import (
 )
 from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_share_certificate_email
-from app.libs.google_drive_service import GoogleDriveService
 from app.libs.url_helpers import get_certificate_base_url, get_frontend_base_url
-from app.env import Mode, mode
 
 
 async def issue_certificate_for_subscription(
@@ -73,7 +72,9 @@ async def issue_certificate_for_subscription(
         )
     
     # Generate certificate number and codes
-    cert_number = await generate_certificate_number(conn)
+    cert_number = await generate_certificate_number_for_subscription(
+        conn, subscription['subscription_id'], subscription['user_id'], subscription['email']
+    )
     verification_code = generate_verification_code()
     verification_token = secrets.token_urlsafe(32)
     
@@ -188,62 +189,6 @@ async def issue_certificate_for_subscription(
     """, cert_number)
     
     return dict(cert)
-
-
-async def upload_certificate_to_drive(
-    conn: asyncpg.Connection,
-    pdf_bytes: bytes,
-    cert_number: str,
-    fallback_url: str
-) -> tuple[Optional[str], str]:
-    """
-    Upload certificate PDF to Google Drive.
-    
-    Args:
-        conn: Database connection
-        pdf_bytes: PDF file content
-        cert_number: Certificate number
-        fallback_url: URL to use if upload fails
-        
-    Returns:
-        Tuple of (drive_file_id, certificate_url)
-    """
-    try:
-        current_env = 'prod' if mode == Mode.PROD else 'dev'
-        gd_config = await conn.fetchrow(
-            "SELECT * FROM google_drive_config WHERE environment = $1",
-            current_env
-        )
-        
-        if gd_config and gd_config['access_token'] and gd_config['refresh_token']:
-            drive_service = GoogleDriveService()
-            credentials = drive_service.get_credentials(
-                gd_config['access_token'],
-                gd_config['refresh_token']
-            )
-            
-            file_name = f"{cert_number}.pdf"
-            uploaded_file = await run_in_threadpool(
-                drive_service.upload_file,
-                file_content=pdf_bytes,
-                file_name=file_name,
-                parent_folder_id=gd_config['certificates_folder_id'],
-                mime_type='application/pdf',
-                credentials=credentials
-            )
-            
-            drive_file_id = uploaded_file['id']
-            google_drive_url = uploaded_file.get('webViewLink', fallback_url)
-            print(f"📤 Certificate uploaded to Google Drive: {file_name}")
-            
-            return drive_file_id, google_drive_url
-        else:
-            print(f"⚠️ Google Drive not configured for {current_env}")
-            return None, fallback_url
-            
-    except Exception as e:
-        print(f"⚠️ Failed to upload to Google Drive: {e}")
-        return None, fallback_url
 
 
 async def download_certificate_pdf(
@@ -455,14 +400,6 @@ async def regenerate_certificate_with_new_data(
             detail="Certificate not found"
         )
     
-    # Mark old certificate as replaced
-    await conn.execute("""
-        UPDATE share_certificates
-        SET status = 'replaced',
-            updated_at = NOW()
-        WHERE certificate_number = $1
-    """, certificate_number)
-    
     # Generate new certificate number
     new_cert_number = await generate_certificate_number(conn)
     new_verification_code = generate_verification_code()
@@ -483,10 +420,15 @@ async def regenerate_certificate_with_new_data(
         verification_code=new_verification_code
     )
     
-    # Upload to Drive
-    drive_file_id, google_drive_url = await upload_certificate_to_drive(
-        conn, pdf_bytes, new_cert_number, cert_url
-    )
+    # Save a new private object; the replaced certificate and its PDF remain intact.
+    storage_key = f"certificates/{new_cert_number}.pdf"
+    await run_in_threadpool(runtime.storage.binary.put, storage_key, pdf_bytes)
+
+    await conn.execute("""
+        UPDATE share_certificates
+        SET status = 'replaced', updated_at = NOW()
+        WHERE certificate_number = $1
+    """, certificate_number)
     
     # Create new certificate record
     await conn.execute("""
@@ -494,14 +436,14 @@ async def regenerate_certificate_with_new_data(
             certificate_number, subscription_id, user_id, full_name,
             shares_count, share_class, id_number, issue_date,
             certificate_url, verification_code, qr_code_svg_data,
-            issued_by, status, drive_file_id, version
+            issued_by, status, pdf_storage_key, version
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     """, new_cert_number, old_cert['subscription_id'], old_cert['user_id'],
         old_cert['full_name'], old_cert['shares_count'], old_cert['share_class'],
-        old_cert['id_number'], datetime.now().date(), google_drive_url,
+        old_cert['id_number'], datetime.now().date(), cert_url,
         new_verification_code, qr_code_svg, regenerated_by, 'active',
-        drive_file_id, (old_cert.get('version', 1) + 1))
+        storage_key, (old_cert['version'] or 1) + 1)
     
     # Update subscription
     await conn.execute("""
@@ -509,10 +451,6 @@ async def regenerate_certificate_with_new_data(
         SET certificate_number = $1, certificate_issued_date = $2
         WHERE id = $3
     """, new_cert_number, datetime.now().date(), old_cert['subscription_id'])
-    
-    # Store PDF
-    storage_key = f"certificates/{new_cert_number}.pdf"
-    runtime.storage.binary.put(storage_key, pdf_bytes)
     
     print(f"🔄 Certificate regenerated: {certificate_number} → {new_cert_number}")
     
@@ -534,7 +472,7 @@ async def regenerate_certificate_with_new_data(
             shares=subscription['num_shares'],
             total_amount=float(subscription['total_amount']),
             qr_code_base64=qr_code_svg,
-            certificate_url=google_drive_url
+            certificate_url=cert_url
         ),
         recipient_id=subscription['user_id'],
         created_by='system',

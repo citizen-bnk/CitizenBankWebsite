@@ -5,7 +5,7 @@ from decimal import Decimal
 from datetime import datetime
 import uuid
 from app.auth import AuthorizedUser
-from app.libs.database import db_connection
+from app.libs.database import db_connection, db_transaction
 from app.libs.subscription_models import (
     SubscriptionRequest,
     SubscriptionResponse,
@@ -48,6 +48,16 @@ class SubscriptionListResponse(BaseModel):
     subscriptions: list[SubscriptionListItem]
 
 
+def validate_subscription_minimum(num_shares: int, minimum: int, existing_investor: bool) -> None:
+    """The new-investor minimum does not prevent an existing investor's top-up."""
+    if num_shares < 1 or (not existing_investor and num_shares < minimum):
+        raise HTTPException(
+            status_code=400,
+            detail=("Choose at least one reference share for a top-up." if existing_investor
+                    else f"A first subscription requires at least {minimum:,} reference shares."),
+        )
+
+
 @router.get("/availability")
 async def core_get_share_availability() -> ShareAvailability:
     """
@@ -72,9 +82,25 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
     print(f"   Payment method: {request.payment_method}")
     print(f"   Purchase currency: {getattr(request, 'purchase_currency', 'LSL')}")
     
-    async with db_connection() as conn:
-        # Check availability
+    async with db_transaction() as conn:
+        # Lock the offer row so simultaneous subscriptions cannot reserve the same units.
+        offer_class = await conn.fetchrow("""
+            SELECT class_name, price_per_share, min_shares, shares_on_offer, shares_issued
+            FROM share_classes WHERE is_active = true
+            ORDER BY is_default DESC, id ASC LIMIT 1 FOR UPDATE
+        """)
+        if not offer_class:
+            raise HTTPException(status_code=503, detail="SHARE_OFFER_UNAVAILABLE")
         availability = await get_share_availability_data(conn)
+        if Decimal(str(offer_class['price_per_share'])) != availability.price_per_share:
+            raise HTTPException(status_code=503, detail="SHARE_PRICE_RECONCILIATION_REQUIRED")
+        reserved = await conn.fetchval("""
+            SELECT COALESCE(SUM(num_shares), 0) FROM share_subscriptions
+            WHERE share_class = $1 AND status IN ('pending', 'active', 'partial')
+        """, offer_class['class_name'])
+        class_remaining = offer_class['shares_on_offer'] - offer_class['shares_issued'] - reserved
+        if request.num_shares > class_remaining:
+            raise HTTPException(status_code=400, detail="The selected share class has insufficient availability.")
         
         if request.num_shares > availability.remaining:
             print(f"❌ Validation failed: Requested {request.num_shares} shares but only {availability.remaining} remaining")
@@ -83,18 +109,23 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
                 detail=f"Only {availability.remaining:,} shares remaining. Requested {request.num_shares:,}."
             )
         
-        # Check if investor already has subscription
-        existing = await conn.fetchrow(
-            "SELECT id FROM share_subscriptions WHERE email = $1 AND status != 'cancelled'",
-            request.email
+        # Only the signed-in investor may use this route. Admins use create-on-behalf.
+        profile = await conn.fetchrow(
+            "SELECT email FROM user_profiles WHERE user_id = $1", user.sub
         )
-        
-        if existing:
-            print(f"❌ Validation failed: User {request.email} already has an active subscription")
-            raise HTTPException(
-                status_code=400,
-                detail="You already have an active subscription. Contact support to modify."
-            )
+        if not profile or not profile['email'] or profile['email'].casefold() != request.email.casefold():
+            raise HTTPException(status_code=403, detail="Use the email on your investor profile to subscribe.")
+
+        # An existing investor may make a separate top-up subscription.
+        existing = await conn.fetchrow(
+            """SELECT user_id FROM share_subscriptions
+               WHERE lower(email) = lower($1) AND status != 'cancelled'
+               ORDER BY created_at DESC LIMIT 1""",
+            request.email,
+        )
+        if existing and existing['user_id'] not in (None, user.sub):
+            raise HTTPException(status_code=409, detail="This investor record belongs to another account. Contact an administrator.")
+        validate_subscription_minimum(request.num_shares, offer_class['min_shares'], bool(existing))
         
         # Generate subscription ID
         subscription_id = f"SUB-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
@@ -139,12 +170,12 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         await conn.execute("""
             INSERT INTO share_subscriptions (
                 subscription_id, user_id, full_name, email, phone, id_number,
-                num_shares, total_amount, payment_method, installment_plan, status,
+                num_shares, share_class, total_amount, payment_method, installment_plan, status,
                 purchase_currency, purchase_exchange_rate, amount_in_purchase_currency
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         """, subscription_id, user.sub, request.full_name, request.email, request.phone,
-            request.id_number, request.num_shares, float(total_amount_lsl),
-            request.payment_method, request.installment_plan, 'active',
+            request.id_number, request.num_shares, offer_class['class_name'], float(total_amount_lsl),
+            request.payment_method, request.installment_plan, 'pending',
             purchase_currency, purchase_exchange_rate, amount_in_purchase_currency)
         
         print(f"✅ New subscription created: {subscription_id} - {request.full_name} - {request.num_shares:,} shares - {purchase_currency}")
@@ -205,7 +236,7 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
             payment_method=request.payment_method,
             installment_plan=request.installment_plan,
             monthly_payment=monthly_payment,
-            status='active',
+            status='pending',
             created_at=datetime.now()
         )
 

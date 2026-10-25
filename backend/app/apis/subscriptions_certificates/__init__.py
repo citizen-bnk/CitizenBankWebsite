@@ -22,7 +22,7 @@ from app.env import Mode, mode
 from app.libs.url_helpers import get_api_base_url
 from app.libs.database import db_connection
 from app.libs.rbac import check_user_has_any_role
-from app.libs.share_subscription import generate_certificate_number, generate_verification_code, generate_qr_code_svg
+from app.libs.share_subscription import generate_certificate_number, generate_certificate_number_for_subscription, generate_verification_code, generate_qr_code_svg
 from app.libs.certificate_generator import generate_certificate_legacy as generate_certificate
 from app.libs.email_templates import create_share_certificate_email
 from fastapi.concurrency import run_in_threadpool
@@ -90,7 +90,9 @@ async def certificates_issue_certificate(
                 )
         
         # Generate certificate
-        cert_number = await generate_certificate_number(conn)
+        cert_number = await generate_certificate_number_for_subscription(
+            conn, subscription['subscription_id'], subscription['user_id'], subscription['email']
+        )
         verification_code = generate_verification_code()
         cert_url = f"{get_api_base_url()}/certificates/{cert_number}/{verification_code}"
         
@@ -320,7 +322,7 @@ async def certificates_regenerate_certificate(cert_id: int, user: AuthorizedUser
     
     async with db_connection() as conn:
         cert = await conn.fetchrow("""
-            SELECT c.id, c.certificate_number, c.verification_code, COALESCE(c.full_name, c.shareholder_name) AS shareholder_name,
+            SELECT c.id, c.certificate_number, c.verification_code, c.version, c.signed_at, COALESCE(c.full_name, c.shareholder_name) AS shareholder_name,
                    c.shares_count, s.id_number
             FROM share_certificates c
             JOIN share_subscriptions s ON c.subscription_id = s.id
@@ -329,6 +331,8 @@ async def certificates_regenerate_certificate(cert_id: int, user: AuthorizedUser
         
         if not cert:
             raise HTTPException(status_code=404, detail="Certificate not found or revoked")
+        if cert['signed_at'] is not None:
+            raise HTTPException(status_code=409, detail="A signed certificate cannot be changed. Issue a replacement certificate to preserve the signed original.")
         
         # Regenerate PDF
         pdf_bytes = await run_in_threadpool(
@@ -343,8 +347,14 @@ async def certificates_regenerate_certificate(cert_id: int, user: AuthorizedUser
         )
         
         # Store new PDF
-        storage_key = f"certificates/{cert['certificate_number']}_regenerated.pdf"
-        runtime.storage.binary.put(storage_key, pdf_bytes)
+        next_version = (cert['version'] or 1) + 1
+        storage_key = f"certificates/{cert['certificate_number']}/v{next_version}.pdf"
+        await run_in_threadpool(runtime.storage.binary.put, storage_key, pdf_bytes)
+        await conn.execute("""
+            UPDATE share_certificates
+            SET pdf_storage_key = $1, version = $2, updated_at = NOW()
+            WHERE id = $3
+        """, storage_key, next_version, cert_id)
         
         # Log action
         await conn.execute("""
@@ -359,7 +369,8 @@ async def certificates_regenerate_certificate(cert_id: int, user: AuthorizedUser
             "success": True,
             "message": "Certificate regenerated successfully",
             "certificate_number": cert['certificate_number'],
-            "storage_key": storage_key
+            "storage_key": storage_key,
+            "version": next_version
         }
 
 
@@ -477,7 +488,9 @@ async def certificates_bulk_issue(user: AuthorizedUser):
         for sub in eligible:
             try:
                 # Generate certificate
-                cert_number = await generate_certificate_number(conn)
+                cert_number = await generate_certificate_number_for_subscription(
+                    conn, sub['subscription_id'], sub['user_id'], sub['email']
+                )
                 verification_code = generate_verification_code()
                 cert_url = f"{get_api_base_url()}/certificates/{cert_number}/{verification_code}"
                 

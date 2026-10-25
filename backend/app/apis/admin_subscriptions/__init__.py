@@ -86,7 +86,7 @@ async def check_admin_access(user_id: str) -> bool:
 async def user_exists(conn: asyncpg.Connection, email: str) -> Optional[str]:
     """Check if user exists by email, return user_id if found."""
     row = await conn.fetchrow(
-        "SELECT user_id FROM user_profiles WHERE email = $1",
+        "SELECT user_id FROM user_profiles WHERE lower(email) = lower($1)",
         email
     )
     return row['user_id'] if row else None
@@ -164,13 +164,19 @@ async def create_subscription_on_behalf(
         )
     
     conn = await get_db_connection()
+    transaction = conn.transaction()
+    started = False
+    committed = False
     try:
+        await transaction.start()
+        started = True
         # Fetch share class details from database
         share_class_data = await conn.fetchrow(
             """
-            SELECT price_per_share, currency, shares_on_offer, shares_issued
+            SELECT price_per_share, currency, min_shares, shares_on_offer, shares_issued
             FROM share_classes
             WHERE class_name = $1 AND is_active = true
+            FOR UPDATE
             """,
             body.share_class
         )
@@ -182,7 +188,11 @@ async def create_subscription_on_behalf(
             )
         
         # Check if shares are available
-        available_shares = share_class_data['shares_on_offer'] - share_class_data['shares_issued']
+        reserved = await conn.fetchval("""
+            SELECT COALESCE(SUM(num_shares), 0) FROM share_subscriptions
+            WHERE share_class = $1 AND status IN ('pending', 'active', 'partial')
+        """, body.share_class)
+        available_shares = share_class_data['shares_on_offer'] - share_class_data['shares_issued'] - reserved
         if available_shares < body.num_shares:
             raise HTTPException(
                 status_code=400,
@@ -192,6 +202,18 @@ async def create_subscription_on_behalf(
         # Validate num_shares
         if body.num_shares <= 0:
             raise HTTPException(status_code=400, detail="Number of shares must be greater than 0")
+
+        prior_subscription = await conn.fetchval("""
+            SELECT EXISTS (
+                SELECT 1 FROM share_subscriptions
+                WHERE lower(email) = lower($1) AND status != 'cancelled'
+            )
+        """, body.email)
+        if not prior_subscription and body.num_shares < share_class_data['min_shares']:
+            raise HTTPException(
+                status_code=400,
+                detail=f"A first subscription requires at least {share_class_data['min_shares']:,} reference shares.",
+            )
         
         # Calculate total amount using database price
         share_price = float(share_class_data['price_per_share'])
@@ -239,7 +261,7 @@ async def create_subscription_on_behalf(
             VALUES (
                 $1, $2, $3, $4, $5,
                 $6, $7, 0.00,
-                $8, $9, 'active',
+                $8, $9, 'pending',
                 'public', $10, 'pending',
                 true, $11, $12,
                 $13
@@ -282,28 +304,40 @@ async def create_subscription_on_behalf(
             except Exception as reminder_error:
                 print(f"⚠️ Failed to schedule profile completion reminder: {reminder_error}")
         
-        # Send email notification
-        await send_subscription_created_email(
-            conn=conn,
-            email=body.email,
-            full_name=body.full_name,
-            subscription_id=subscription_id,
-            share_class=body.share_class,
-            num_shares=body.num_shares,
-            total_amount=total_amount,
-            is_new_user=invitation_created,
-            created_by_admin_id=user.sub
-        )
-        
+        await transaction.commit()
+        committed = True
+        # Notification follows the committed record, so a delivery failure cannot
+        # roll back a subscription that the investor already sees.
+        notification_queued = False
+        try:
+            await send_subscription_created_email(
+                conn=conn,
+                email=body.email,
+                full_name=body.full_name,
+                subscription_id=subscription_id,
+                share_class=body.share_class,
+                num_shares=body.num_shares,
+                total_amount=total_amount,
+                is_new_user=invitation_created,
+                created_by_admin_id=user.sub
+            )
+            notification_queued = True
+        except Exception as error:
+            print(f"Subscription {subscription_id} saved; notification pending: {error}")
         return SubscriptionCreatedResponse(
             subscription_id=subscription_id,
             user_existed=user_existed,
             invitation_created=invitation_created,
             invitation_id=invitation_id,
-            status="active",
-            message=f"Subscription created successfully. {'Invitation sent to new user.' if invitation_created else 'Notification sent to existing user.'}"
+            status="pending",
+            message=("Subscription saved. Notification queued."
+                     if notification_queued else "Subscription saved. Notification pending; retry from the record.")
         )
         
+    except Exception:
+        if started and not committed and not conn.is_closed():
+            await transaction.rollback()
+        raise
     finally:
         await conn.close()
 

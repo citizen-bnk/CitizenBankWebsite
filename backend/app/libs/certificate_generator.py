@@ -15,6 +15,41 @@ from app.env import Mode, mode
 import os
 
 
+def generate_safe_certificate_preview(
+    certificate_number: str, shareholder_name: str, num_shares: int, issue_date: str
+) -> bytes:
+    """Generate a clearly provisional PDF when the stored artwork is unavailable."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    output = BytesIO()
+    page = canvas.Canvas(output, pagesize=A4)
+    width, height = A4
+    page.setTitle(f"Citizen Bank SAFE certificate preview {certificate_number}")
+    page.setFont("Helvetica-Bold", 21)
+    page.drawCentredString(width / 2, height - 100, "CITIZEN BANK")
+    page.setFont("Helvetica-Bold", 15)
+    page.drawCentredString(width / 2, height - 140, "SAFE subscription certificate preview")
+    page.setFont("Helvetica", 12)
+    rows = (
+        ("Reference", certificate_number),
+        ("Subscriber", shareholder_name),
+        ("Reference units", str(num_shares)),
+        ("Prepared", issue_date),
+    )
+    for index, (label, value) in enumerate(rows):
+        y = height - 210 - index * 35
+        page.drawString(80, y, f"{label}:")
+        page.drawString(215, y, str(value)[:65])
+    page.setFont("Helvetica-Bold", 12)
+    page.drawCentredString(width / 2, height - 410, "SAFE CONVERSION PENDING")
+    page.setFont("Helvetica", 10)
+    page.drawCentredString(width / 2, height - 435, "This preview does not evidence issued ordinary shares.")
+    page.drawCentredString(width / 2, height - 455, "The executed SAFE and reconciled register govern the investment.")
+    page.save()
+    return output.getvalue()
+
+
 class CertificateData:
     """Data required to generate a certificate"""
     def __init__(
@@ -115,6 +150,11 @@ def fill_pdf_template(template_storage_key: str, cert_data: CertificateData, qr_
     """Fill PDF template with certificate data"""
     # Load PDF template from storage
     pdf_data = runtime.storage.binary.get(template_storage_key)
+    if pdf_data is None:
+        return generate_safe_certificate_preview(
+            cert_data.certificate_number, cert_data.shareholder_name,
+            cert_data.num_shares, cert_data.issue_date
+        )
     pdf_reader = PdfReader(BytesIO(pdf_data))
     pdf_writer = PdfWriter()
     
@@ -177,6 +217,10 @@ def fill_pdf_template_for_viewing(
     try:
         # Load PDF template from storage
         pdf_data = runtime.storage.binary.get(template_key)
+        if pdf_data is None:
+            return generate_safe_certificate_preview(
+                certificate_number, shareholder_name, num_shares, issue_date
+            )
         pdf_reader = PdfReader(BytesIO(pdf_data))
         
         # Clone from reader to preserve AcroForm structure

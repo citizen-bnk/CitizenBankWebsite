@@ -21,7 +21,7 @@ async def test_certificate_pdf_is_stored_outside_database(monkeypatch):
     conn = Connection()
     objects = {}
 
-    async def number(_):
+    async def number(*_):
         return "CB-TEST"
 
     async def template(**_):
@@ -30,7 +30,7 @@ async def test_certificate_pdf_is_stored_outside_database(monkeypatch):
     async def email(**_):
         return None
 
-    monkeypatch.setattr(certificates, "generate_certificate_number", number)
+    monkeypatch.setattr(certificates, "generate_certificate_number_for_subscription", number)
     monkeypatch.setattr(certificates, "generate_verification_code", lambda: "CODE")
     monkeypatch.setattr(certificates, "get_active_template", template)
     monkeypatch.setattr(certificates, "get_frontend_base_url", lambda: "https://example.test")
@@ -41,7 +41,7 @@ async def test_certificate_pdf_is_stored_outside_database(monkeypatch):
     monkeypatch.setattr(certificates, "create_share_certificate_email", lambda **_: "email")
 
     subscription = {
-        "id": 7, "user_id": "investor", "full_name": "Test Investor",
+        "id": 7, "subscription_id": "SUB-TEST", "user_id": "investor", "full_name": "Test Investor",
         "email": "investor@example.test", "num_shares": 1000,
         "total_amount": 10000, "amount_paid": 10000,
     }

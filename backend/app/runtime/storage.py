@@ -64,8 +64,10 @@ class VercelBlobBinaryStorage:
     """Keep database document keys stable while storing bytes in a private Blob store."""
 
     def __init__(self):
+        from vercel import blob as blob_errors
         from vercel.blob import sync as blob
         self.blob = blob
+        self.not_found = blob_errors.BlobNotFoundError
 
     def put(self, key: str, value: bytes) -> None:
         self.blob.put_blob(key, value, access="private", allow_overwrite=False)
@@ -73,7 +75,7 @@ class VercelBlobBinaryStorage:
     def get(self, key: str, *, default: Optional[bytes] = None) -> Optional[bytes]:
         try:
             return self.blob.get_blob(key, access="private").body
-        except self.blob.BlobNotFoundError as error:
+        except self.not_found as error:
             if default is not None:
                 return default
             raise FileNotFoundError(key) from error

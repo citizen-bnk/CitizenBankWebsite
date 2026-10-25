@@ -2,6 +2,7 @@
 import secrets
 import qrcode
 import io
+import re
 from datetime import datetime
 from decimal import Decimal
 
@@ -36,6 +37,36 @@ async def generate_certificate_number(conn) -> str:
         next_num = 1
     
     return f"CB-SHARE-{year}-{next_num:05d}"
+
+
+async def generate_certificate_number_for_subscription(
+    conn, subscription_id: str, user_id: str | None, email: str
+) -> str:
+    """Number a subsequent certificate from the investor's first certificate.
+
+    An existing CB36 certificate yields CB36-01, CB36-02, and so on. This
+    does not alter or renumber previously issued evidence.
+    """
+    first = await conn.fetchrow("""
+        SELECT c.certificate_number FROM share_certificates c
+        JOIN share_subscriptions s ON s.id = c.subscription_id
+        WHERE s.subscription_id <> $1
+          AND ((s.user_id IS NOT NULL AND s.user_id = $2)
+               OR lower(s.email) = lower($3))
+        ORDER BY c.issue_date ASC NULLS LAST, c.id ASC
+        LIMIT 1
+    """, subscription_id, user_id, email)
+    if not first:
+        return await generate_certificate_number(conn)
+
+    base = re.sub(r"-\d{2}$", "", first['certificate_number'])
+    existing = await conn.fetch("""
+        SELECT certificate_number FROM share_certificates
+        WHERE certificate_number LIKE $1
+    """, f"{base}-%")
+    suffixes = [int(match.group(1)) for row in existing
+                if (match := re.fullmatch(re.escape(base) + r"-(\d{2,})", row['certificate_number']))]
+    return f"{base}-{max(suffixes, default=0) + 1:02d}"
 
 
 def generate_verification_code() -> str:

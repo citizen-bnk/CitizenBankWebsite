@@ -23,8 +23,8 @@ class SubscriptionRequest(BaseModel):
     @classmethod
     def validate_share_quantity(cls, v):
         """Validate share quantity is within allowed limits"""
-        if v < 1000:
-            raise ValueError('Minimum subscription is 1,000 shares')
+        if v < 1:
+            raise ValueError('Share quantity must be positive')
         if v > 1_000_000:
             raise ValueError('Maximum subscription is 1,000,000 shares per investor')
         return v

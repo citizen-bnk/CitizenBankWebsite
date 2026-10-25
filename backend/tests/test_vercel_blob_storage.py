@@ -29,8 +29,8 @@ def test_private_blob_adapter_preserves_document_keys():
 
     adapter = VercelBlobBinaryStorage.__new__(VercelBlobBinaryStorage)
     adapter.blob = SimpleNamespace(put_blob=put, get_blob=get, delete_blob=delete,
-                                   query_blobs=lambda: (SimpleNamespace(pathname=k, size=len(v)) for k, v in objects.items()),
-                                   BlobNotFoundError=MissingBlob)
+                                   query_blobs=lambda: (SimpleNamespace(pathname=k, size=len(v)) for k, v in objects.items()))
+    adapter.not_found = MissingBlob
 
     adapter.put("certificates/CB36/v1.pdf", b"%PDF")
     assert adapter.get("certificates/CB36/v1.pdf") == b"%PDF"

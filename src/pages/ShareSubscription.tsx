@@ -71,7 +71,8 @@ export default function ShareSubscription() {
   const [trackingToken, setTrackingToken] = useState<string | null>(null);
 
   // Form state
-  const [numShares, setNumShares] = useState<number>(100);
+  const [numShares, setNumShares] = useState<number>(1000);
+  const [hasPriorSubscription, setHasPriorSubscription] = useState(false);
   const [shareInputError, setShareInputError] = useState<string>('');
   const [formData, setFormData] = useState({
     full_name: '',
@@ -222,17 +223,37 @@ export default function ShareSubscription() {
     loadShareAvailability();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    apiClient.core_get_my_public_subscriptions().then(async response => {
+      if (!response.ok || !active) return;
+      const data = await response.json();
+      const existing = Array.isArray(data.subscriptions) &&
+        data.subscriptions.some((item: { status: string }) => item.status !== 'cancelled');
+      if (active) setHasPriorSubscription(existing);
+    }).catch(() => {
+      // The server remains the source of truth for top-up eligibility.
+    });
+    return () => { active = false; };
+  }, [user.primaryEmail]);
+
   const loadShareAvailability = async () => {
     setLoading(true);
     try {
       setError(null);
       const response = await apiClient.core_get_share_availability();
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.issue || data.detail || `Share information returned HTTP ${response.status}`);
+      }
+      if (!Number.isFinite(Number(data.price_per_share)) || !Number.isFinite(Number(data.remaining))) {
+        throw new Error('SHARE_OFFER_UNAVAILABLE');
+      }
       setAvailability(data);
       console.log('📊 Share availability loaded:', data);
     } catch (error) {
       console.error('Failed to load availability:', error);
-      setError('Unable to load share information. Please try again.');
+      setError(`Share information could not be loaded: ${error instanceof Error ? error.message : 'CONNECTION_FAILED'}`);
     } finally {
       setLoading(false);
     }
@@ -299,18 +320,16 @@ export default function ShareSubscription() {
   const sharePrice = availability ? Number(availability.price_per_share) : 0;
   const subscriptionAmount = totalAmount;
   const numberOfShares = numShares;
-  const ownershipPercentage = availability && availability.total_authorized > 0
-    ? (numShares / availability.total_authorized * 100).toFixed(4)
-    : '0';
-  const estimatedDividend = totalAmount * 0.08; // Example 8% dividend
+  const minimumShares = hasPriorSubscription && beneficiaryType === 'self'
+    ? 1 : availability?.min_subscription ?? 1000;
 
   // Validation helper
   const validateShareInput = (shares: number): string => {
     if (!availability) return '';
     
-    if (shares < availability.min_subscription) {
-      const minAmount = availability.min_subscription * Number(availability.price_per_share);
-      return `Minimum investment is ${availability.min_subscription} shares (${formatCurrency(minAmount)}). You need ${availability.min_subscription - shares} more shares.`;
+    if (shares < minimumShares) {
+      const minAmount = minimumShares * Number(availability.price_per_share);
+      return `Minimum investment is ${minimumShares} shares (${formatCurrency(minAmount)}). You need ${minimumShares - shares} more shares.`;
     }
     
     if (shares > availability.max_subscription) {
@@ -323,6 +342,10 @@ export default function ShareSubscription() {
     
     return '';
   };
+
+  useEffect(() => {
+    setShareInputError(validateShareInput(numShares));
+  }, [numShares, availability, minimumShares, selectedCurrency]);
 
   const handleBeneficiaryChange = (value: 'self' | 'other') => {
     setBeneficiaryType(value);
@@ -440,7 +463,7 @@ export default function ShareSubscription() {
     
     switch (step) {
       case 1:
-        return numShares >= availability.min_subscription && 
+        return numShares >= minimumShares &&
                numShares <= availability.max_subscription &&
                numShares <= availability.remaining;
       case 2:
@@ -669,7 +692,7 @@ export default function ShareSubscription() {
                   Share Subscription Calculator
                 </CardTitle>
                 <CardDescription>
-                  Calculate your investment and potential ownership. 
+                  Choose your SAFE reference units and see the amount due.
                   There are <span className="font-bold text-primary">{availability.remaining.toLocaleString()}</span> shares remaining.
                 </CardDescription>
               </CardHeader>
@@ -682,7 +705,7 @@ export default function ShareSubscription() {
                     value={numShares}
                     onChange={(e) => setNumShares(Math.max(0, parseInt(e.target.value, 10) || 0))}
                     className={`text-lg ${shareInputError ? 'border-red-500' : ''}`}
-                    min={availability.min_subscription}
+                    min={minimumShares}
                     max={availability.max_subscription}
                   />
                   {shareInputError && <p className="text-sm text-red-500 mt-1">{shareInputError}</p>}
@@ -704,20 +727,12 @@ export default function ShareSubscription() {
                     <p className="text-muted-foreground">Total Subscription Amount</p>
                     <p className="font-semibold text-lg text-blue-600">{formatCurrency(totalAmount)}</p>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                    <p className="text-muted-foreground">Ownership Percentage</p>
-                    <p className="font-semibold text-lg">{ownershipPercentage}%</p>
-                  </div>
-                  <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                    <p className="text-muted-foreground">Est. Annual Dividend</p>
-                    <p className="font-semibold text-lg">{formatCurrency(estimatedDividend)}</p>
-                  </div>
                 </div>
 
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Important:</strong> The minimum subscription is {availability.min_subscription} shares. 
+                    <strong>Important:</strong> The minimum subscription is {minimumShares} shares.
                     The maximum is {availability.max_subscription} shares per application.
                   </AlertDescription>
                 </Alert>
@@ -1071,7 +1086,7 @@ export default function ShareSubscription() {
                     <AccordionTrigger>Subscription Summary</AccordionTrigger>
                     <AccordionContent className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-muted-foreground">Number of Shares:</p><p className="font-semibold">{numberOfShares.toLocaleString()}</p></div>
+                        <div><p className="text-muted-foreground">SAFE Reference Units:</p><p className="font-semibold">{numberOfShares.toLocaleString()}</p></div>
                         <div><p className="text-muted-foreground">Share Price:</p><p className="font-semibold">{formatCurrency(sharePrice)}</p></div>
                         <div className="col-span-2"><p className="text-muted-foreground">Total Subscription Amount:</p><p className="font-bold text-2xl text-primary">{formatCurrency(totalAmount)}</p></div>
                       </div>
@@ -1099,6 +1114,13 @@ export default function ShareSubscription() {
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
+
+                <Alert>
+                  <FileText className="h-4 w-4" />
+                  <AlertDescription>
+                    This subscription prepares a SAFE note. Payment must be confirmed before final documents; ordinary shares are issued only after SAFE conversion.
+                  </AlertDescription>
+                </Alert>
 
                 {submitError && (
                   <Alert variant="destructive">
@@ -1168,6 +1190,9 @@ export default function ShareSubscription() {
                 <p className="text-muted-foreground mb-4">{error}</p>
                 <Button variant="outline" onClick={loadShareAvailability}>
                   Try Again
+                </Button>
+                <Button variant="ghost" className="ml-2" onClick={() => navigate(-1)}>
+                  Go Back
                 </Button>
               </CardContent>
             </Card>
@@ -1591,41 +1616,41 @@ export default function ShareSubscription() {
                         type="number"
                         value={numShares}
                         onChange={(e) => setNumShares(Number(e.target.value))}
-                        min={availability.min_subscription}
+                        min={minimumShares}
                         max={Math.min(availability.max_subscription, availability.remaining)}
                         className={cn(
                           "text-lg font-semibold",
                           shareInputError && "border-destructive focus-visible:ring-destructive",
-                          numShares > 0 && numShares < availability.min_subscription && "border-orange-500",
-                          numShares >= availability.min_subscription && numShares <= Math.min(availability.max_subscription, availability.remaining) && "border-green-500"
+                          numShares > 0 && numShares < minimumShares && "border-orange-500",
+                          numShares >= minimumShares && numShares <= Math.min(availability.max_subscription, availability.remaining) && "border-green-500"
                         )}
                       />
                       
                       {/* Progress indicator when below minimum */}
-                      {numShares > 0 && numShares < availability.min_subscription && (
+                      {numShares > 0 && numShares < minimumShares && (
                         <div className="mt-3 space-y-2">
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Progress to minimum</span>
-                            <span>{Math.round((numShares / availability.min_subscription) * 100)}%</span>
+                            <span>{Math.round((numShares / minimumShares) * 100)}%</span>
                           </div>
                           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div 
                               className="h-full bg-orange-500 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min((numShares / availability.min_subscription) * 100, 100)}%` }}
+                              style={{ width: `${Math.min((numShares / minimumShares) * 100, 100)}%` }}
                             />
                           </div>
                           <p className="text-sm text-orange-600 dark:text-orange-400 flex items-start gap-1">
                             <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0" />
                             <span>
-                              You need <strong>{(availability.min_subscription - numShares).toLocaleString()} more shares</strong> to meet the minimum requirement.
-                              That's an additional <strong>{formatCurrency((availability.min_subscription - numShares) * Number(availability.price_per_share))}</strong>.
+                              You need <strong>{(minimumShares - numShares).toLocaleString()} more shares</strong> to meet the minimum requirement.
+                              That's an additional <strong>{formatCurrency((minimumShares - numShares) * Number(availability.price_per_share))}</strong>.
                             </span>
                           </p>
                         </div>
                       )}
                       
                       {/* Success indicator when meets minimum */}
-                      {numShares >= availability.min_subscription && numShares <= Math.min(availability.max_subscription, availability.remaining) && (
+                      {numShares >= minimumShares && numShares <= Math.min(availability.max_subscription, availability.remaining) && (
                         <div className="mt-3">
                           <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
                             <CheckCircle2 className="h-4 w-4" />
@@ -1641,7 +1666,7 @@ export default function ShareSubscription() {
                         </p>
                       ) : numShares === 0 ? (
                         <p className="text-sm text-muted-foreground mt-1">
-                          Min: {availability.min_subscription.toLocaleString()} | Max: {Math.min(availability.max_subscription, availability.remaining).toLocaleString()} | Available: {availability.remaining.toLocaleString()}
+                          Min: {minimumShares.toLocaleString()} | Max: {Math.min(availability.max_subscription, availability.remaining).toLocaleString()} | Available: {availability.remaining.toLocaleString()}
                         </p>
                       ) : null}
                     </div>
@@ -1660,22 +1685,22 @@ export default function ShareSubscription() {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Ownership</p>
-                        <p className="text-lg font-semibold">{ownershipPercentage}%</p>
+                        <p className="text-xs text-muted-foreground">Share status</p>
+                        <p className="text-lg font-semibold">SAFE conversion pending</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                        <p className="text-xs text-muted-foreground">Est. Annual Dividend</p>
-                        <p className="text-lg font-semibold">{formatCurrency(estimatedDividend)}</p>
+                        <p className="text-xs text-muted-foreground">Dividends</p>
+                        <p className="text-lg font-semibold">No forecast</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {numShares < availability.min_subscription && (
+                {numShares < minimumShares && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Minimum subscription is {availability.min_subscription.toLocaleString()} shares
+                      Minimum subscription is {minimumShares.toLocaleString()} shares
                     </AlertDescription>
                   </Alert>
                 )}
