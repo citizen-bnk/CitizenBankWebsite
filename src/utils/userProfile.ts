@@ -56,27 +56,24 @@ export const useUserProfile = create<UserProfileStore>((set) => ({
   error: null,
 
   fetchProfile: async () => {
-    console.log('🔍 [userProfile] fetchProfile started');
-    console.log('🔍 [userProfile] apiClient:', apiClient);
-    console.log('🔍 [userProfile] apiClient.get_user_profile:', typeof apiClient.get_user_profile);
-    
     set({ loading: true, error: null });
     try {
-      console.log('🔍 [userProfile] Calling apiClient.get_user_profile()...');
       const response = await apiClient.get_user_profile();
-      console.log('🔍 [userProfile] Got response:', response);
+      if (response.status === 404) {
+        set({ profile: null, loading: false, error: null });
+        return;
+      }
+      if (!response.ok) {
+        throw new Error(`Profile service returned ${response.status}. Try again or return to the website.`);
+      }
       const profile = await response.json();
-      console.log('🔍 [userProfile] Parsed profile:', profile);
       set({ profile, loading: false });
     } catch (error: any) {
-      console.error('❌ [userProfile] Error in fetchProfile:', error);
-      // If 404, user hasn't completed profile yet
-      if (error.status === 404) {
-        console.log('ℹ️ [userProfile] 404 error - user has no profile yet');
+      if (error?.status === 404) {
         set({ profile: null, loading: false, error: null });
       } else {
-        console.error('❌ [userProfile] Non-404 error:', error.message);
-        set({ error: error.message || 'Failed to load profile', loading: false });
+        const message = error?.message || 'Profile service is unavailable. Try again.';
+        set({ error: message, loading: false });
       }
     }
   },

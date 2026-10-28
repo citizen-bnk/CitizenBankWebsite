@@ -14,44 +14,45 @@ type UserProfile = {
 type Props = {
   profile: UserProfile;
   onEditField: (field: EditingField) => void;
+  section?: 'basic' | 'identity';
 };
 
-export const PersonalInfoSection = ({ profile, onEditField }: Props) => {
+export const PersonalInfoSection = ({ profile, onEditField, section = 'basic' }: Props) => {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
           <User className="h-5 w-5 text-primary" />
-          <CardTitle>Personal Information</CardTitle>
+          <CardTitle>{section === 'basic' ? 'Personal information' : 'Identity details'}</CardTitle>
         </div>
-        <CardDescription>Your basic account details</CardDescription>
+        <CardDescription>{section === 'basic' ? 'Your name and personal details' : 'Details used for service verification'}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 sm:grid-cols-2">
-        <EditableFieldComponent 
-          label="Full Name" 
-          value={profile.full_name} 
-          fieldName="full_name" 
-          required 
+        {section === 'basic' && <EditableFieldComponent
+          label="Full Name"
+          value={profile.full_name}
+          fieldName="full_name"
+          required
           onEdit={onEditField}
-        />
-        <EditableFieldComponent 
-          label="ID Number" 
-          value={profile.id_number} 
-          fieldName="id_number" 
-          required 
+        />}
+        {section === 'identity' && <EditableFieldComponent
+          label="ID Number"
+          value={profile.id_number}
+          fieldName="id_number"
+          required
           onEdit={onEditField}
-        />
-        <EditableFieldComponent 
-          label="Date of Birth" 
-          value={profile.date_of_birth} 
-          fieldName="date_of_birth" 
+        />}
+        <EditableFieldComponent
+          label="Date of Birth"
+          value={profile.date_of_birth}
+          fieldName="date_of_birth"
           fieldType="date"
           onEdit={onEditField}
         />
-        <EditableFieldComponent 
-          label="Gender" 
-          value={profile.gender} 
-          fieldName="gender" 
+        <EditableFieldComponent
+          label="Gender"
+          value={profile.gender}
+          fieldName="gender"
           fieldType="select"
           selectOptions={[
             { label: 'Male', value: 'male' },
@@ -61,16 +62,16 @@ export const PersonalInfoSection = ({ profile, onEditField }: Props) => {
           ]}
           onEdit={onEditField}
         />
-        <EditableFieldComponent 
-          label="Nationality" 
-          value={profile.nationality} 
-          fieldName="nationality" 
-          required 
+        {section === 'identity' && <EditableFieldComponent
+          label="Nationality"
+          value={profile.nationality}
+          fieldName="nationality"
+          required
           onEdit={onEditField}
-        />
-        <EditableFieldComponent 
-          label="Citizenship Status" 
-          value={profile.citizenship_status} 
+        />}
+        {section === 'identity' && <EditableFieldComponent
+          label="Citizenship Status"
+          value={profile.citizenship_status}
           fieldName="citizenship_status"
           fieldType="select"
           selectOptions={[
@@ -80,7 +81,7 @@ export const PersonalInfoSection = ({ profile, onEditField }: Props) => {
             { label: 'Work Permit', value: 'work_permit' },
           ]}
           onEdit={onEditField}
-        />
+        />}
       </CardContent>
     </Card>
   );

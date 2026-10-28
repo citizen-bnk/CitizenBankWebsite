@@ -257,6 +257,31 @@ async def register_user(request: UserRegistrationRequest, user: AuthorizedUser) 
 
 # ========== Profile Retrieval Endpoints ==========
 
+async def get_profile_stages(conn: asyncpg.Connection, user_id: str) -> tuple[List[str], bool]:
+    """Grant views from actual services and roles, not the registration account type."""
+    stages = ["basic"]
+    accounts_table = await conn.fetchval("SELECT to_regclass('public.accounts')")
+    if accounts_table and await conn.fetchval(
+        "SELECT EXISTS(SELECT 1 FROM accounts WHERE user_id = $1)", user_id
+    ):
+        stages.append("standard")
+
+    advanced_role = await conn.fetchval("""
+        SELECT EXISTS(
+            SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+            WHERE ur.user_id = $1 AND r.role_name = ANY($2::text[])
+        )
+    """, user_id, ["investor", "shareholder", "employee", "board_member", "back_office", "admin", "super_admin"])
+    has_subscription = await conn.fetchval("""
+        SELECT EXISTS(
+            SELECT 1 FROM share_subscriptions
+            WHERE user_id = $1 AND status != 'cancelled'
+        )
+    """, user_id)
+    if advanced_role or has_subscription:
+        stages.append("advanced")
+    return stages, bool(has_subscription)
+
 @router.get("/profile")
 async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
     """Get the current user's profile"""
@@ -279,7 +304,11 @@ async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
         if not profile:
             raise HTTPException(status_code=404, detail="User profile not found. Please complete registration.")
         
-        return UserProfileResponse(**{k: v for k, v in map_db_to_response(dict(profile)).items() if k in UserProfileResponse.__fields__})
+        response_data = map_db_to_response(dict(profile))
+        stages, has_subscription = await get_profile_stages(conn, user.sub)
+        response_data["profile_stages"] = stages
+        response_data["has_investment_subscription"] = has_subscription
+        return UserProfileResponse(**{k: v for k, v in response_data.items() if k in UserProfileResponse.__fields__})
         
     finally:
         await conn.close()

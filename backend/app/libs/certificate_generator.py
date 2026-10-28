@@ -149,7 +149,10 @@ def generate_qr_code(verification_url: str) -> str:
 def fill_pdf_template(template_storage_key: str, cert_data: CertificateData, qr_code_base64: str) -> bytes:
     """Fill PDF template with certificate data"""
     # Load PDF template from storage
-    pdf_data = runtime.storage.binary.get(template_storage_key)
+    try:
+        pdf_data = runtime.storage.binary.get(template_storage_key)
+    except FileNotFoundError:
+        pdf_data = None
     if pdf_data is None:
         return generate_safe_certificate_preview(
             cert_data.certificate_number, cert_data.shareholder_name,
@@ -216,7 +219,10 @@ def fill_pdf_template_for_viewing(
     
     try:
         # Load PDF template from storage
-        pdf_data = runtime.storage.binary.get(template_key)
+        try:
+            pdf_data = runtime.storage.binary.get(template_key)
+        except FileNotFoundError:
+            pdf_data = None
         if pdf_data is None:
             return generate_safe_certificate_preview(
                 certificate_number, shareholder_name, num_shares, issue_date

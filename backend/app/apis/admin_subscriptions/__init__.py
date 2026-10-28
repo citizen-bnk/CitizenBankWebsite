@@ -4,6 +4,7 @@ from typing import Optional
 import asyncpg
 from datetime import datetime, timedelta
 import secrets
+import uuid
 from app import runtime
 import re
 
@@ -377,12 +378,17 @@ async def upload_admin_payment_proof(
                 detail="This endpoint is only for admin-created subscriptions"
             )
         
-        # Read file content
-        file_content = await file.read()
-        
-        # Sanitize filename
-        safe_filename = sanitize_storage_key(file.filename)
-        storage_key = f"payment_proofs/{subscription_id}/{safe_filename}"
+        allowed_types = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
+        if file.content_type not in allowed_types:
+            raise HTTPException(status_code=415, detail="Upload a PDF, JPEG or PNG payment proof")
+        file_content = await file.read(10 * 1024 * 1024 + 1)
+        if len(file_content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Payment proof must be 10 MB or smaller")
+        if not file_content:
+            raise HTTPException(status_code=400, detail="The payment proof file is empty")
+
+        safe_filename = sanitize_storage_key(file.filename or "payment-proof")
+        storage_key = f"payment_proofs/{subscription_id}/{uuid.uuid4().hex}{allowed_types[file.content_type]}"
         
         # Store file
         runtime.storage.binary.put(storage_key, file_content)

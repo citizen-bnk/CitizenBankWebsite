@@ -1,14 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useUserGuardContext } from "app/auth";
-import brain from "brain";
+import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
 import { EditFieldDialog } from "components/EditFieldDialog";
-import { showErrorToast } from "utils/errorHandling";
-import { ProfileCompletionBanner } from "components/ProfileCompletionBanner";
 import { ProfileHeader } from "components/ProfileHeader";
 import { ProfileLoadingState } from "components/ProfileLoadingState";
 import { PersonalInfoSection } from "components/PersonalInfoSection";
@@ -26,10 +22,11 @@ import { BioSection } from "components/BioSection";
 import type { EditingField } from "components/EditableFieldComponent";
 import { apiClient } from "app";
 import { useUserProfile } from 'utils/userProfile';
-import { clearNotificationCache } from 'utils/useNotifications';
 
 type UserProfile = {
   user_id: string;
+  profile_stages?: Array<'basic' | 'standard' | 'advanced'>;
+  has_investment_subscription?: boolean;
   email: string;
   full_name: string;
   phone: string;
@@ -78,49 +75,43 @@ type BoardMemberData = {
 };
 
 const Profile = () => {
-  const { user } = useUserGuardContext();
   const navigate = useNavigate();
-  const { profile: profileFromStore, loading: profileLoading, fetchProfile } = useUserProfile();
-  
+  const { profile: profileFromStore, fetchProfile } = useUserProfile();
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [boardData, setBoardData] = useState<BoardMemberData | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingField, setEditingField] = useState<EditingField | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [activeStage, setActiveStage] = useState<'basic' | 'standard' | 'advanced'>('basic');
 
   // Fetch profile data
   useEffect(() => {
-    console.log('🔍 [Profile] Component mounted, fetching profile data...');
     fetchProfileData();
     fetchUserRoles();
-    fetchBoardMemberData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sync store profile to local state
   useEffect(() => {
-    console.log('🔍 [Profile] profileFromStore changed:', profileFromStore);
     if (profileFromStore) {
       setProfile(profileFromStore as UserProfile);
     }
   }, [profileFromStore]);
 
   const fetchProfileData = async () => {
-    console.log('🔍 [Profile] fetchProfileData called');
     setLoading(true);
     setError(null);
     try {
-      // Use the zustand store to fetch profile
-      console.log('🔍 [Profile] Calling fetchProfile from store...');
       await fetchProfile();
-      console.log('🔍 [Profile] fetchProfile completed, profileFromStore:', profileFromStore);
+      const profileError = useUserProfile.getState().error;
+      if (profileError) setError(profileError);
     } catch (error: any) {
       console.error('❌ [Profile] Error loading profile:', error);
       setError(error.message || 'Failed to load profile');
       toast.error('Failed to load profile. Please try again.');
     } finally {
-      console.log('🔍 [Profile] Setting loading to false');
       setLoading(false);
     }
   };
@@ -129,27 +120,14 @@ const Profile = () => {
     try {
       const response = await apiClient.get_my_roles();
       const data = await response.json();
-      setUserRoles(data.roles || []);
-    } catch (error) {
-      console.error('Failed to fetch roles:', error);
-    }
-  };
-
-  const fetchBoardMemberData = async () => {
-    try {
-      // Check if user has board_member role
-      const rolesResponse = await apiClient.get_my_roles();
-      const rolesData = await rolesResponse.json();
-      const isBoardMember = rolesData.roles?.includes('board_member');
-      
-      if (isBoardMember) {
-        const response = await apiClient.get_my_board_profile();
-        const data = await response.json();
-        setBoardData(data);
+      const roles = data.roles || [];
+      setUserRoles(roles);
+      if (roles.includes('board_member')) {
+        const boardResponse = await apiClient.get_my_board_profile();
+        if (boardResponse.ok) setBoardData(await boardResponse.json());
       }
     } catch (error) {
-      console.error('Failed to fetch board member data:', error);
-      // Not a critical error - user might not be a board member
+      console.error('Failed to fetch roles:', error);
     }
   };
 
@@ -183,25 +161,18 @@ const Profile = () => {
     setEditingField(field);
   };
 
-  // Helper to check if field has value
-  const hasValue = (value: any): boolean => {
-    if (value === null || value === undefined) return false;
-    if (typeof value === 'string') return value.trim().length > 0;
-    return true;
-  };
-
-  // Use backend's calculated profile completion percentage for consistency
-  const completionPercentage = profile?.profile_completion_percentage || 0;
+  const availableStages = profile?.profile_stages || ['basic'];
+  const canSeeInvestor = !!profile?.has_investment_subscription ||
+    userRoles.some(role => ['investor', 'shareholder'].includes(role)) ||
+    (availableStages.includes('advanced') && !userRoles.some(role => ['employee', 'back_office', 'admin', 'super_admin', 'board_member'].includes(role)));
 
   // Show loading state
   if (loading) {
-    console.log('🔍 [Profile] Rendering loading state');
     return <ProfileLoadingState />;
   }
 
   // Show error state
   if (error) {
-    console.log('🔍 [Profile] Rendering error state:', error);
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
@@ -215,6 +186,7 @@ const Profile = () => {
             }}>
               Try Again
             </Button>
+            <Button variant="outline" className="ml-3" onClick={() => navigate(-1)}>Go Back</Button>
           </div>
         </div>
         <Footer />
@@ -224,16 +196,13 @@ const Profile = () => {
 
   // Redirect to complete profile if no profile exists
   if (!profile) {
-    console.log('🔍 [Profile] No profile found, redirecting to complete-profile');
-    navigate('/complete-profile');
-    return <ProfileLoadingState />;
+    return <Navigate to="/complete-profile" replace />;
   }
 
-  console.log('🔍 [Profile] Rendering full profile view');
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
         {/* Header */}
         <ProfileHeader
@@ -241,26 +210,30 @@ const Profile = () => {
           onBackClick={() => navigate(-1)}
         />
 
-        {/* Profile Completion Banner */}
-        <ProfileCompletionBanner completionPercentage={completionPercentage} />
-
-        {/* Board Member Profile Section - Prominent for board members */}
-        {boardData && (
-          <BoardMemberProfileSection 
-            bio={profile.bio} 
-            profilePictureUrl={profile.profile_picture_selfie_url}
-            onUpdate={fetchProfileData} 
-          />
-        )}
+        <nav aria-label="Profile sections" className="mb-6 flex flex-wrap gap-3">
+          {(['basic', 'standard', 'advanced'] as const).map(stage => {
+            const unlocked = availableStages.includes(stage);
+            return unlocked ? (
+              <Button key={stage} type="button" variant={activeStage === stage ? 'default' : 'outline'}
+                aria-current={activeStage === stage ? 'page' : undefined}
+                onClick={() => setActiveStage(stage)} className="min-w-28 capitalize">
+                {stage}
+              </Button>
+            ) : null;
+          })}
+        </nav>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content - 2 columns */}
           <div className="lg:col-span-2 space-y-6">
             {/* Personal Information */}
-            <PersonalInfoSection profile={profile} onEditField={openEditDialog} />
+            {activeStage === 'basic' && <PersonalInfoSection profile={profile} onEditField={openEditDialog} />}
+            {activeStage === 'standard' && <PersonalInfoSection profile={profile} onEditField={openEditDialog} section="identity" />}
+            {activeStage === 'advanced' && !availableStages.includes('standard') &&
+              <PersonalInfoSection profile={profile} onEditField={openEditDialog} section="identity" />}
 
             {/* Bio Section - Available to all users */}
-            <BioSection 
+            {activeStage === 'basic' && <BioSection
               bio={profile.bio}
               profilePictureUrl={profile.profile_picture_selfie_url}
               userName={profile.full_name}
@@ -269,45 +242,49 @@ const Profile = () => {
                 setProfile({ ...profile, profile_picture_selfie_url: newUrl });
                 toast.success("Profile picture updated");
               }}
-            />
+            />}
 
             {/* Contact Information */}
-            <ContactInfoSection profile={profile} onEditField={openEditDialog} />
+            {activeStage === 'basic' && <ContactInfoSection profile={profile} onEditField={openEditDialog} />}
 
             {/* Address Information */}
-            <AddressInfoSection profile={profile} onEditField={openEditDialog} />
+            {activeStage === 'standard' && <AddressInfoSection profile={profile} onEditField={openEditDialog} />}
 
             {/* Professional Information */}
-            <ProfessionalInfoSection 
-              profile={profile} 
+            {activeStage === 'advanced' && <ProfessionalInfoSection
+              profile={profile}
               onEditField={openEditDialog}
               onUpdate={fetchProfileData}
-            />
+            />}
 
             {/* Investor Information - Show if user is investor or has subscriptions */}
-            <InvestorInfoSection profile={profile} onEditField={openEditDialog} />
+            {activeStage === 'advanced' && canSeeInvestor && <InvestorInfoSection profile={profile} onEditField={openEditDialog} />}
 
             {/* Business Information - Show if business account */}
-            {profile.account_type === 'business' && (
+            {activeStage === 'standard' && profile.account_type === 'business' && (
               <BusinessInfoSection profile={profile} onEditField={openEditDialog} />
+            )}
+            {activeStage === 'advanced' && boardData && (
+              <BoardMemberProfileSection bio={profile.bio} profilePictureUrl={profile.profile_picture_selfie_url}
+                onUpdate={fetchProfileData} />
             )}
           </div>
 
           {/* Sidebar - 1 column */}
           <div className="lg:col-span-1 space-y-6">
             {/* Account Status */}
-            <AccountStatusCard profile={profile} />
+            {activeStage === 'basic' && <AccountStatusCard profile={profile} />}
 
             {/* Roles */}
-            <UserRolesCard roles={userRoles} />
+            {activeStage === 'advanced' && <UserRolesCard roles={userRoles} />}
 
             {/* Board Member Info (if applicable) */}
-            {boardData && (
+            {activeStage === 'advanced' && boardData && (
               <BoardMemberCard boardData={boardData} />
             )}
 
             {/* System Settings */}
-            <SystemSettingsCard />
+            {activeStage === 'basic' && <SystemSettingsCard />}
           </div>
         </div>
       </div>

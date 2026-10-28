@@ -10,6 +10,7 @@ from app.libs.rbac import check_user_has_any_role
 from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_payment_receipt_email
 from app.libs.receipt_generator import generate_receipt
+from app.libs.subscription_certificates import issue_certificate_for_subscription
 from fastapi.concurrency import run_in_threadpool
 from app import runtime
 import json
@@ -127,6 +128,7 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
         # Generate receipt number
         receipt_number = f"RCP-{datetime.now().strftime('%Y%m%d')}-{payment_row['id']:06d}"
         documents_generated: list[str] = []
+        document_issues: list[str] = []
         
         # Generate and send payment receipt PDF
         try:
@@ -152,28 +154,33 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             )
             print(f"📄 Receipt generated and stored: {receipt_number}")
             documents_generated.append('receipt')
-            
-            # Queue email with receipt
-            await enqueue_email(
-                recipient_email=subscription['email'],
-                recipient_name=subscription['full_name'],
-                subject=f"Payment Receipt - {receipt_number}",
-                body_html=create_payment_receipt_email(
-                    recipient_name=subscription['full_name'],
-                    receipt_number=receipt_number,
-                    payment_amount=float(payment.amount),
-                    payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
-                    payment_date=payment_date.strftime('%d %B %Y'),
-                    subscription_details=f"{subscription['num_shares']} shares"
-                ),
-                recipient_id=subscription['user_id'],
-                created_by='system',
-                priority='high'
-            )
-            print(f"📧 Payment receipt email queued: {receipt_number}")
-            
+
         except Exception as e:
-            print(f"⚠️ Failed to generate/send receipt: {e}")
+            print(f"Receipt generation pending for {payment.subscription_id}: {e}")
+            document_issues.append('RECEIPT_GENERATION_PENDING')
+
+        if 'receipt' in documents_generated:
+            try:
+                await enqueue_email(
+                    recipient_email=subscription['email'],
+                    recipient_name=subscription['full_name'],
+                    subject=f"Payment Receipt - {receipt_number}",
+                    body_html=create_payment_receipt_email(
+                        recipient_name=subscription['full_name'],
+                        receipt_number=receipt_number,
+                        payment_amount=float(payment.amount),
+                        payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
+                        payment_date=payment_date.strftime('%d %B %Y'),
+                        subscription_details=f"{subscription['num_shares']} shares"
+                    ),
+                    recipient_id=subscription['user_id'],
+                    created_by='system',
+                    priority='high'
+                )
+                print(f"📧 Payment receipt email queued: {receipt_number}")
+            except Exception as e:
+                print(f"Receipt email pending for {payment.subscription_id}: {e}")
+                document_issues.append('RECEIPT_EMAIL_PENDING')
         
         # If fully paid, assign investor role
         if new_status == 'completed' and subscription['user_id']:
@@ -196,6 +203,26 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
                     print(f"✅ Investor role assigned to user {subscription['user_id']}")
             except Exception as e:
                 print(f"⚠️ Failed to assign investor role: {e}")
+
+        # The payment is already committed. Generate the certificate using the
+        # same private-storage path as manual issuance, and keep a failed PDF
+        # job recoverable without duplicating the financial transaction.
+        if new_status == 'completed':
+            try:
+                existing_certificate = await conn.fetchval(
+                    "SELECT 1 FROM share_certificates WHERE subscription_id = $1",
+                    subscription['id'],
+                )
+                if not existing_certificate:
+                    paid_subscription = await conn.fetchrow(
+                        "SELECT * FROM share_subscriptions WHERE id = $1",
+                        subscription['id'],
+                    )
+                    await issue_certificate_for_subscription(conn, dict(paid_subscription), user.sub)
+                documents_generated.append('certificate')
+            except Exception as error:
+                print(f"Certificate issuance pending for {payment.subscription_id}: {error}")
+                document_issues.append('CERTIFICATE_GENERATION_PENDING')
         
         return PaymentResponse(
             subscription_id=payment.subscription_id,
@@ -205,6 +232,7 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             status=new_status,
             updated_at=datetime.now(timezone.utc),
             documents_generated=documents_generated,
+            document_issues=document_issues,
         )
 
 

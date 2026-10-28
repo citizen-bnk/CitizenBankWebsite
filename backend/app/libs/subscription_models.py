@@ -110,6 +110,7 @@ class PaymentResponse(BaseModel):
     status: str
     updated_at: datetime
     documents_generated: list[str] = []  # e.g., ['receipt', 'certificate', 'welcome_letter']
+    document_issues: list[str] = []
 
 
 # ============ Enhanced Models for TASK-25 ============

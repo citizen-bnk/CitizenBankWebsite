@@ -1,6 +1,6 @@
 """Data models for user management"""
-from pydantic import BaseModel, EmailStr, HttpUrl
-from typing import Literal, Optional
+from pydantic import BaseModel, EmailStr, HttpUrl, Field
+from typing import Literal, Optional, List
 from datetime import datetime, date
 
 
@@ -40,6 +40,8 @@ class UserRegistrationRequest(BaseModel):
 class UserProfileResponse(BaseModel):
     """User profile data"""
     user_id: str
+    profile_stages: List[str] = Field(default_factory=lambda: ["basic"])
+    has_investment_subscription: bool = False
     email: str
     full_name: str
     phone: str
