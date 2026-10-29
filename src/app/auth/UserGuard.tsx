@@ -7,7 +7,9 @@ import {
 } from "@stackframe/react";
 import type * as React from "react";
 import { createContext, useContext } from "react";
+import { useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { stackClientApp } from "app/auth";
 
 type UserGuardContextType = {
   user: CurrentUser | CurrentInternalServerUser;
@@ -43,6 +45,36 @@ export const UserGuard = (props: {
   const user = useUser();
 
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (!user) return;
+    const limit = 10 * 60 * 1000;
+    let last = Date.now();
+    const key = 'citizen_last_activity';
+    try { localStorage.setItem(key, String(last)); } catch { /* storage unavailable */ }
+    let ending = false;
+    const signOutForIdle = async () => {
+      try { last = Math.max(last, Number(localStorage.getItem(key) || 0)); } catch { /* storage unavailable */ }
+      if (ending || Date.now() - last <= limit) return;
+      ending = true;
+      await stackClientApp.signOut().catch(() => {});
+      window.location.replace('/login?reason=timeout');
+    };
+    const activity = () => {
+      try { last = Math.max(last, Number(localStorage.getItem(key) || 0)); } catch { /* storage unavailable */ }
+      if (Date.now() - last > limit) void signOutForIdle();
+      else { last = Date.now(); try { localStorage.setItem(key, String(last)); } catch { /* storage unavailable */ } }
+    };
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach((event) => window.addEventListener(event, activity, { passive: true }));
+    const timer = window.setInterval(() => void signOutForIdle(), 20000);
+    document.addEventListener('visibilitychange', signOutForIdle);
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, activity));
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', signOutForIdle);
+    };
+  }, [user?.id]);
 
   if (!user) {
     const queryParams = new URLSearchParams(window.location.search);
