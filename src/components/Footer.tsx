@@ -68,6 +68,7 @@ export function Footer() {
               <li><Link to="/" className="hover:text-[#8f6ec4] transition-colors">About Us</Link></li>
               <li><a href={hubDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Board Login</a></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Media Center</Link></li>
+              <li><Link to="/careers" className="hover:text-[#8f6ec4] transition-colors">Careers</Link></li>
               <li><Link to="/sustainability" className="hover:text-[#8f6ec4] transition-colors">Sustainability</Link></li>
               <li><Link to="/contact" className="hover:text-[#8f6ec4] transition-colors">Contact Us</Link></li>
             </ul>

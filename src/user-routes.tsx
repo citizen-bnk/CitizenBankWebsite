@@ -46,6 +46,7 @@ import BoardOnboarding from "./pages/BoardOnboarding.tsx";
 import BoardPortal from "./pages/BoardPortal.tsx";
 import BoardPortalInvitations from "./pages/BoardPortalInvitations.tsx";
 import BranchLocator from "./pages/BranchLocator.tsx";
+import Careers from "./pages/Careers.tsx";
 import CommunicationPortal from "./pages/CommunicationPortal.tsx";
 import CompleteProfile from "./pages/CompleteProfile.tsx";
 import Contact from "./pages/Contact.tsx";
@@ -162,6 +163,7 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/board-portal-invitations", element: <UserGuard><BoardPortalInvitations /></UserGuard> },
 	{ path: "/boardportalinvitations", element: <UserGuard><BoardPortalInvitations /></UserGuard> },
 	{ path: "/branch-locator", element: <BranchLocator /> },
+	{ path: "/careers", element: <Careers /> },
 	{ path: "/branchlocator", element: <BranchLocator /> },
 	{ path: "/communication-portal", element: <UserGuard><CommunicationPortal /></UserGuard> },
 	{ path: "/communicationportal", element: <UserGuard><CommunicationPortal /></UserGuard> },
