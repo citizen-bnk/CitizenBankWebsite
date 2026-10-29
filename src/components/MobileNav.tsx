@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { LogoutConfirmDialog } from './LogoutConfirmDialog';
+import { hubDestination } from 'utils/bankingDestination';
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
@@ -121,14 +122,14 @@ export function MobileNav() {
               <span>Home</span>
             </Link>
             
-            <Link
-              to="/invest"
+            <a
+              href={hubDestination('/opportunities')}
               onClick={handleLinkClick}
               className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Building2 className="h-5 w-5" />
               <span>Invest</span>
-            </Link>
+            </a>
 
             <Link
               to="/foreign-exchange"

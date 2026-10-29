@@ -286,7 +286,7 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div className="flex flex-col items-center">
               <Shield className="h-12 w-12 text-[#6d52a2] mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-2">Bank-Level Security</h3>
+              <h3 className="font-semibold text-gray-900 mb-2">Protected access</h3>
               <p className="text-sm text-gray-600">
               Access is protected by account and role controls
               </p>

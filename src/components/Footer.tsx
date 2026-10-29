@@ -57,7 +57,7 @@ export function Footer() {
               <li><a href={hubDestination('/opportunities')} className="hover:text-[#8f6ec4] transition-colors">Investment Opportunities</a></li>
               <li><a href={hubDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Investor Portal</a></li>
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
-              <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Financial Reports</Link></li>
+              <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Company Updates</Link></li>
             </ul>
           </div>
 
