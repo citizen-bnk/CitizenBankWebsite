@@ -1,13 +1,12 @@
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
-import { MetricCard } from "components/MetricCard";
 import { PortalCard } from "components/PortalCard";
-import { CurrencyIndicator } from "components/CurrencyIndicator";
+import { OpportunitySnapshot } from "components/OpportunitySnapshot";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
 import { useUserRoles } from "utils/useUserRoles";
-import { bankingDestination } from "utils/bankingDestination";
+import { bankingDestination, hubDestination } from "utils/bankingDestination";
 import {
   Users,
   TrendingUp,
@@ -16,11 +15,9 @@ import {
   FileText,
   Newspaper,
   Leaf,
-  DollarSign,
   ArrowRight,
   Shield,
   Clock,
-  Award,
   HandCoins,
   UserPlus,
 } from "lucide-react";
@@ -85,8 +82,7 @@ export default function App() {
   </span>
 </h1>
             <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-white/90">
-              Your comprehensive banking platform for all financial services.
-              Access customer banking, investments, governance, and back office systems from one unified hub.
+              Explore the proposed Citizen Bank ecosystem. Banking is available for demonstration while Citizen Digital Ltd prepares its licence application.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               {!user ? (
@@ -107,26 +103,26 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <Link
-                    to="/customer-portal"
+                  <a
+                    href={bankingDestination("/login")}
                     className="px-6 sm:px-8 py-3 bg-white text-[#6d52a2] rounded-lg font-semibold hover:bg-gray-100 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
                     Go to Customer Portal
                     <ArrowRight className="h-5 w-5" />
-                  </Link>
+                  </a>
                   <Link
                     to="/invest"
                     className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors text-center text-sm sm:text-base"
                   >
                     Explore Investments
                   </Link>
-                  <Link
-                    to="/share-subscription"
+                  <a
+                    href={hubDestination("/opportunities")}
                     className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
                     <HandCoins className="h-5 w-5" />
                     Subscribe to Shares
-                  </Link>
+                  </a>
                 </>
               )}
             </div>
@@ -134,8 +130,10 @@ export default function App() {
         </div>
       </section>
 
-      {/* Admin Setup Notice - Only show if user is not logged in or is super admin */}
-      {(!user || roles.includes('super_admin')) && (
+      <OpportunitySnapshot />
+
+      {/* Administrator tools appear only to signed-in administrators. */}
+      {user && roles.includes('super_admin') && (
         <section className="container mx-auto px-4 py-8">
           <div className="bg-[#6d52a2]/5 border border-[#6d52a2] rounded-lg p-4">
             <div className="flex items-start gap-3">
@@ -145,9 +143,7 @@ export default function App() {
                   <div>
                     <strong className="text-[#6d52a2] text-base">System Administrators:</strong>
                     <p className="text-sm text-gray-700 mt-1">
-                      {user && roles.includes('super_admin') 
-                        ? 'Manage admin users and back office staff through the setup guide.'
-                        : 'Set up your first administrator account and configure back office access.'}
+                      Manage admin users and back office staff through the setup guide.
                     </p>
                   </div>
                   <Link to="/admin-setup-guide">
@@ -222,51 +218,12 @@ export default function App() {
         </section>
       )}
 
-      {/* Performance Dashboard */}
+      {/* Public status: never display unverified banking or investment figures. */}
       <section className="bg-white border-y border-gray-200 py-16">
         <div className="container mx-auto px-4">
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">
-              Bank Performance Overview
-            </h2>
-            <p className="text-gray-600 mb-4">
-              Real-time metrics and key performance indicators
-            </p>
-            <CurrencyIndicator />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <MetricCard
-              icon={Users}
-              label="Active Customers"
-              value="24,500"
-              change="12%"
-              positive={true}
-            />
-            <MetricCard
-              icon={DollarSign}
-              label="Total Assets"
-              value={2400000000}
-              change="8.5%"
-              positive={true}
-              isCurrency={true}
-            />
-            <MetricCard
-              icon={TrendingUp}
-              label="Investment Portfolio"
-              value={850000000}
-              change="15.2%"
-              positive={true}
-              isCurrency={true}
-            />
-            <MetricCard
-              icon={Award}
-              label="Customer Satisfaction"
-              value="94%"
-              change="3%"
-              positive={true}
-            />
-          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">Where we are today</h2>
+          <p className="text-gray-700 max-w-3xl mb-6">Citizen Digital Ltd is preparing a banking licence application. The banking experiences linked here are pre-licensing demonstrations using fictional money. Investment opportunities and their current terms are managed in the Citizen Hub.</p>
+          <div className="flex flex-wrap gap-4"><a className="rounded-lg bg-[#6d52a2] px-6 py-3 font-semibold text-white" href={hubDestination("/opportunities")}>Explore investment opportunities</a><a className="rounded-lg border border-[#6d52a2] px-6 py-3 font-semibold text-[#6d52a2]" href={bankingDestination("/login")}>Explore banking demo</a></div>
         </div>
       </section>
 
@@ -282,7 +239,7 @@ export default function App() {
               Public Disclosures
             </h3>
             <p className="text-gray-600 mb-4">
-              Access financial reports, compliance documents, and regulatory filings
+              View documents that have been approved for public release
             </p>
             <span className="text-[#6d52a2] font-medium inline-flex items-center gap-1">
               View Disclosures <ArrowRight className="h-4 w-4" />
@@ -331,21 +288,21 @@ export default function App() {
               <Shield className="h-12 w-12 text-[#6d52a2] mb-3" />
               <h3 className="font-semibold text-gray-900 mb-2">Bank-Level Security</h3>
               <p className="text-sm text-gray-600">
-                Your data is protected with industry-leading encryption and security protocols
+              Access is protected by account and role controls
               </p>
             </div>
             <div className="flex flex-col items-center">
               <Clock className="h-12 w-12 text-[#6d52a2] mb-3" />
               <h3 className="font-semibold text-gray-900 mb-2">24/7 Access</h3>
               <p className="text-sm text-gray-600">
-                Access your accounts and services anytime, anywhere from any device
+                Explore the demonstration across desktop and mobile devices
               </p>
             </div>
             <div className="flex flex-col items-center">
               <Award className="h-12 w-12 text-[#6d52a2] mb-3" />
-              <h3 className="font-semibold text-gray-900 mb-2">Award-Winning Service</h3>
+              <h3 className="font-semibold text-gray-900 mb-2">Pre-licensing progress</h3>
               <p className="text-sm text-gray-600">
-                Recognized for excellence in banking services across the Kingdom of Lesotho
+                Follow verified company updates as the licence preparation progresses
               </p>
             </div>
           </div>

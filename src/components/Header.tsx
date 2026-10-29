@@ -8,8 +8,7 @@ import CurrencySelector from "./CurrencySelector";
 import { MobileNav } from "./MobileNav";
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
-import { getFrontendPath } from "utils/env";
-import { bankingDestination } from "utils/bankingDestination";
+import { bankingDestination, hubDestination } from "utils/bankingDestination";
 
 const logoUrl = "/brand/logo.png";
 
@@ -91,9 +90,9 @@ export function Header() {
             <a href={bankingDestination("/login")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Business Banking
             </a>
-            <Link to={getFrontendPath("/invest")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
+            <a href={hubDestination("/opportunities")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Invest
-            </Link>
+            </a>
             <Link to="/" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               About
             </Link>
@@ -210,35 +209,35 @@ export function Header() {
                   {showUserMenu && (
                     <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       <div className="py-2">
-                        <Link
-                          to="/auth/sign-in"
+                        <a
+                          href={bankingDestination("/login")}
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Customer Portal
-                        </Link>
-                        <Link
-                          to="/auth/sign-in"
+                        </a>
+                        <a
+                          href={hubDestination("/login")}
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Investor Portal
-                        </Link>
-                        <Link
-                          to="/auth/sign-in"
+                        </a>
+                        <a
+                          href={hubDestination("/login")}
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Board Portal
-                        </Link>
+                        </a>
                         <div className="border-t border-gray-200 my-1"></div>
-                        <Link
-                          to="/auth/sign-in"
+                        <a
+                          href={hubDestination("/login")}
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Back Office Login
-                        </Link>
+                        </a>
                       </div>
                     </div>
                   )}

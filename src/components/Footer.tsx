@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
+import { bankingDestination, hubDestination } from 'utils/bankingDestination';
 
 export function Footer() {
   const logoUrl = "/brand/logo.png";
@@ -43,11 +44,9 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Banking</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Personal Accounts</Link></li>
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Business Banking</Link></li>
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Loans & Credit</Link></li>
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Cards</Link></li>
-              <li><Link to="/customer-portal" className="hover:text-[#8f6ec4] transition-colors">Mobile Banking</Link></li>
+              <li><a href={bankingDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Internet Banking</a></li>
+              <li><a href={bankingDestination('/register')} className="hover:text-[#8f6ec4] transition-colors">Open a demo account</a></li>
+              <li><a href={bankingDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Cards and accounts</a></li>
             </ul>
           </div>
 
@@ -55,8 +54,8 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Investment</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investment Products</Link></li>
-              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>
+              <li><a href={hubDestination('/opportunities')} className="hover:text-[#8f6ec4] transition-colors">Investment Opportunities</a></li>
+              <li><a href={hubDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Investor Portal</a></li>
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Financial Reports</Link></li>
             </ul>
@@ -67,7 +66,7 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">About</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/" className="hover:text-[#8f6ec4] transition-colors">About Us</Link></li>
-              <li><Link to="/board-portal" className="hover:text-[#8f6ec4] transition-colors">Board Login</Link></li>
+              <li><a href={hubDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Board Login</a></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Media Center</Link></li>
               <li><Link to="/sustainability" className="hover:text-[#8f6ec4] transition-colors">Sustainability</Link></li>
               <li><Link to="/contact" className="hover:text-[#8f6ec4] transition-colors">Contact Us</Link></li>
@@ -90,7 +89,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
-            <p>© 2025 Citizen Bank Lesotho. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Citizen Digital Ltd. Banking licence application in preparation.</p>
             <div className="flex gap-6">
               <Link to="/privacy-policy" className="hover:text-[#8f6ec4] transition-colors">Privacy Policy</Link>
               <Link to="/terms-of-service" className="hover:text-[#8f6ec4] transition-colors">Terms of Service</Link>

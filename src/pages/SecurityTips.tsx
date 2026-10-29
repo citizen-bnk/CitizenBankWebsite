@@ -22,7 +22,7 @@ export default function SecurityTips() {
       icon: Smartphone,
       title: 'Mobile Banking Safety',
       tips: [
-        'Only download our official app from Google Play Store or Apple App Store',
+        'Use only the mobile app link provided on the official Citizen Bank website',
         'Keep your mobile banking app updated to the latest version',
         'Never save your login credentials on shared devices',
         'Use biometric authentication (fingerprint/face ID) when available',

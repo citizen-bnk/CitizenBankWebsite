@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "check:public-links": "node scripts/check-public-links.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
