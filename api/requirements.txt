@@ -1,4 +1,4 @@
-# Dependencies of the website API on Vercel (Python 3.12). Pinned, so every deploy installs exactly what was tested.
+# Dependencies of the website API on Vercel. This set resolves on Python 3.12 and 3.14.
 # Generated from backend/requirements.txt without uvicorn (Vercel runs the app itself). To update: install
 # backend/requirements.txt minus uvicorn in a clean Python 3.12 environment, run the tests, then 'pip freeze'.
 africastalking==2.0.3
@@ -23,7 +23,8 @@ dotenv==0.9.9
 email-validator==2.3.0
 fastapi==0.142.2
 google-ai-generativelanguage==0.6.15
-google-api-core==2.33.0
+# Keep this Google API/grpc/protobuf combination together; 2.33.0 conflicts with protobuf 5 on Python 3.14.
+google-api-core==2.25.2
 google-api-python-client==2.201.0
 google-auth==2.60.0
 google-auth-httplib2==0.4.4
@@ -31,6 +32,7 @@ google-auth-oauthlib==1.5.0
 google-generativeai==0.8.6
 googleapis-common-protos==1.75.0
 grpcio==1.84.0
+grpcio-status==1.71.2
 h11==0.16.0
 httpcore==1.0.9
 httpcore2==2.13.1
