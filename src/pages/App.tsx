@@ -49,9 +49,9 @@ export default function App() {
 
   // Determine which portals the user has access to
   const hasCustomerAccess = roles.includes('customer');
-  const hasInvestorAccess = roles.includes('investor');
+  const hasInvestorAccess = roles.includes('investor') || roles.includes('shareholder');
   const hasBoardAccess = roles.includes('board_member');
-  const hasBackOfficeAccess = roles.includes('super_admin') || roles.includes('staff');
+  const hasBackOfficeAccess = ['super_admin', 'admin', 'staff', 'back_office'].some(role => roles.includes(role));
 
   // Only show portals section if user is logged in and has at least one portal access
   const showPortalsSection = user && !rolesLoading && (hasCustomerAccess || hasInvestorAccess || hasBoardAccess || hasBackOfficeAccess);

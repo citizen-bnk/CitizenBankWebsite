@@ -37,7 +37,7 @@ export function Header() {
       );
     }
     
-    if (roles.includes('super_admin') || roles.includes('staff')) {
+    if (['super_admin', 'admin', 'staff', 'back_office'].some(role => roles.includes(role))) {
       links.push(
         { label: 'Back Office', path: '/back-office-dashboard', icon: Building2 },
       );
@@ -55,7 +55,7 @@ export function Header() {
       );
     }
     
-    if (roles.includes('investor')) {
+    if (roles.includes('investor') || roles.includes('shareholder')) {
       links.push(
         { label: 'Investor Portal', path: '/invest', icon: User },
         { label: 'Investor Data Room', path: '/data-room', icon: Shield },
