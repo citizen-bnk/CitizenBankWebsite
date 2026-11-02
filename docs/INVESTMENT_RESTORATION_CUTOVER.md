@@ -16,6 +16,7 @@ Status: preparation, 2 November 2026. This document describes the release gate; 
 - The restored home page retains the original four performance cards and their fixed values, prominently identified as illustrative design figures, not operating results. They cannot be described as live bank metrics during pre-licensing.
 - The institutional database contains 19 live people, 5 live subscription requests, and a separately scoped demonstration dataset. Its approved live SAFE opportunity is the source of offer terms until a reconciled corporate register supersedes it.
 - Both website and Hub production identity configuration point to the same Stack Auth project. The legacy website's built-in fallback points to a different project; production builds must receive `AUTH_PROVIDERS` explicitly and verify its project ID before promotion.
+- The website's restored navigation now reads roles from the institutional identity bridge rather than its demonstration-only role table. The bridge also reads the live offer and the signed-in investor's portfolio. Subscription, payment, data-room, and board write paths are not yet cut over.
 
 ## Required release gates
 

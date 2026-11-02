@@ -201,6 +201,14 @@ export default function App() {
                   link="/invest"
                 />
               )}
+              {hasInvestorAccess && (
+                <PortalCard
+                  icon={FileText}
+                  title="Investor Data Room"
+                  description="Review approved investment documents and disclosures"
+                  link="/data-room"
+                />
+              )}
               {hasBoardAccess && (
                 <PortalCard
                   icon={Building2}

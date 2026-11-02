@@ -1,7 +1,6 @@
 import { useUser } from '@stackframe/react';
-import { apiClient } from 'app';
 import { useQuery } from '@tanstack/react-query';
-import { UserRolesResponse } from 'types';
+import { liveInvestments } from './liveInvestments';
 
 const ROLES_QUERY_KEY = 'userRoles';
 
@@ -19,11 +18,7 @@ export function useUserRoles() {
         return []; // Return empty array if no user
       }
       try {
-        const response = await apiClient.get_my_roles();
-        if (!response.ok) {
-          throw new Error(`Failed to fetch user roles: ${response.statusText}`);
-        }
-        const data: UserRolesResponse = await response.json();
+        const data = await liveInvestments();
         return Array.isArray(data.roles) ? data.roles : [];
       } catch (err) {
         console.error('Failed to fetch user roles:', err);

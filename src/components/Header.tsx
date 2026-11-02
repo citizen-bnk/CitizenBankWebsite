@@ -8,7 +8,7 @@ import CurrencySelector from "./CurrencySelector";
 import { MobileNav } from "./MobileNav";
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
-import { bankingDestination, hubDestination } from "utils/bankingDestination";
+import { bankingDestination } from "utils/bankingDestination";
 
 const logoUrl = "/brand/logo.png";
 
@@ -58,6 +58,7 @@ export function Header() {
     if (roles.includes('investor')) {
       links.push(
         { label: 'Investor Portal', path: '/invest', icon: User },
+        { label: 'Investor Data Room', path: '/data-room', icon: Shield },
       );
     }
     
@@ -223,21 +224,21 @@ export function Header() {
                         >
                           Investor Portal
                         </a>
-                        <a
-                          href={hubDestination("/login")}
+                        <Link
+                          to="/board-portal"
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Board Portal
-                        </a>
+                        </Link>
                         <div className="border-t border-gray-200 my-1"></div>
-                        <a
-                          href={hubDestination("/login")}
+                        <Link
+                          to="/back-office-dashboard"
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Back Office Login
-                        </a>
+                        </Link>
                       </div>
                     </div>
                   )}
