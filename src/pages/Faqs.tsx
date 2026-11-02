@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 import { bankingDestination, hubDestination } from "utils/bankingDestination";
 
 const questions = [
-  { question: "Can I open a banking account today?", answer: "You can create a demonstration account to explore the proposed banking experience. Real-money banking will be available only after the required licence and operational approvals.", href: bankingDestination("/register"), action: "Open a demo account" },
-  { question: "Where can I view investment opportunities?", answer: "Current opportunities and their terms are presented in the Citizen Hub. Review the offer and its documents there before subscribing.", href: hubDestination("/opportunities"), action: "View opportunities" },
+  { question: "Can I open a banking account today?", answer: "You can create a banking profile. Banking accounts remain dormant until the required licence and operational approvals.", href: bankingDestination("/register"), action: "Create a banking profile" },
+  { question: "Where can I view investment opportunities?", answer: "Current opportunities and their terms are presented in the investment section of this website. Review the offer and its documents there before subscribing.", href: "/invest", action: "View opportunities" },
   { question: "Can I use the same identity across the ecosystem?", answer: "The platforms are being connected around one Citizen identity. Your available features depend on your roles and completed verification. If access does not carry over, sign in on the destination platform or contact support.", href: hubDestination("/login"), action: "Open the Hub" },
   { question: "Where are the branches and ATMs?", answer: "No Citizen Bank branches or ATMs are open during pre-licensing. The website will list confirmed locations when banking operations begin.", href: "/branch-locator", action: "Branch status" },
 ];

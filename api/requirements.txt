@@ -88,4 +88,5 @@ tzdata==2026.5
 tzlocal==5.4.4
 uritemplate==4.2.0
 urllib3==2.8.0
+vercel-blob==0.5.0
 wrapt==2.5.0

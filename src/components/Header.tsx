@@ -90,9 +90,9 @@ export function Header() {
             <a href={bankingDestination("/login")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Business Banking
             </a>
-            <a href={hubDestination("/opportunities")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
+            <Link to="/invest" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Invest
-            </a>
+            </Link>
             <Link to="/" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               About
             </Link>
@@ -217,7 +217,7 @@ export function Header() {
                           Customer Portal
                         </a>
                         <a
-                          href={hubDestination("/login")}
+                          href="/invest"
                           className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
                           onClick={() => setShowUserMenu(false)}
                         >

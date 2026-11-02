@@ -22,7 +22,7 @@ export function Footer() {
           <div className="lg:col-span-1">
             <img src={logoUrl} alt="Citizen Bank" className="h-10 w-auto mb-4 brightness-0 invert" />
             <p className="text-sm text-gray-400">
-              Your trusted financial partner in the Kingdom of Lesotho.
+              Citizen Digital Ltd is preparing the proposed Citizen Bank in Lesotho. Banking accounts remain dormant during pre-licensing.
             </p>
             <div className="flex gap-3 mt-4">
               <button onClick={() => handleSocialClick('Facebook')} className="text-gray-400 hover:text-[#8f6ec4] transition-colors">
@@ -45,7 +45,7 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">Banking</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><a href={bankingDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Internet Banking</a></li>
-              <li><a href={bankingDestination('/register')} className="hover:text-[#8f6ec4] transition-colors">Open a demo account</a></li>
+              <li><a href={bankingDestination('/register')} className="hover:text-[#8f6ec4] transition-colors">Create a banking profile</a></li>
               <li><a href={bankingDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Cards and accounts</a></li>
             </ul>
           </div>
@@ -54,8 +54,8 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Investment</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><a href={hubDestination('/opportunities')} className="hover:text-[#8f6ec4] transition-colors">Investment Opportunities</a></li>
-              <li><a href={hubDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Investor Portal</a></li>
+              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investment Opportunities</Link></li>
+              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Company Updates</Link></li>
             </ul>

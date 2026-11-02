@@ -1,12 +1,14 @@
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
+import { MetricCard } from "components/MetricCard";
 import { PortalCard } from "components/PortalCard";
 import { OpportunitySnapshot } from "components/OpportunitySnapshot";
+import { CurrencyIndicator } from "components/CurrencyIndicator";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
 import { useUserRoles } from "utils/useUserRoles";
-import { bankingDestination, hubDestination } from "utils/bankingDestination";
+import { bankingDestination } from "utils/bankingDestination";
 import {
   Users,
   TrendingUp,
@@ -15,11 +17,13 @@ import {
   FileText,
   Newspaper,
   Leaf,
+  DollarSign,
   ArrowRight,
   Shield,
   Clock,
   HandCoins,
   UserPlus,
+  Award,
 } from "lucide-react";
 
 export default function App() {
@@ -117,7 +121,7 @@ export default function App() {
                     Explore Investments
                   </Link>
                   <a
-                    href={hubDestination("/opportunities")}
+                    href="/share-subscription"
                     className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
                     <HandCoins className="h-5 w-5" />
@@ -218,12 +222,22 @@ export default function App() {
         </section>
       )}
 
-      {/* Public status: never display unverified banking or investment figures. */}
+      {/* Preserve the original website's performance layout and clearly mark its fixed figures. */}
       <section className="bg-white border-y border-gray-200 py-16">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">Where we are today</h2>
-          <p className="text-gray-700 max-w-3xl mb-6">Citizen Digital Ltd is preparing a banking licence application. The banking experiences linked here are pre-licensing demonstrations using fictional money. Investment opportunities and their current terms are managed in the Citizen Hub.</p>
-          <div className="flex flex-wrap gap-4"><a className="rounded-lg bg-[#6d52a2] px-6 py-3 font-semibold text-white" href={hubDestination("/opportunities")}>Explore investment opportunities</a><a className="rounded-lg border border-[#6d52a2] px-6 py-3 font-semibold text-[#6d52a2]" href={bankingDestination("/login")}>Explore banking demo</a></div>
+          <div className="mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-3">Bank Performance Overview</h2>
+            <p className="text-gray-600 mb-2">Illustrative figures from the original website design. These are not verified operating results.</p>
+            <p className="text-sm text-gray-600 mb-4">Citizen Digital Ltd is preparing its banking licence application; banking accounts remain dormant.</p>
+            <CurrencyIndicator />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricCard icon={Users} label="Active Customers" value="24,500" change="12%" positive={true} />
+            <MetricCard icon={DollarSign} label="Total Assets" value={2400000000} change="8.5%" positive={true} isCurrency={true} />
+            <MetricCard icon={TrendingUp} label="Investment Portfolio" value={850000000} change="15.2%" positive={true} isCurrency={true} />
+            <MetricCard icon={Award} label="Customer Satisfaction" value="94%" change="3%" positive={true} />
+          </div>
+          <div className="flex flex-wrap gap-4 mt-8"><Link className="rounded-lg bg-[#6d52a2] px-6 py-3 font-semibold text-white" to="/invest">Explore investment opportunities</Link><a className="rounded-lg border border-[#6d52a2] px-6 py-3 font-semibold text-[#6d52a2]" href={bankingDestination("/login")}>Open banking profile</a></div>
         </div>
       </section>
 
