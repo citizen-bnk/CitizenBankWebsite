@@ -2,7 +2,6 @@ import { Header } from "components/Header";
 import { Footer } from "components/Footer";
 import { MetricCard } from "components/MetricCard";
 import { PortalCard } from "components/PortalCard";
-import { OpportunitySnapshot } from "components/OpportunitySnapshot";
 import { CurrencyIndicator } from "components/CurrencyIndicator";
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -86,7 +85,7 @@ export default function App() {
   </span>
 </h1>
             <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 text-white/90">
-              Explore the proposed Citizen Bank ecosystem. Banking is available for demonstration while Citizen Digital Ltd prepares its licence application.
+              Explore Citizen Digital's investment and banking services as we prepare the proposed Citizen Bank licence application. Banking accounts remain dormant until authorised for operation.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               {!user ? (
@@ -133,8 +132,6 @@ export default function App() {
           </div>
         </div>
       </section>
-
-      <OpportunitySnapshot />
 
       {/* Administrator tools appear only to signed-in administrators. */}
       {user && roles.includes('super_admin') && (
@@ -317,7 +314,7 @@ export default function App() {
               <Clock className="h-12 w-12 text-[#6d52a2] mb-3" />
               <h3 className="font-semibold text-gray-900 mb-2">24/7 Access</h3>
               <p className="text-sm text-gray-600">
-                Explore the demonstration across desktop and mobile devices
+                Access your Citizen profile across desktop and mobile devices
               </p>
             </div>
             <div className="flex flex-col items-center">

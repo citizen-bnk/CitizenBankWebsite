@@ -4,13 +4,12 @@ import { TrendingUp, PieChart, BarChart3, DollarSign, FileText, HandCoins, Walle
 import { Link } from "react-router-dom";
 import { useUser } from "@stackframe/react";
 import { useState, useEffect } from "react";
-import { liveInvestments } from "utils/liveInvestments";
+import { apiClient } from "app";
 import { useCurrency } from "components/CurrencyProvider";
 import { InvitationCard } from "components/InvitationCard";
 import { useUserRoles } from "utils/useUserRoles";
 import { NewsCarousel } from "components/NewsCarousel";
 import { ChatWidget } from "components/ChatWidget";
-import { OpportunitySnapshot } from "components/OpportunitySnapshot";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
@@ -46,16 +45,15 @@ export default function Invest() {
   const [investment, setInvestment] = useState<InvestmentData | null>(null);
   const [subscriptions, setSubscriptions] = useState<SubscriptionsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const { formatCurrency } = useCurrency();
 
   // Check if user is a board member
   const isBoardMember = roles.includes('board_member');
   const canInvite = isBoardMember && (investment || (subscriptions && subscriptions.subscriptions.length > 0));
-  
+
   // Check if user is admin or super admin
   const isAdmin = roles.includes('admin') || roles.includes('super_admin');
-  
+
   // Handle subscribe button click - route based on role
   const handleSubscribeClick = () => {
     if (isAdmin) {
@@ -66,6 +64,8 @@ export default function Invest() {
   };
 
   useEffect(() => {
+    console.log('🔄 Invest page: useEffect triggered. User ID:', user?.id);
+
     async function loadInvestorData() {
       if (!user) {
         setLoading(false);
@@ -77,11 +77,31 @@ export default function Invest() {
         return;
       }
 
+      console.log('📊 Invest page: Loading investor data for user', user.id);
+
+      // Only fetch board investment data if user is a board member
+      if (isBoardMember) {
+        try {
+          const investmentRes = await apiClient.get_my_investment();
+          if (investmentRes.ok) {
+            const investmentData = await investmentRes.json();
+            setInvestment(investmentData);
+          }
+        } catch (error) {
+          console.error('Error loading investment:', error);
+        }
+      } else {
+        console.log('User is not a board member (this is normal)');
+      }
+
       try {
-        setLoadError(null);
-        setSubscriptions(await liveInvestments());
+        const subRes = await apiClient.core_get_my_public_subscriptions();
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          setSubscriptions(subData);
+        }
       } catch (error) {
-        setLoadError(error instanceof Error ? error.message : 'Investment records are unavailable.');
+        console.error('Error loading subscriptions:', error);
       }
 
       setLoading(false);
@@ -93,7 +113,6 @@ export default function Invest() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      {loadError && <div role="alert" className="container mx-auto mt-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950">{loadError} <button className="ml-3 underline" onClick={() => window.location.reload()}>Retry</button></div>}
 
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-[#6d52a2] to-[#5a4289] text-white py-16 pt-[calc(88px+4rem)] sm:pt-[calc(96px+4rem)] lg:pt-[calc(104px+4rem)]">
@@ -213,7 +232,7 @@ export default function Invest() {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Subscription List */}
                       <div className="space-y-2 max-h-80 overflow-y-auto">
                         {subscriptions.subscriptions.map((sub) => (
@@ -252,7 +271,7 @@ export default function Invest() {
                           </div>
                         ))}
                       </div>
-                      
+
                       <Link
                         to="/my-subscriptions"
                         className="block mt-3 text-center px-4 py-2 border-2 border-[#6d52a2] text-[#6d52a2] rounded-lg hover:bg-[#6d52a2]/10 transition-colors font-medium text-sm sm:text-base"
@@ -330,7 +349,7 @@ export default function Invest() {
                   <p className="text-sm sm:text-base text-white/90 mb-4">
                     Access banking license documentation and critical investor materials.
                   </p>
-                  <Link 
+                  <Link
                     to="/data-room-access"
                     className="inline-flex items-center gap-2 bg-white text-[#6d52a2] px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors font-semibold text-sm sm:text-base"
                   >
@@ -369,8 +388,96 @@ export default function Invest() {
         </section>
       )}
 
-      {/* Live offer details come from the website investment API. */}
-      <OpportunitySnapshot />
+      {/* Investment Products */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">
+            {user ? 'Available Investment Products' : 'Investment Products'}
+          </h2>
+          <p className="text-gray-600">Explore our range of investment options</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-all">
+            <TrendingUp className="h-12 w-12 text-[#6d52a2] mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Fixed Deposits</h3>
+            <p className="text-gray-600 mb-4">
+              Secure your future with competitive interest rates on fixed deposits
+            </p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Competitive interest rates
+              </li>
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Flexible terms (3, 6, 12 months)
+              </li>
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Capital guaranteed
+              </li>
+            </ul>
+            <button
+              type="button"
+              className="w-full px-4 py-2 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors"
+            >
+              Learn More
+            </button>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-all">
+            <PieChart className="h-12 w-12 text-[#6d52a2] mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Unit Trusts</h3>
+            <p className="text-gray-600 mb-4">Diversified investment portfolio managed by professionals</p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Professional fund management
+              </li>
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Diversified portfolio
+              </li>
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Flexible contributions
+              </li>
+            </ul>
+            <button
+              type="button"
+              className="w-full px-4 py-2 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors"
+            >
+              Learn More
+            </button>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-lg transition-all">
+            <BarChart3 className="h-12 w-12 text-[#6d52a2] mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Treasury Bills</h3>
+            <p className="text-gray-600 mb-4">Short-term government securities with attractive returns</p>
+            <ul className="space-y-2 mb-6">
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Government-backed security
+              </li>
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Short-term investment
+              </li>
+              <li className="flex items-center text-sm text-gray-600">
+                <span className="mr-2 text-[#6d52a2]">✓</span>
+                Competitive yields
+              </li>
+            </ul>
+            <button
+              type="button"
+              className="w-full px-4 py-2 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors"
+            >
+              Learn More
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Call to Action */}
       {!user && (
@@ -401,7 +508,7 @@ export default function Invest() {
       )}
 
       <Footer />
-      
+
       {/* Chat Widget - Only show for logged in users */}
       {user && <ChatWidget />}
     </div>

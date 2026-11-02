@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
-import { bankingDestination, hubDestination } from 'utils/bankingDestination';
+import { bankingDestination } from 'utils/bankingDestination';
 
 export function Footer() {
   const logoUrl = "/brand/logo.png";
@@ -56,6 +56,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investment Opportunities</Link></li>
               <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>
+              <li><Link to="/data-room" className="hover:text-[#8f6ec4] transition-colors">Investor Data Room</Link></li>
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Company Updates</Link></li>
             </ul>
@@ -66,7 +67,7 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">About</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/" className="hover:text-[#8f6ec4] transition-colors">About Us</Link></li>
-              <li><a href={hubDestination('/login')} className="hover:text-[#8f6ec4] transition-colors">Board Login</a></li>
+              <li><Link to="/board-portal" className="hover:text-[#8f6ec4] transition-colors">Board Portal</Link></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Media Center</Link></li>
               <li><Link to="/careers" className="hover:text-[#8f6ec4] transition-colors">Careers</Link></li>
               <li><Link to="/sustainability" className="hover:text-[#8f6ec4] transition-colors">Sustainability</Link></li>

@@ -1,12 +1,12 @@
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
 import { Link } from "react-router-dom";
-import { bankingDestination, hubDestination } from "utils/bankingDestination";
+import { bankingDestination } from "utils/bankingDestination";
 
 const destinations = [
   { title: "Banking profile", detail: "Sign in and view your pre-licensing banking profile. Accounts remain dormant.", href: bankingDestination("/login") },
   { title: "Investments", detail: "Review the offer, subscribe and manage your investment on this website.", href: "/invest" },
-  { title: "Governance", detail: "Open Citizen Hub for board and institutional work.", href: hubDestination("/login") },
+  { title: "Governance", detail: "Open the board portal on this website.", href: "/board-portal" },
   { title: "Frequently asked questions", detail: "Answers about the pre-licensing stage and platform access.", href: "/faqs" },
   { title: "Account security", detail: "Learn how to protect your Citizen identity.", href: "/security-tips" },
 ];
