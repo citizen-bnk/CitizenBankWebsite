@@ -1,3 +1,4 @@
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -85,6 +86,8 @@ const Profile = () => {
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeStage, setActiveStage] = useState<'basic' | 'standard' | 'advanced'>('basic');
+
+  const [section, setSection] = useState<string | null>(null);
 
   // Fetch profile data
   useEffect(() => {
@@ -203,7 +206,7 @@ const Profile = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-3xl">
         {/* Header */}
         <ProfileHeader
           fullName={profile.full_name}
@@ -223,70 +226,29 @@ const Profile = () => {
           })}
         </nav>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Main Content - 2 columns */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information */}
-            {activeStage === 'basic' && <PersonalInfoSection profile={profile} onEditField={openEditDialog} />}
-            {activeStage === 'standard' && <PersonalInfoSection profile={profile} onEditField={openEditDialog} section="identity" />}
-            {activeStage === 'advanced' && !availableStages.includes('standard') &&
-              <PersonalInfoSection profile={profile} onEditField={openEditDialog} section="identity" />}
-
-            {/* Bio Section - Available to all users */}
-            {activeStage === 'basic' && <BioSection
-              bio={profile.bio}
-              profilePictureUrl={profile.profile_picture_selfie_url}
-              userName={profile.full_name}
-              onUpdate={fetchProfileData}
-              onPictureUploadSuccess={(newUrl) => {
-                setProfile({ ...profile, profile_picture_selfie_url: newUrl });
-                toast.success("Profile picture updated");
-              }}
-            />}
-
-            {/* Contact Information */}
-            {activeStage === 'basic' && <ContactInfoSection profile={profile} onEditField={openEditDialog} />}
-
-            {/* Address Information */}
-            {activeStage === 'standard' && <AddressInfoSection profile={profile} onEditField={openEditDialog} />}
-
-            {/* Professional Information */}
-            {activeStage === 'advanced' && <ProfessionalInfoSection
-              profile={profile}
-              onEditField={openEditDialog}
-              onUpdate={fetchProfileData}
-            />}
-
-            {/* Investor Information - Show if user is investor or has subscriptions */}
-            {activeStage === 'advanced' && canSeeInvestor && <InvestorInfoSection profile={profile} onEditField={openEditDialog} />}
-
-            {/* Business Information - Show if business account */}
-            {activeStage === 'standard' && profile.account_type === 'business' && (
-              <BusinessInfoSection profile={profile} onEditField={openEditDialog} />
-            )}
-            {activeStage === 'advanced' && boardData && (
-              <BoardMemberProfileSection bio={profile.bio} profilePictureUrl={profile.profile_picture_selfie_url}
-                onUpdate={fetchProfileData} />
-            )}
-          </div>
-
-          {/* Sidebar - 1 column */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Account Status */}
-            {activeStage === 'basic' && <AccountStatusCard profile={profile} />}
-
-            {/* Roles */}
-            {activeStage === 'advanced' && <UserRolesCard roles={userRoles} />}
-
-            {/* Board Member Info (if applicable) */}
-            {activeStage === 'advanced' && boardData && (
-              <BoardMemberCard boardData={boardData} />
-            )}
-
-            {/* System Settings */}
-            {activeStage === 'basic' && <SystemSettingsCard />}
-          </div>
+        <section className="rounded-xl border bg-white p-5 mb-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="min-w-0"><h2 className="font-semibold text-lg break-words">{profile.full_name}</h2><p className="text-sm text-gray-600 break-all">{profile.email}</p>{profile.phone && <p className="text-sm text-gray-600">{profile.phone}</p>}</div>
+          <Button variant="outline" onClick={() => setSection('contact')}>Edit contact details</Button>
+        </section>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {(activeStage === 'basic' ? [['personal','Personal details'],['photo','Photo & introduction'],['settings','Preferences & security']] : activeStage === 'standard' ? [['identity','Identity verification'],['address','Residential address'],...(profile.account_type === 'business' ? [['business','Business details']] : [])] : [['professional','Professional details'],...(canSeeInvestor ? [['investor','Investor details']] : []),...(boardData ? [['board','Board information']] : [])]).map(([key,label]) =>
+            <button key={key} onClick={() => setSection(key)} className="flex items-center justify-between gap-4 rounded-xl border bg-white p-5 text-left hover:border-purple-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-500"><span className="font-medium">{label}</span><span aria-hidden="true">↗</span></button>)}
         </div>
+        <p className="text-xs text-gray-500 mt-4">Additional information is requested when a service needs it.</p>
+        <Dialog open={!!section} onOpenChange={open => !open && setSection(null)}>
+          <DialogContent className="max-w-2xl max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Profile details</DialogTitle></DialogHeader>
+            {section === 'contact' && <ContactInfoSection profile={profile} onEditField={openEditDialog}/>}
+            {section === 'personal' && <PersonalInfoSection profile={profile} onEditField={openEditDialog}/>}
+            {section === 'identity' && <PersonalInfoSection profile={profile} onEditField={openEditDialog} section="identity"/>}
+            {section === 'photo' && <BioSection bio={profile.bio} profilePictureUrl={profile.profile_picture_selfie_url} userName={profile.full_name} onUpdate={fetchProfileData} onPictureUploadSuccess={url => setProfile({...profile,profile_picture_selfie_url:url})}/>}
+            {section === 'address' && <AddressInfoSection profile={profile} onEditField={openEditDialog}/>}
+            {section === 'professional' && <ProfessionalInfoSection profile={profile} onEditField={openEditDialog} onUpdate={fetchProfileData}/>}
+            {section === 'investor' && <InvestorInfoSection profile={profile} onEditField={openEditDialog}/>}
+            {section === 'business' && <BusinessInfoSection profile={profile} onEditField={openEditDialog}/>}
+            {section === 'board' && boardData && <BoardMemberCard boardData={boardData}/>}
+            {section === 'settings' && <SystemSettingsCard/>}
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Edit Field Dialog */}
