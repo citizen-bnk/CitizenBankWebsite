@@ -19,7 +19,6 @@ def test_every_scheduled_job_is_a_cron_with_the_same_schedule():
 
     expected = {f"/api/cron/{slug}": next(c for n, c, _f in scheduler.JOBS if n == name) for slug, name in cron.JOB_SLUGS.items()}
     actual = {c["path"]: c["schedule"] for c in VERCEL["crons"]}
-    assert actual.pop('/api/cron/share-offer-seed') == '* * * * *'
     assert actual == expected
 
 
