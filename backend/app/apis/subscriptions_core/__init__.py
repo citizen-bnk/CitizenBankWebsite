@@ -23,6 +23,43 @@ from app.libs.rbac import check_user_has_any_role
 router = APIRouter(prefix="/subscriptions/core")
 
 
+async def may_access_investments(conn, user: AuthorizedUser, invite_token: str | None = None) -> bool:
+    """Only invited people, existing investors and operations staff enter private investment flows."""
+    privileged = await conn.fetchval(
+        """SELECT EXISTS (
+             SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+             WHERE ur.user_id=$1 AND r.role_name IN
+               ('investor','shareholder','board_member','staff','back_office','admin','super_admin')
+           )""", user.sub,
+    )
+    if privileged:
+        return True
+    email = (user.email or "").strip().lower()
+    if not email:
+        return False
+    existing = await conn.fetchval(
+        """SELECT EXISTS (SELECT 1 FROM share_subscriptions
+           WHERE lower(email)=$1 AND status!='cancelled' AND (user_id=$2 OR user_id IS NULL))""",
+        email, user.sub,
+    )
+    if existing:
+        return True
+    if not invite_token or len(invite_token) > 128 or not all(c.isalnum() or c in "_-" for c in invite_token):
+        return False
+    return bool(await conn.fetchval(
+        """SELECT EXISTS (SELECT 1 FROM invitations WHERE lower(email)=$1
+           AND invitation_type='investor' AND status IN ('pending','sent','accepted')
+           AND (status='accepted' OR expires_at>now())
+           AND (tracking_token=$2 OR token::text=$2))""", email, invite_token,
+    ))
+
+
+@router.get("/access")
+async def investment_access(user: AuthorizedUser, invite: str | None = None) -> dict[str, bool]:
+    async with db_connection() as conn:
+        return {"eligible": await may_access_investments(conn, user, invite)}
+
+
 class SubscriptionListItem(BaseModel):
     """Individual subscription item for list view"""
     subscription_id: str
@@ -83,6 +120,8 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
     print(f"   Purchase currency: {getattr(request, 'purchase_currency', 'LSL')}")
     
     async with db_transaction() as conn:
+        if not await may_access_investments(conn, user, request.tracking_token):
+            raise HTTPException(status_code=403, detail="Investment access requires an invitation.")
         # Lock the offer row so simultaneous subscriptions cannot reserve the same units.
         offer_class = await conn.fetchrow("""
             SELECT class_name, price_per_share, min_shares, shares_on_offer, shares_issued

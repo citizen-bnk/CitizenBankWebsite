@@ -68,7 +68,9 @@ export default function ShareSubscription() {
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [searchParams] = useSearchParams();
-  const [trackingToken, setTrackingToken] = useState<string | null>(null);
+  const [trackingToken, setTrackingToken] = useState<string | null>(() => {
+    try { return sessionStorage.getItem('citizen_investor_invite'); } catch { return null; }
+  });
 
   // Form state
   const [numShares, setNumShares] = useState<number>(1000);
@@ -580,6 +582,7 @@ export default function ShareSubscription() {
             num_shares: numShares,
             payment_method: backendPaymentMethod,
             purchase_currency: selectedCurrency,
+            tracking_token: trackingToken,
             ...(backendPaymentMethod === 'installment' && formData.installment_plan ? { installment_plan: formData.installment_plan } : {}),
           };
 

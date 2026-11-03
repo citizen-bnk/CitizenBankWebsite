@@ -44,7 +44,7 @@ export const UserGuard = (props: {
   const app = useStackApp();
   const user = useUser();
 
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   useEffect(() => {
     if (!user) return;
@@ -82,8 +82,8 @@ export const UserGuard = (props: {
     // Don't set the next param if the user is logging out
     // to avoid ending up in an infinite redirect loop
     if (pathname !== app.urls.signOut) {
-      writeToLocalStorage("dtbn-login-next", pathname);
-      queryParams.set("next", pathname);
+      writeToLocalStorage("dtbn-login-next", pathname + search);
+      queryParams.set("next", pathname + search);
     }
 
     const queryString = queryParams.toString();
