@@ -53,11 +53,8 @@ import Contact from "./pages/Contact.tsx";
 import CookiePolicy from "./pages/CookiePolicy.tsx";
 import CreateMeeting from "./pages/CreateMeeting.tsx";
 import CustomerPortal from "./pages/CustomerPortal.tsx";
-import DemoLauncher from "./pages/DemoLauncher.tsx";
-import DemoSignIn from "./pages/DemoSignIn.tsx";
 import DataRoom from "./pages/DataRoom.tsx";
 import DataRoomAccess from "./pages/DataRoomAccess.tsx";
-import DevSetup from "./pages/DevSetup.tsx";
 import Disclosures from "./pages/Disclosures.tsx";
 import Faqs from "./pages/Faqs.tsx";
 import ForbiddenPage from "./pages/ForbiddenPage.tsx";
@@ -175,15 +172,11 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/create-meeting", element: <UserGuard><CreateMeeting /></UserGuard> },
 	{ path: "/createmeeting", element: <UserGuard><CreateMeeting /></UserGuard> },
 	{ path: "/customer-portal", element: <UserGuard><CustomerPortal /></UserGuard> },
-	{ path: "/demo", element: <DemoSignIn /> },
-	{ path: "/demo/launch", element: <UserGuard><DemoLauncher /></UserGuard> },
 	{ path: "/customerportal", element: <UserGuard><CustomerPortal /></UserGuard> },
 	{ path: "/data-room", element: <UserGuard><DataRoom /></UserGuard> },
 	{ path: "/dataroom", element: <UserGuard><DataRoom /></UserGuard> },
 	{ path: "/data-room-access", element: <UserGuard><DataRoomAccess /></UserGuard> },
 	{ path: "/dataroomaccess", element: <UserGuard><DataRoomAccess /></UserGuard> },
-	{ path: "/dev-setup", element: <UserGuard><DevSetup /></UserGuard> },
-	{ path: "/devsetup", element: <UserGuard><DevSetup /></UserGuard> },
 	{ path: "/disclosures", element: <Disclosures /> },
 	{ path: "/faqs", element: <Faqs /> },
 	{ path: "/forbidden-page", element: <ForbiddenPage /> },

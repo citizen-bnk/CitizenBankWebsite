@@ -731,20 +731,10 @@ export default function AdminUsers() {
                 You need Super Admin permissions to access user management.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 py-4">
-              <div className="rounded-lg border bg-muted/50 p-3">
-                <p className="text-sm font-medium mb-1">Option 1: Development</p>
-                <p className="text-xs text-muted-foreground">Visit Dev Setup to initialize test users with proper roles</p>
-              </div>
-              <div className="rounded-lg border bg-muted/50 p-3">
-                <p className="text-sm font-medium mb-1">Option 2: Production</p>
-                <p className="text-xs text-muted-foreground">Sign in with an admin account or contact your system administrator</p>
-              </div>
+            <div className="rounded-lg border bg-muted/50 p-3 my-4">
+              <p className="text-sm text-muted-foreground">Sign in with an authorised administrator account or contact your system administrator.</p>
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => navigate('/dev-setup')} className="w-full sm:w-auto">
-                Go to Dev Setup
-              </Button>
               <Button variant="outline" onClick={() => navigate('/auth/sign-in')} className="w-full sm:w-auto">
                 Sign In as Admin
               </Button>
