@@ -692,7 +692,7 @@ export default function ShareSubscription() {
                   Share Subscription Calculator
                 </CardTitle>
                 <CardDescription>
-                  Choose your SAFE reference units and see the amount due.
+                  Choose the number of shares and see the amount due.
                   There are <span className="font-bold text-primary">{availability.remaining.toLocaleString()}</span> shares remaining.
                 </CardDescription>
               </CardHeader>
@@ -1086,7 +1086,7 @@ export default function ShareSubscription() {
                     <AccordionTrigger>Subscription Summary</AccordionTrigger>
                     <AccordionContent className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-muted-foreground">SAFE Reference Units:</p><p className="font-semibold">{numberOfShares.toLocaleString()}</p></div>
+                        <div><p className="text-muted-foreground">Number of Shares:</p><p className="font-semibold">{numberOfShares.toLocaleString()}</p></div>
                         <div><p className="text-muted-foreground">Share Price:</p><p className="font-semibold">{formatCurrency(sharePrice)}</p></div>
                         <div className="col-span-2"><p className="text-muted-foreground">Total Subscription Amount:</p><p className="font-bold text-2xl text-primary">{formatCurrency(totalAmount)}</p></div>
                       </div>
@@ -1114,13 +1114,6 @@ export default function ShareSubscription() {
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
-
-                <Alert>
-                  <FileText className="h-4 w-4" />
-                  <AlertDescription>
-                    This subscription prepares a SAFE note. Payment must be confirmed before final documents; ordinary shares are issued only after SAFE conversion.
-                  </AlertDescription>
-                </Alert>
 
                 {submitError && (
                   <Alert variant="destructive">
@@ -1686,7 +1679,7 @@ export default function ShareSubscription() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                         <p className="text-xs text-muted-foreground">Share status</p>
-                        <p className="text-lg font-semibold">SAFE conversion pending</p>
+                        <p className="text-lg font-semibold">Pending confirmation</p>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                         <p className="text-xs text-muted-foreground">Dividends</p>
