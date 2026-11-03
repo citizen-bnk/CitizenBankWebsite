@@ -16,6 +16,7 @@ UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 FIELDS = {
     "full_name": 150, "phone": 30, "country": 100, "street_address": 300,
     "city": 100, "employer": 100, "occupation": 100, "bio": 2000,
+    "source_of_funds": 300, "investor_type": 100, "investment_purpose": 300,
 }
 
 
@@ -88,7 +89,8 @@ async def profile_service(request: Request) -> dict:
                         await conn.execute("UPDATE platform.person SET display_name=$2, version=version+1, updated_at=now() WHERE id=$1", person_id, update["full_name"])
         profile = await conn.fetchrow(
             """SELECT full_name, phone, country, street_address, city, employer,
-                      occupation, bio, version FROM user_profiles WHERE user_id=$1""", subject,
+                      occupation, bio, source_of_funds, investor_type,
+                      investment_purpose, version FROM user_profiles WHERE user_id=$1""", subject,
         )
         roles = await conn.fetch(
             """SELECT r.role_name FROM user_roles ur JOIN roles r ON r.id=ur.role_id
