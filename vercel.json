@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "node scripts/build-api-shell.mjs",
+  "outputDirectory": "dist",
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
