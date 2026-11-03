@@ -18,14 +18,15 @@ os.environ.setdefault("ENV", "prod")
 os.environ.setdefault("APP_ENV", "production")
 
 # The restored website used four database variable names. The current Vercel
-# integration supplies DATABASE_URL and DATABASE_URL_UNPOOLED. Keep explicit
-# legacy values when present, but make every old router use the same database.
+# integration supplies DATABASE_URL and DATABASE_URL_UNPOOLED. These are the
+# canonical connections: inherited legacy aliases must never route a subset of
+# requests to an older database after a branch switches databases.
 if os.environ.get("DATABASE_URL"):
-    os.environ.setdefault("DATABASE_URL_PROD", os.environ["DATABASE_URL"])
-    os.environ.setdefault("DATABASE_URL_DEV", os.environ["DATABASE_URL"])
+    os.environ["DATABASE_URL_PROD"] = os.environ["DATABASE_URL"]
+    os.environ["DATABASE_URL_DEV"] = os.environ["DATABASE_URL"]
 if os.environ.get("DATABASE_URL_UNPOOLED"):
-    os.environ.setdefault("DATABASE_URL_ADMIN_PROD", os.environ["DATABASE_URL_UNPOOLED"])
-    os.environ.setdefault("DATABASE_URL_ADMIN_DEV", os.environ["DATABASE_URL_UNPOOLED"])
+    os.environ["DATABASE_URL_ADMIN_PROD"] = os.environ["DATABASE_URL_UNPOOLED"]
+    os.environ["DATABASE_URL_ADMIN_DEV"] = os.environ["DATABASE_URL_UNPOOLED"]
 
 import asyncpg  # noqa: E402
 
