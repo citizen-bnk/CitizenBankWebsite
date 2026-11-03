@@ -26,17 +26,16 @@ describe("resolveApiUrl", () => {
 describe("hubDestinations: what each demo account is offered", () => {
   const labels = (roles: string[]) => hubDestinations(roles).map((d) => d.label);
   it("customer: no Hub workspace (banking only)", () => expect(labels(["customer"])).toEqual([]));
-  it("investor and shareholder: their investments", () => {
-    expect(labels(["investor"])).toEqual(["My investments"]);
-    expect(labels(["investor", "shareholder"])).toEqual(["My investments"]);
+  it("investor, shareholder and board member: website self-service, no Hub workspace", () => {
+    expect(labels(["investor"])).toEqual([]);
+    expect(labels(["investor", "shareholder"])).toEqual([]);
+    expect(labels(["board_member", "investor"])).toEqual([]);
   });
-  it("board member: the board portal and their investments", () =>
-    expect(labels(["board_member", "investor"])).toEqual(["Board portal", "My investments"]));
   it("staff: the back office only", () => expect(labels(["staff", "back_office"])).toEqual(["Back office"]));
   it("admin: administration and the back office", () =>
     expect(labels(["admin", "super_admin"])).toEqual(["Administration", "Back office"]));
-  it("combined: board and investments, no back office or administration", () =>
-    expect(labels(["customer", "investor", "shareholder", "board_member"])).toEqual(["Board portal", "My investments"]));
+  it("combined customer, investor and board roles stay on the website", () =>
+    expect(labels(["customer", "investor", "shareholder", "board_member"])).toEqual([]));
   it("nobody below staff is ever offered the back office or administration", () => {
     for (const roles of [["customer"], ["investor"], ["shareholder"], ["board_member"], ["board_member", "investor"]]) {
       expect(labels(roles)).not.toContain("Back office");

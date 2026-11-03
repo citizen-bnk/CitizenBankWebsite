@@ -92,10 +92,6 @@ const DESTINATIONS: (Destination & { roles: string[] })[] = [
     description: "Users, roles, suspension and the audit trail" },
   { roles: ["staff", "back_office", "super_admin"], label: "Back office", path: "/back-office-dashboard",
     description: "Payments, documents, invitations, the data room and licensing" },
-  { roles: ["board_member"], label: "Board portal", path: "/board-portal",
-    description: "Board papers, meetings and votes" },
-  { roles: ["investor", "shareholder"], label: "My investments", path: "/my-subscriptions",
-    description: "Subscriptions, proof of payment, receipts and certificates" },
 ];
 
 /** The Citizen Hub workspaces a person's roles open, in the order they should be offered. */

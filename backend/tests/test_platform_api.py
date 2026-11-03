@@ -37,7 +37,7 @@ def env(monkeypatch, key):
     monkeypatch.setenv("PLATFORM_ISSUER", ISS)
     monkeypatch.setenv("BANKING_URL", "https://banking.example.test/")
     monkeypatch.setenv("APP_URL", "https://app.example.test")
-    monkeypatch.delenv("HUB_URL", raising=False)
+    monkeypatch.setenv("HUB_URL", "https://hub.example.test")
     monkeypatch.delenv("DEMO_MODE", raising=False)
     conn = FakeConn()
     state = {"person": None, "conn": conn}
@@ -90,12 +90,11 @@ async def test_app_handoff_uses_the_app_audience_and_host(env):
 
 
 @pytest.mark.parametrize("roles", [("investor",), ("board_member", "shareholder"), ("staff", "super_admin"), ()])
-async def test_people_without_the_customer_role_cannot_enter_banking(env, roles):
+async def test_verified_person_can_enter_banking_without_an_active_product(env, roles):
     env["person"] = person(*roles)
-    with pytest.raises(HTTPException) as exc:
-        await handoff("banking")
-    assert exc.value.status_code == 403
-    assert env["conn"].audit == []
+    out = await handoff("banking")
+    assert out.url.startswith("https://banking.example.test/sso?")
+    assert env["conn"].audit == [("stack-user-1", "banking")]
 
 
 async def test_unknown_audience_is_rejected_by_validation():
@@ -146,9 +145,9 @@ async def test_response_is_not_cacheable(env):
 async def test_services_list_reflects_roles(env):
     env["person"] = person("investor")
     services = {s.id: s for s in await api.platform_services(USER)}
-    assert services["hub"].eligible and services["hub"].url == "/"
-    assert not services["banking"].eligible and services["banking"].url == "https://banking.example.test"
-    env["person"] = person("customer", "investor", "board_member")
+    assert not services["hub"].eligible
+    assert services["banking"].eligible and services["banking"].url == "https://banking.example.test"
+    env["person"] = person("customer", "investor", "staff")
     services = {s.id: s for s in await api.platform_services(USER)}
     assert all(s.eligible for s in services.values())
 
@@ -187,7 +186,7 @@ def test_router_is_public_in_routers_json_and_endpoints_still_require_a_user():
     cfg = json.loads(pathlib.Path("routers.json").read_text())
     assert cfg["routers"]["platform"]["disableAuth"] is True
     # Router-level auth is off, so each protected endpoint must declare AuthorizedUser itself.
-    public = {"/platform/jwks.json", "/platform/config", "/platform/demo-accounts"}
+    public = {"/platform/jwks.json", "/platform/config", "/platform/demo-accounts", "/platform/profile-service"}
     for route in api.router.routes:
         names = {d.call.__name__ for d in route.dependant.dependencies}
         if route.path in public:

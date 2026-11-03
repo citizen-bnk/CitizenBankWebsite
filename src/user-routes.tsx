@@ -38,6 +38,7 @@ import BackOfficeSentItems from "./pages/BackOfficeSentItems.tsx";
 import BackOfficeShareClasses from "./pages/BackOfficeShareClasses.tsx";
 import BackOfficeSubscribeOnBehalf from "./pages/BackOfficeSubscribeOnBehalf.tsx";
 import BackOfficeSubscriptions from "./pages/BackOfficeSubscriptions.tsx";
+import BankingEntry from "./pages/BankingEntry.tsx";
 import BoardDocuments from "./pages/BoardDocuments.tsx";
 import BoardInvestment from "./pages/BoardInvestment.tsx";
 import BoardMeetings from "./pages/BoardMeetings.tsx";
@@ -85,6 +86,9 @@ import UnauthorizedPage from "./pages/UnauthorizedPage.tsx";
 import VerifyCertificate from "./pages/VerifyCertificate.tsx";
 
 export const userRoutes: RouteObject[] = [
+
+	{ path: "/enter-banking", element: <UserGuard><BankingEntry audience="banking" /></UserGuard> },
+	{ path: "/enter-app", element: <UserGuard><BankingEntry audience="app" /></UserGuard> },
 
 	{ path: "/auth/redirect", element: <LoginRedirect /> },
 	{ path: "/auth/*", element: <StackHandlerRoutes /> },

@@ -26,8 +26,9 @@ export const LoginRedirect = () => {
     });
   }
 
-  const next =
-    queryParams.get("next") || popFromLocalStorage("dtbn-login-next");
+  const candidate = queryParams.get("next") || popFromLocalStorage("dtbn-login-next");
+  const next = candidate && candidate.startsWith("/") && !candidate.startsWith("//") &&
+    !candidate.includes("\\") && !/[\u0000-\u001f\u007f]/.test(candidate) ? candidate : null;
 
   if (next) {
     return <Navigate to={next} replace={true} />;

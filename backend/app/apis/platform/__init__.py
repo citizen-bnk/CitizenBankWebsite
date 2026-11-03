@@ -8,7 +8,7 @@ from typing import Literal
 from urllib.parse import quote
 
 import asyncpg
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Request
 from pydantic import BaseModel
 
 from app.auth import AuthorizedUser
@@ -16,20 +16,26 @@ from app.libs import platform_tokens as tokens
 from app.libs.demo_seed import ACCOUNTS as DEMO_ACCOUNTS
 from app.libs.database import db_connection
 from app.libs.platform_people import ensure_person
+from .profile_service import profile_service
 
 router = APIRouter(prefix="/platform")
+
+
+@router.api_route("/profile-service", methods=["GET", "PATCH"])
+async def platform_profile_service(request: Request) -> dict:
+    return await profile_service(request)
 
 # service id -> (display name, env var holding its base URL, audience for handoff, roles that may enter)
 SERVICES: dict[str, dict] = {
     "hub": {
         "name": "Citizen Hub", "url_env": "HUB_URL", "audience": None,
-        "roles": {"investor", "shareholder", "board_member", "staff", "back_office", "admin", "super_admin"},
+        "roles": {"staff", "back_office", "admin", "super_admin"},
     },
     "banking": {
-        "name": "Internet Banking", "url_env": "BANKING_URL", "audience": "banking", "roles": {"customer"},
+        "name": "Internet Banking", "url_env": "BANKING_URL", "audience": "banking", "roles": None,
     },
     "app": {
-        "name": "Citizen Bank App", "url_env": "APP_URL", "audience": "app", "roles": {"customer"},
+        "name": "Citizen Bank App", "url_env": "APP_URL", "audience": "app", "roles": None,
     },
 }
 
@@ -45,8 +51,6 @@ def safe_next_path(value: str | None) -> str:
 
 def _service_url(service_id: str) -> str | None:
     value = os.environ.get(SERVICES[service_id]["url_env"], "").strip().rstrip("/")
-    if service_id == "hub" and not value:
-        return "/"  # the Hub screens are part of this website unless HUB_URL says otherwise
     return value or None
 
 
@@ -99,7 +103,17 @@ class HandoffResponse(BaseModel):
 async def _person_for(user) -> dict:
     try:
         async with db_connection() as conn:
-            return await ensure_person(conn, user.sub)
+            person = await ensure_person(conn, user.sub)
+            # Stack Auth may create an identity before the optional profile form.
+            # The verified identity-provider address must still be available to Core.
+            if user.email and person["email"] != user.email.strip().lower():
+                email = user.email.strip().lower()
+                await conn.execute(
+                    "UPDATE platform.person SET primary_email=$2, updated_at=now() WHERE id=$1",
+                    person["person_id"], email,
+                )
+                person["email"] = email
+            return person
     except asyncpg.UndefinedTableError:
         raise HTTPException(status_code=503, detail="The platform schema is not installed yet") from None
 
@@ -158,7 +172,7 @@ async def platform_services(user: AuthorizedUser) -> list[ServiceInfo]:
         url = _service_url(sid)
         if not url:
             out.append(ServiceInfo(id=sid, name=svc["name"], url=None, eligible=False, reason="Not available yet"))
-        elif not held & svc["roles"]:
+        elif svc["roles"] is not None and not held & svc["roles"]:
             out.append(ServiceInfo(id=sid, name=svc["name"], url=url, eligible=False,
                                    reason="Your account does not include this service"))
         else:
@@ -174,7 +188,7 @@ async def platform_handoff(body: HandoffRequest, user: AuthorizedUser, response:
     if not base:
         raise HTTPException(status_code=503, detail=f"{SERVICES[service_id]['name']} is not configured")
     person = await _person_for(user)
-    if not set(person["roles"]) & SERVICES[service_id]["roles"]:
+    if SERVICES[service_id]["roles"] is not None and not set(person["roles"]) & SERVICES[service_id]["roles"]:
         raise HTTPException(status_code=403, detail=f"Your account does not include {SERVICES[service_id]['name']}")
     try:
         token = tokens.issue_handoff_token(

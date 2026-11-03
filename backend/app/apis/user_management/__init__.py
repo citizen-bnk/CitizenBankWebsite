@@ -247,14 +247,6 @@ async def register_user(request: UserRegistrationRequest, user: AuthorizedUser) 
     finally:
         await conn.close()
     
-    # Auto-assign 'customer' role to new user (outside try-finally to not block on failure)
-    try:
-        await assign_role_to_user(user.sub, "customer")
-        print(f"🎭 Automatically assigned 'customer' role to {request.email}")
-    except Exception as e:
-        print(f"⚠️ Failed to auto-assign customer role: {e}")
-
-
 # ========== Profile Retrieval Endpoints ==========
 
 async def get_profile_stages(conn: asyncpg.Connection, user_id: str) -> tuple[List[str], bool]:
