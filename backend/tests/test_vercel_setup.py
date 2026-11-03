@@ -82,7 +82,7 @@ import importlib.util; print("shim", importlib.util.find_spec("data" + "button")
     assert got["config"].strip() == "200", "routers.json was not found, so public routes demand a login"
     assert got["signed_out_me"].strip() == "401" and got["cron_without_secret"].strip() == "401"
     assert got["paths"].strip() == "True"
-    # The shared Windows test runtime can have Databutton installed globally;
+    # The shared Windows test runtime can include an old compatibility package;
     # deployment uses the pinned function requirements in a clean environment.
     if sys.platform != "win32":
         assert got["shim"].strip() == "True"
