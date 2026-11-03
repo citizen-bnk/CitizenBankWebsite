@@ -21,7 +21,7 @@ export interface Props {
 }
 
 export function RoleGuard({ allowedRoles, children, deniedMessage, requireAll = false }: Props) {
-  const { roles, loading, hasAnyRole, hasAllRoles } = useUserRoles();
+  const { roles, loading, error, hasAnyRole, hasAllRoles, clearCache } = useUserRoles();
   const navigate = useNavigate();
 
   // Show loading state
@@ -34,6 +34,18 @@ export function RoleGuard({ allowedRoles, children, deniedMessage, requireAll = 
         </div>
       </div>
     );
+  }
+
+  if (error) {
+    return <main className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center gap-4 p-6 text-center">
+      <ShieldAlert className="h-8 w-8 text-[#6d52a2]" />
+      <h1 className="text-2xl font-semibold">Access check unavailable</h1>
+      <p role="alert">We could not check your permissions. Please try again.</p>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Button onClick={clearCache}>Retry</Button>
+        <Button variant="outline" onClick={() => navigate('/')}>Website home</Button>
+      </div>
+    </main>;
   }
 
   // Check if user has required roles

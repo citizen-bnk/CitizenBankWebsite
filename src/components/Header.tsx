@@ -9,6 +9,7 @@ import { MobileNav } from "./MobileNav";
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
 import { bankingDestination } from "utils/bankingDestination";
+import { useInvestorAccess } from "utils/useInvestorAccess";
 
 const logoUrl = "/brand/logo.png";
 
@@ -19,6 +20,7 @@ export function Header() {
   const location = useLocation();
   const user = useUser();
   const { roles, loading: rolesLoading } = useUserRoles();
+  const investorAccess = useInvestorAccess();
 
   const handleLogout = async () => {
     await stackClientApp.signOut();
@@ -49,13 +51,13 @@ export function Header() {
       );
     }
     
-    if (roles.includes('customer')) {
+    if (user) {
       links.push(
-        { label: 'Customer Portal', path: '/customer-portal', icon: User },
+        { label: 'Banking', path: '/enter-banking', icon: User },
       );
     }
     
-    if (roles.includes('investor') || roles.includes('shareholder')) {
+    if (investorAccess) {
       links.push(
         { label: 'Investor Portal', path: '/invest', icon: User },
         { label: 'Investor Data Room', path: '/data-room', icon: Shield },
@@ -91,9 +93,7 @@ export function Header() {
             <a href={bankingDestination("/login")} className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               Business Banking
             </a>
-            <Link to="/invest" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
-              Invest
-            </Link>
+            {investorAccess && <Link to="/invest" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">Invest</Link>}
             <Link to="/" className="text-sm text-gray-700 hover:text-[#6d52a2] font-medium transition-colors">
               About
             </Link>
@@ -217,28 +217,6 @@ export function Header() {
                         >
                           Customer Portal
                         </a>
-                        <a
-                          href="/invest"
-                          className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          Investor Portal
-                        </a>
-                        <Link
-                          to="/board-portal"
-                          className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          Board Portal
-                        </Link>
-                        <div className="border-t border-gray-200 my-1"></div>
-                        <Link
-                          to="/back-office-dashboard"
-                          className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
-                          onClick={() => setShowUserMenu(false)}
-                        >
-                          Back Office Login
-                        </Link>
                       </div>
                     </div>
                   )}

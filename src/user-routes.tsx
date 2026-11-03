@@ -5,6 +5,7 @@ import { RouteObject } from "react-router-dom";
 
 import { UserGuard } from "./app/auth";
 import { InvestorAccessGate } from "./components/InvestorAccessGate";
+import { RoleGuard } from "./components/RoleGuard";
 
 
 import { StackHandlerRoutes, LoginRedirect } from "./app/auth";
@@ -54,7 +55,6 @@ import CompleteProfile from "./pages/CompleteProfile.tsx";
 import Contact from "./pages/Contact.tsx";
 import CookiePolicy from "./pages/CookiePolicy.tsx";
 import CreateMeeting from "./pages/CreateMeeting.tsx";
-import CustomerPortal from "./pages/CustomerPortal.tsx";
 import DataRoom from "./pages/DataRoom.tsx";
 import DataRoomAccess from "./pages/DataRoomAccess.tsx";
 import Disclosures from "./pages/Disclosures.tsx";
@@ -86,7 +86,7 @@ import TermsOfService from "./pages/TermsOfService.tsx";
 import UnauthorizedPage from "./pages/UnauthorizedPage.tsx";
 import VerifyCertificate from "./pages/VerifyCertificate.tsx";
 
-export const userRoutes: RouteObject[] = [
+const originalRoutes: RouteObject[] = [
 
 	{ path: "/enter-banking", element: <UserGuard><BankingEntry audience="banking" /></UserGuard> },
 	{ path: "/enter-app", element: <UserGuard><BankingEntry audience="app" /></UserGuard> },
@@ -176,8 +176,8 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/cookiepolicy", element: <CookiePolicy /> },
 	{ path: "/create-meeting", element: <UserGuard><CreateMeeting /></UserGuard> },
 	{ path: "/createmeeting", element: <UserGuard><CreateMeeting /></UserGuard> },
-	{ path: "/customer-portal", element: <UserGuard><CustomerPortal /></UserGuard> },
-	{ path: "/customerportal", element: <UserGuard><CustomerPortal /></UserGuard> },
+	{ path: "/customer-portal", element: <UserGuard><BankingEntry audience="banking" /></UserGuard> },
+	{ path: "/customerportal", element: <UserGuard><BankingEntry audience="banking" /></UserGuard> },
 	{ path: "/data-room", element: <UserGuard><InvestorAccessGate><DataRoom /></InvestorAccessGate></UserGuard> },
 	{ path: "/dataroom", element: <UserGuard><InvestorAccessGate><DataRoom /></InvestorAccessGate></UserGuard> },
 	{ path: "/data-room-access", element: <UserGuard><InvestorAccessGate><DataRoomAccess /></InvestorAccessGate></UserGuard> },
@@ -230,3 +230,21 @@ export const userRoutes: RouteObject[] = [
 	{ path: "/verifycertificate", element: <VerifyCertificate /> },
 
 ];
+
+/** The original pages remain in place; route access follows the user's website roles. */
+export const userRoutes: RouteObject[] = originalRoutes.map(route => {
+  const path = route.path || "";
+  const isAdmin = path.startsWith("/admin-") || path.startsWith("/admin");
+  const isSuperAdmin = path.startsWith("/admin-setup-guide") || path.startsWith("/adminsetupguide");
+  const isOperations = path.startsWith("/back-office-") || path.startsWith("/backoffice") || path === "/governance-admin" || path === "/governanceadmin";
+  const isBoard = path.startsWith("/board-") || path.startsWith("/boardportal") || path.startsWith("/boarddocuments") || path.startsWith("/boardinvestment") || path.startsWith("/boardmeetings") || path.startsWith("/boardmember") || path.startsWith("/boardonboarding") || path === "/meeting-details" || path === "/meetingdetails" || path === "/create-meeting" || path === "/createmeeting" || path === "/governance";
+  const roles = isSuperAdmin ? ["super_admin"]
+    : isAdmin ? ["admin", "super_admin"]
+    : isOperations ? ["staff", "back_office", "admin", "super_admin"]
+    : isBoard ? ["board_member", "admin", "super_admin"] : null;
+  if (!roles || !route.element) return route;
+  return {
+    ...route,
+    element: <UserGuard><RoleGuard allowedRoles={roles}>{route.element}</RoleGuard></UserGuard>,
+  };
+});

@@ -147,48 +147,42 @@ async def accept_invitation(
     """Accept an invitation and perform necessary role assignments."""
     conn = await get_db_connection()
     try:
-        # Get invitation details
-        invitation = await conn.fetchrow(
-            "SELECT * FROM invitations WHERE token = $1 AND status = 'pending'",
-            token
-        )
-        
-        if not invitation:
-            return {"success": False, "message": "Invalid or already used invitation"}
-        
-        # Check expiry
-        if invitation['expires_at'] < datetime.now(timezone.utc):
-            return {"success": False, "message": "Invitation has expired"}
-        
-        # Mark invitation as accepted
-        await conn.execute(
-            """
-            UPDATE invitations 
-            SET status = 'accepted', accepted_at = $1
-            WHERE token = $2
-            """,
-            datetime.now(timezone.utc), token
-        )
-        
-        # If board member, create board_members record
-        if invitation['role'] == 'board_member':
-            term_years = 3
-            term_end_date = datetime.now(timezone.utc).date() + timedelta(days=term_years * 365)
-            
-            await conn.execute(
-                """
-                INSERT INTO board_members (
-                    user_id, email, full_name, position, term_years, 
-                    term_end_date, appointed_by
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ON CONFLICT (user_id) DO NOTHING
-                """,
-                user_id, user_email, user_name, 
-                invitation['position'] or 'member',
-                term_years, term_end_date, invitation['invited_by']
+        async with conn.transaction():
+            invitation = await conn.fetchrow(
+                "SELECT * FROM invitations WHERE token = $1 AND status = 'pending' FOR UPDATE",
+                token,
             )
-        
+            if not invitation:
+                return {"success": False, "message": "Invalid or already used invitation"}
+            if invitation['email'].strip().casefold() != user_email.strip().casefold():
+                return {"success": False, "message": "This invitation belongs to another email address"}
+            if invitation['expires_at'] < datetime.now(timezone.utc):
+                return {"success": False, "message": "Invitation has expired"}
+
+            role = await conn.fetchval("SELECT id FROM roles WHERE role_name=$1", invitation['role'])
+            if role is None:
+                return {"success": False, "message": "The invited role is not available"}
+            await conn.execute(
+                """INSERT INTO user_roles (user_id, role_id, assigned_by)
+                   VALUES ($1, $2, $3) ON CONFLICT DO NOTHING""",
+                user_id, role, invitation['invited_by'],
+            )
+            await conn.execute(
+                """UPDATE invitations SET status='accepted', accepted_at=$1 WHERE token=$2""",
+                datetime.now(timezone.utc), token,
+            )
+            if invitation['role'] == 'board_member':
+                term_years = 3
+                term_end_date = datetime.now(timezone.utc).date() + timedelta(days=term_years * 365)
+                await conn.execute(
+                    """INSERT INTO board_members
+                       (user_id, email, full_name, position, term_years, term_end_date, appointed_by)
+                       VALUES ($1, $2, $3, $4, $5, $6, $7)
+                       ON CONFLICT (user_id) DO NOTHING""",
+                    user_id, user_email, user_name, invitation['position'] or 'member',
+                    term_years, term_end_date, invitation['invited_by'],
+                )
+
         return {
             "success": True,
             "role": invitation['role'],

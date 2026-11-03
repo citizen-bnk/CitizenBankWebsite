@@ -11,6 +11,7 @@ import time
 from fastapi import HTTPException, Request
 
 from app.libs.database import db_connection
+from app.libs.basic_profile import ensure_basic_profile
 
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 FIELDS = {
@@ -61,6 +62,7 @@ async def profile_service(request: Request) -> dict:
         if not person or person["status"] != "active":
             raise HTTPException(404, "Profile is unavailable")
         subject = person["subject"]
+        await ensure_basic_profile(conn, subject, person["primary_email"], person["display_name"])
         if request.method == "PATCH":
             try:
                 update = json.loads(body)

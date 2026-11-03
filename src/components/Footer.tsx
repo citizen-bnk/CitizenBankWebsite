@@ -3,11 +3,15 @@ import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
 import { useState } from 'react';
 import { bankingDestination } from 'utils/bankingDestination';
+import { useInvestorAccess } from 'utils/useInvestorAccess';
+import { useUserRoles } from 'utils/useUserRoles';
 
 export function Footer() {
   const logoUrl = "/brand/logo.png";
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [platform, setPlatform] = useState('');
+  const investorAccess = useInvestorAccess();
+  const { roles } = useUserRoles();
 
   const handleSocialClick = (socialPlatform: string) => {
     setPlatform(socialPlatform);
@@ -54,9 +58,8 @@ export function Footer() {
           <div>
             <h3 className="text-white font-semibold mb-4">Investment</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investment Opportunities</Link></li>
-              <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>
-              <li><Link to="/data-room" className="hover:text-[#8f6ec4] transition-colors">Investor Data Room</Link></li>
+              {investorAccess && <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>}
+              {investorAccess && <li><Link to="/data-room" className="hover:text-[#8f6ec4] transition-colors">Investor Data Room</Link></li>}
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Company Updates</Link></li>
             </ul>
@@ -67,7 +70,7 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">About</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/" className="hover:text-[#8f6ec4] transition-colors">About Us</Link></li>
-              <li><Link to="/board-portal" className="hover:text-[#8f6ec4] transition-colors">Board Portal</Link></li>
+              {roles.includes('board_member') && <li><Link to="/board-portal" className="hover:text-[#8f6ec4] transition-colors">Board Portal</Link></li>}
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Media Center</Link></li>
               <li><Link to="/careers" className="hover:text-[#8f6ec4] transition-colors">Careers</Link></li>
               <li><Link to="/sustainability" className="hover:text-[#8f6ec4] transition-colors">Sustainability</Link></li>

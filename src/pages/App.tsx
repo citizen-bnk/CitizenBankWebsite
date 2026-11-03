@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@stackframe/react";
 import { useUserRoles } from "utils/useUserRoles";
 import { bankingDestination } from "utils/bankingDestination";
+import { useInvestorAccess } from "utils/useInvestorAccess";
 import {
   Users,
   TrendingUp,
@@ -28,6 +29,7 @@ import {
 export default function App() {
   const user = useUser();
   const { roles, loading: rolesLoading } = useUserRoles();
+  const investorAccess = useInvestorAccess();
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
   // Citizen Bank customer images
@@ -47,8 +49,8 @@ export default function App() {
   }, []);
 
   // Determine which portals the user has access to
-  const hasCustomerAccess = roles.includes('customer');
-  const hasInvestorAccess = roles.includes('investor') || roles.includes('shareholder');
+  const hasCustomerAccess = Boolean(user);
+  const hasInvestorAccess = investorAccess;
   const hasBoardAccess = roles.includes('board_member');
   const hasBackOfficeAccess = ['super_admin', 'admin', 'staff', 'back_office'].some(role => roles.includes(role));
 
@@ -113,19 +115,19 @@ export default function App() {
                     Go to Customer Portal
                     <ArrowRight className="h-5 w-5" />
                   </a>
-                  <Link
+                  {hasInvestorAccess && <Link
                     to="/invest"
                     className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors text-center text-sm sm:text-base"
                   >
                     Explore Investments
-                  </Link>
-                  <a
+                  </Link>}
+                  {hasInvestorAccess && <a
                     href="/share-subscription"
                     className="px-6 sm:px-8 py-3 bg-transparent border-2 border-white text-white rounded-lg font-semibold hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
                   >
                     <HandCoins className="h-5 w-5" />
                     Subscribe to Shares
-                  </a>
+                  </a>}
                 </>
               )}
             </div>
@@ -187,7 +189,7 @@ export default function App() {
                   icon={Users}
                   title="Customer Portal"
                   description="Personal and business banking services, accounts, transfers, and loans"
-                  link="/customer-portal"
+                  link="/enter-banking"
                 />
               )}
               {hasInvestorAccess && (
@@ -242,7 +244,7 @@ export default function App() {
             <MetricCard icon={TrendingUp} label="Investment Portfolio" value={850000000} change="15.2%" positive={true} isCurrency={true} />
             <MetricCard icon={Award} label="Customer Satisfaction" value="94%" change="3%" positive={true} />
           </div>
-          <div className="flex flex-wrap gap-4 mt-8"><Link className="rounded-lg bg-[#6d52a2] px-6 py-3 font-semibold text-white" to="/invest">Explore investment opportunities</Link><a className="rounded-lg border border-[#6d52a2] px-6 py-3 font-semibold text-[#6d52a2]" href={bankingDestination("/login")}>Open banking profile</a></div>
+          <div className="flex flex-wrap gap-4 mt-8">{hasInvestorAccess && <Link className="rounded-lg bg-[#6d52a2] px-6 py-3 font-semibold text-white" to="/invest">My investment portfolio</Link>}<a className="rounded-lg border border-[#6d52a2] px-6 py-3 font-semibold text-[#6d52a2]" href={bankingDestination("/login")}>Open banking profile</a></div>
         </div>
       </section>
 

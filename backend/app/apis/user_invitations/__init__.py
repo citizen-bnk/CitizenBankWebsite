@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from app.auth import AuthorizedUser
 from app.libs.database import get_db_connection
 from app.libs.board_management import accept_invitation
+from app.libs.basic_profile import ensure_basic_profile
 
 router = APIRouter()
 
@@ -30,6 +31,7 @@ async def get_current_user_pending_invitations(user: AuthorizedUser) -> List[Inv
     """Get all pending invitations for the logged-in user."""
     conn = await get_db_connection()
     try:
+        await ensure_basic_profile(conn, user.sub, user.email, user.name)
         # Get user email
         user_profile = await conn.fetchrow(
             "SELECT email FROM user_profiles WHERE user_id = $1",
@@ -39,14 +41,14 @@ async def get_current_user_pending_invitations(user: AuthorizedUser) -> List[Inv
         if not user_profile:
             return []
             
-        email = user_profile['email']
+        email = user.email.strip().lower() if user.email else ""
         
         # Find pending invitations for this email
         invitations = await conn.fetch(
             """
             SELECT token, role, invited_by_name, created_at, expires_at, position, message
             FROM invitations
-            WHERE email = $1 AND status = 'pending' AND expires_at > NOW()
+            WHERE lower(email) = $1 AND status = 'pending' AND expires_at > NOW()
             ORDER BY created_at DESC
             """,
             email
@@ -64,6 +66,7 @@ async def accept_my_invitation(
     """Accept an invitation for the logged-in user."""
     conn = await get_db_connection()
     try:
+        await ensure_basic_profile(conn, user.sub, user.email, user.name)
         # Get user details
         user_profile = await conn.fetchrow(
             "SELECT email, full_name FROM user_profiles WHERE user_id = $1",
@@ -73,14 +76,14 @@ async def accept_my_invitation(
         if not user_profile:
             raise HTTPException(status_code=404, detail="User profile not found")
             
-        email = user_profile['email']
+        email = user.email.strip().lower() if user.email else ""
         full_name = user_profile['full_name'] or "User"
         
         # Verify invitation belongs to this user
         invitation = await conn.fetchrow(
             """
             SELECT * FROM invitations 
-            WHERE token = $1 AND email = $2 AND status = 'pending'
+            WHERE token = $1 AND lower(email) = $2 AND status = 'pending'
             """,
             request.token, email
         )

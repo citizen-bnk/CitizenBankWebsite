@@ -56,7 +56,9 @@ async def test_topup_creates_separate_unpaid_record_with_actual_share_class(monk
                 return {"user_id": "investor-id"}
             raise AssertionError(query)
 
-        async def fetchval(self, *_):
+        async def fetchval(self, query, *_):
+            if "FROM user_roles" in query:
+                return True
             return 0
 
         async def execute(self, query, *args):
@@ -91,7 +93,9 @@ async def test_topup_creates_separate_unpaid_record_with_actual_share_class(monk
         id_number="TEST-ID", num_shares=100, payment_method="one-time",
     )
 
-    result = await subscriptions_core.core_create_subscription(request, SimpleNamespace(sub="investor-id"))
+    result = await subscriptions_core.core_create_subscription(
+        request, SimpleNamespace(sub="investor-id", email="investor@example.com", name="Test Investor")
+    )
     assert result.status == "pending"
     insert = next(args for query, args in writes if "INSERT INTO share_subscriptions" in query)
     assert "Class B" in insert

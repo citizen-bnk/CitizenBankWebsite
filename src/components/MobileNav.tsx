@@ -10,12 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { LogoutConfirmDialog } from './LogoutConfirmDialog';
+import { useInvestorAccess } from 'utils/useInvestorAccess';
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const user = useUser();
   const { roles } = useUserRoles();
+  const investorAccess = useInvestorAccess();
   const { profile, fetchProfile } = useUserProfile();
   const navigate = useNavigate();
 
@@ -46,7 +48,7 @@ export function MobileNav() {
       links.push({ label: 'Admin Dashboard', path: '/admin-dashboard', icon: Shield });
     }
     
-    if (roles.includes('super_admin') || roles.includes('staff')) {
+    if (['super_admin', 'admin', 'staff', 'back_office'].some(role => roles.includes(role))) {
       links.push({ label: 'Back Office', path: '/back-office-dashboard', icon: Building2 });
     }
     
@@ -54,11 +56,11 @@ export function MobileNav() {
       links.push({ label: 'Board Portal', path: '/board-portal', icon: User });
     }
     
-    if (roles.includes('customer')) {
-      links.push({ label: 'Customer Portal', path: '/customer-portal', icon: User });
+    if (user) {
+      links.push({ label: 'Banking', path: '/enter-banking', icon: User });
     }
     
-    if (roles.includes('investor')) {
+    if (investorAccess) {
       links.push({ label: 'Investor Portal', path: '/invest', icon: User });
     }
     
@@ -121,14 +123,14 @@ export function MobileNav() {
               <span>Home</span>
             </Link>
             
-            <Link
+            {investorAccess && <Link
               to="/invest"
               onClick={handleLinkClick}
               className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Building2 className="h-5 w-5" />
               <span>Invest</span>
-            </Link>
+            </Link>}
 
             <Link
               to="/foreign-exchange"

@@ -19,6 +19,7 @@ from app.libs.email_queue import enqueue_email
 from app.libs.email_templates import create_payment_instructions_email
 from app.libs.profile_completion_reminders import schedule_profile_completion_reminder
 from app.libs.rbac import check_user_has_any_role
+from app.libs.basic_profile import ensure_basic_profile
 
 router = APIRouter(prefix="/subscriptions/core")
 
@@ -149,6 +150,7 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
             )
         
         # Only the signed-in investor may use this route. Admins use create-on-behalf.
+        await ensure_basic_profile(conn, user.sub, user.email, user.name)
         profile = await conn.fetchrow(
             "SELECT email FROM user_profiles WHERE user_id = $1", user.sub
         )
@@ -300,7 +302,8 @@ async def core_get_subscription_status(subscription_id: str, user: AuthorizedUse
 
         profile = await conn.fetchrow("SELECT email FROM user_profiles WHERE user_id = $1", user.sub)
         owns_subscription = subscription['user_id'] == user.sub or (
-            profile and profile['email'] and profile['email'].casefold() == subscription['email'].casefold()
+            subscription['user_id'] is None and user.email and
+            user.email.casefold() == subscription['email'].casefold()
         )
         if not owns_subscription:
             role = await conn.fetchrow("""
@@ -385,14 +388,9 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
     Public endpoint - accessible by any logged-in user to view their own subscriptions.
     """
     async with db_connection() as conn:
-        # Get user's email from user_profiles
-        user_email = None
-        profile = await conn.fetchrow(
-            "SELECT email FROM user_profiles WHERE user_id = $1",
-            user.sub
-        )
-        if profile:
-            user_email = profile['email']
+        # An unclaimed administrator-created record may be found by the signed-in
+        # identity-provider email. A record owned by another identity never may.
+        user_email = user.email
         
         # Get user's subscriptions - match by user_id OR email
         if user_email:
@@ -403,7 +401,7 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
                        certificate_url, payment_deadline, created_at, updated_at,
                        created_by_admin, admin_user_id
                 FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
+                WHERE user_id = $1 OR (user_id IS NULL AND lower(email) = lower($2))
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
@@ -493,14 +491,7 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
         )
     
     async with db_connection() as conn:
-        # Get user's email from user_profiles
-        user_email = None
-        profile = await conn.fetchrow(
-            "SELECT email FROM user_profiles WHERE user_id = $1",
-            user.sub
-        )
-        if profile:
-            user_email = profile['email']
+        user_email = user.email
         
         # Get user's subscriptions - match by user_id OR email
         if user_email:
@@ -510,7 +501,7 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, created_at, updated_at
                 FROM share_subscriptions
-                WHERE user_id = $1 OR email = $2
+                WHERE user_id = $1 OR (user_id IS NULL AND lower(email) = lower($2))
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
@@ -567,12 +558,7 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
 async def core_get_subscription_details(subscription_id: str, user: AuthorizedUser) -> dict:
     """Get detailed subscription info with payment history and certificate"""
     async with db_connection() as conn:
-        # Get user email
-        profile = await conn.fetchrow(
-            "SELECT email FROM user_profiles WHERE user_id = $1",
-            user.sub
-        )
-        user_email = profile['email'] if profile else None
+        user_email = user.email
         
         # Get subscription
         sub = await conn.fetchrow("""
@@ -581,7 +567,8 @@ async def core_get_subscription_details(subscription_id: str, user: AuthorizedUs
                    installment_plan, status, certificate_number, certificate_issued_date,
                    certificate_url, created_at, updated_at
             FROM share_subscriptions
-            WHERE subscription_id = $1 AND (user_id = $2 OR email = $3)
+            WHERE subscription_id = $1 AND
+                  (user_id = $2 OR (user_id IS NULL AND lower(email) = lower($3)))
         """, subscription_id, user.sub, user_email)
         
         if not sub:

@@ -280,6 +280,8 @@ async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
     conn = await get_db_connection()
     
     try:
+        from app.libs.basic_profile import ensure_basic_profile
+        await ensure_basic_profile(conn, user.sub, user.email, user.name)
         profile = await conn.fetchrow("""
             SELECT user_id, email, full_name, phone, id_number, account_type, status, created_at,
                    street_address, city, state_province, postal_code, country,
@@ -307,11 +309,18 @@ async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
 
 
 @router.get("/profile/{user_id}")
-async def get_user_profile_by_id(user_id: str) -> UserDetailsResponse:
+async def get_user_profile_by_id(user_id: str, user: AuthorizedUser) -> UserDetailsResponse:
     """Get comprehensive user details by user ID (admin use)"""
     conn = await get_db_connection()
     
     try:
+        allowed = await conn.fetchval(
+            """SELECT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+               WHERE ur.user_id=$1 AND r.role_name IN ('admin','super_admin','back_office'))""",
+            user.sub,
+        )
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Administrator access is required to view another user's profile.")
         # Get basic profile
         profile = await conn.fetchrow("""
             SELECT user_id, email, full_name, phone, id_number, account_type, status, created_at,
@@ -434,6 +443,8 @@ async def update_user_profile(request: UserProfileUpdate, user: AuthorizedUser) 
     conn = await get_db_connection()
     
     try:
+        from app.libs.basic_profile import ensure_basic_profile
+        await ensure_basic_profile(conn, user.sub, user.email, user.name)
         # Get current version if not provided
         if request.version is None:
             current_version = await conn.fetchval(
