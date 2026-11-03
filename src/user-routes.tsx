@@ -241,7 +241,7 @@ export const userRoutes: RouteObject[] = originalRoutes.map(route => {
   const roles = isSuperAdmin ? ["super_admin"]
     : isAdmin ? ["admin", "super_admin"]
     : isOperations ? ["staff", "back_office", "admin", "super_admin"]
-    : isBoard ? ["board_member", "admin", "super_admin"] : null;
+    : isBoard ? ["board_member"] : null;
   if (!roles || !route.element) return route;
   return {
     ...route,

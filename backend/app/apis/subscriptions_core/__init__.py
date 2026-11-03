@@ -300,7 +300,6 @@ async def core_get_subscription_status(subscription_id: str, user: AuthorizedUse
         if not subscription:
             raise HTTPException(status_code=404, detail="Subscription not found")
 
-        profile = await conn.fetchrow("SELECT email FROM user_profiles WHERE user_id = $1", user.sub)
         owns_subscription = subscription['user_id'] == user.sub or (
             subscription['user_id'] is None and user.email and
             user.email.casefold() == subscription['email'].casefold()
