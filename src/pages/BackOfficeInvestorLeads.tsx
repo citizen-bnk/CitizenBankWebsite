@@ -97,12 +97,12 @@ const BackOfficeInvestorLeads = () => {
   });
   
   const [inviteForm, setInviteForm] = useState<Partial<SendInvitationRequest>>({
-    share_class: "Class A - Ordinary Shares",
-    minimum_investment: 10000,
+    share_class: "Class B",
+    minimum_investment: 10,
     special_terms: "",
     contact_person: "Investor Relations Team",
-    contact_email: "invest@citizenhub.co.za",
-    contact_phone: "+266 2231 2345",
+    contact_email: "admin@citizenbank.co.ls",
+    contact_phone: "",
   });
 
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -797,8 +797,7 @@ const BackOfficeInvestorLeads = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Class A - Ordinary Shares">Class A - Ordinary Shares</SelectItem>
-                  <SelectItem value="Class B - Preference Shares">Class B - Preference Shares</SelectItem>
+                  <SelectItem value="Class B">Class B - Investor ordinary shares</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -861,8 +860,7 @@ const BackOfficeInvestorLeads = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Class A - Ordinary Shares">Class A - Ordinary Shares</SelectItem>
-                  <SelectItem value="Class B - Preference Shares">Class B - Preference Shares</SelectItem>
+                  <SelectItem value="Class B">Class B - Investor ordinary shares</SelectItem>
                 </SelectContent>
               </Select>
             </div>

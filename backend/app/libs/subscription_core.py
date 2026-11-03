@@ -59,12 +59,12 @@ async def get_share_availability_data(conn: asyncpg.Connection) -> ShareAvailabi
         SELECT COALESCE(SUM(num_shares), 0) as total_subscribed,
                COALESCE(SUM(amount_paid), 0) as total_raised
         FROM share_subscriptions
-        WHERE status IN ('active', 'pending', 'partial', 'completed')
+        WHERE share_class = 'Class B' AND status IN ('active', 'pending', 'partial', 'completed')
     """)
     
     subscribed = subscribed_data['total_subscribed']
     amount_raised = Decimal(str(subscribed_data['total_raised']))
-    remaining = config['offered_for_public'] - subscribed
+    remaining = max(0, config['offered_for_public'] - subscribed)
     price_per_share = Decimal(str(config['price_per_share']))
     fundraising_target = Decimal(str(config['offered_for_public'])) * price_per_share
     
@@ -76,7 +76,7 @@ async def get_share_availability_data(conn: asyncpg.Connection) -> ShareAvailabi
     return ShareAvailability(
         total_authorized=config['total_authorized'],
         total_issued=config['total_issued'],
-        available_for_subscription=config['total_authorized'] - config['total_issued'],
+        available_for_subscription=remaining,
         offered_for_public=config['offered_for_public'],
         subscribed=subscribed,
         remaining=remaining,

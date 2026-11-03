@@ -20,7 +20,7 @@ interface ShareClass {
   class_name: string;
   display_name: string;
   description: string;
-  price_per_share: number;
+  price_per_share: number | null;
   currency: string;
   min_shares: number;
   max_shares: number;
@@ -78,7 +78,7 @@ export default function BackOfficeShareClasses() {
   const handleEdit = (shareClass: ShareClass) => {
     setEditingClass(shareClass);
     setFormData({
-      price_per_share: shareClass.price_per_share.toString(),
+      price_per_share: shareClass.price_per_share?.toString() || '',
       min_shares: shareClass.min_shares.toString(),
       max_shares: shareClass.max_shares.toString(),
       shares_on_offer: shareClass.shares_on_offer.toString(),
@@ -96,7 +96,7 @@ export default function BackOfficeShareClasses() {
       // Build update payload with only changed fields
       const updatePayload: any = {};
       
-      if (formData.price_per_share !== editingClass.price_per_share.toString()) {
+      if (formData.price_per_share && formData.price_per_share !== (editingClass.price_per_share?.toString() || '')) {
         updatePayload.price_per_share = parseFloat(formData.price_per_share);
       }
       if (formData.min_shares !== editingClass.min_shares.toString()) {
@@ -202,7 +202,7 @@ export default function BackOfficeShareClasses() {
                       <span className="text-sm font-medium text-gray-700">Price per Share</span>
                     </div>
                     <span className="text-lg font-bold text-blue-600">
-                      {formatCurrency(shareClass.price_per_share, shareClass.currency)}
+                      {shareClass.price_per_share === null ? 'Not priced for sale' : formatCurrency(shareClass.price_per_share, shareClass.currency)}
                     </span>
                   </div>
 
@@ -214,7 +214,7 @@ export default function BackOfficeShareClasses() {
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="p-2 bg-gray-50 rounded">
-                        <div className="text-xs text-gray-600">On Offer</div>
+                        <div className="text-xs text-gray-600">Allocation</div>
                         <div className="text-sm font-semibold text-gray-900">
                           {formatNumber(shareClass.shares_on_offer)}
                         </div>

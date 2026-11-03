@@ -1,15 +1,18 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 import asyncpg
 import os
 from datetime import datetime
 import secrets
 from app.auth import AuthorizedUser
-from app.libs.email_queue import get_db_connection, enqueue_email
+from app.libs.email_queue import get_db_connection
 from app.libs.rbac import check_user_has_any_role
 from app.libs.email_templates import create_investor_invitation_email
 from app.libs.url_helpers import get_frontend_path
+from app.libs.email_service import send_email
+from html import escape
+import re
 
 router = APIRouter(prefix="/investor-invitations")
 
@@ -24,8 +27,8 @@ class SendInvitationRequest(BaseModel):
     special_terms: Optional[str] = None
     personalized_message: Optional[str] = None
     contact_person: Optional[str] = "Investor Relations Team"
-    contact_email: Optional[str] = "invest@citizenhub.co.za"
-    contact_phone: Optional[str] = "+266 2231 2345"
+    contact_email: Optional[str] = "admin@citizenbank.co.ls"
+    contact_phone: Optional[str] = ""
 
 class BulkSendInvitationRequest(BaseModel):
     lead_ids: List[int]
@@ -33,8 +36,8 @@ class BulkSendInvitationRequest(BaseModel):
     minimum_investment: float
     special_terms: Optional[str] = None
     contact_person: Optional[str] = "Investor Relations Team"
-    contact_email: Optional[str] = "invest@citizenhub.co.za"
-    contact_phone: Optional[str] = "+266 2231 2345"
+    contact_email: Optional[str] = "admin@citizenbank.co.ls"
+    contact_phone: Optional[str] = ""
 
 class InvitationResponse(BaseModel):
     id: int
@@ -54,6 +57,55 @@ class BulkInvitationResponse(BaseModel):
     failed: int
     invitation_ids: List[int]
     errors: List[dict]
+
+
+class ResendInvitationRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+@router.post("/resend")
+async def resend_existing_invitation(body: ResendInvitationRequest) -> dict[str, str | bool]:
+    """Public recovery without revealing whether an address is on the invitation list."""
+    address = body.email.strip().casefold()
+    generic = {"ok": True, "message": "If an invitation is available, a new link has been sent.", "next": "/"}
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", address):
+        return generic
+    conn = await get_db_connection()
+    try:
+        try:
+            async with conn.transaction():
+                invitation = await conn.fetchrow(
+                    """SELECT id, email, full_name, tracking_token, token, sent_at, status
+                       FROM invitations WHERE lower(email)=$1 AND invitation_type='investor'
+                       ORDER BY created_at DESC LIMIT 1 FOR UPDATE""",
+                    address,
+                )
+                if not invitation or invitation['status'] not in ('pending', 'sent'):
+                    return generic
+                # A public request may resend one invitation at most once per ten minutes.
+                sent_at = invitation['sent_at']
+                if sent_at and (datetime.now(sent_at.tzinfo) - sent_at).total_seconds() < 600:
+                    return generic
+                tracking = invitation['tracking_token'] or secrets.token_urlsafe(32)
+                await conn.execute(
+                    """UPDATE invitations SET tracking_token=$2, expires_at=NOW()+INTERVAL '30 days',
+                       sent_at=NOW(), status='sent' WHERE id=$1""",
+                    invitation['id'], tracking,
+                )
+                url = get_frontend_path('/share-subscription') + '?invite=' + tracking
+                name = escape((invitation['full_name'] or 'Investor').strip())
+                link = escape(url, quote=True)
+                html = (f"<p>Hello {name},</p><p>Your private Citizen Digital investment invitation is ready.</p>"
+                        f"<p><a href=\"{link}\">Continue to share subscription</a></p>"
+                        "<p>If you did not request this, you can ignore this message.</p>")
+                await send_email(to=address, subject='Your Citizen Digital investor invitation',
+                                 content_html=html, sender_type='invitations')
+        except Exception as exc:
+            # The email address is never exposed through the public response.
+            print(f"Investor invitation recovery could not be delivered: {type(exc).__name__}")
+        return generic
+    finally:
+        await conn.close()
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -92,6 +144,8 @@ async def send_invitation(
     Requires super_admin or back_office role.
     """
     await check_admin_access(user)
+    if body.share_class not in ('Class B', 'Class B - Ordinary Shares'):
+        raise HTTPException(status_code=422, detail='Only Class B is available for investor invitations.')
     
     conn = await get_db_connection()
     try:
@@ -112,7 +166,7 @@ async def send_invitation(
         tracking_token = secrets.token_urlsafe(32)
         
         # Create subscription link with tracking
-        subscription_url = f"{get_frontend_path()}/share-subscription?invite={tracking_token}"
+        subscription_url = f"{get_frontend_path('/share-subscription')}?invite={tracking_token}"
         
         # Create invitation record in unified invitations table
         invitation = await conn.fetchrow(
@@ -144,18 +198,8 @@ async def send_invitation(
             contact_phone=body.contact_phone
         )
         
-        # Queue email for sending
-        await enqueue_email(
-            to_email=lead['email'],
-            subject="Exclusive Investment Opportunity - Citizen Digital Bank",
-            html_content=email_html,
-            template_key='investor_invitation',
-            metadata={
-                'lead_id': body.lead_id,
-                'invitation_id': invitation['id'],
-                'tracking_token': tracking_token
-            }
-        )
+        await send_email(to=lead['email'], subject="Exclusive Investment Opportunity - Citizen Digital Bank",
+                         content_html=email_html, sender_type='invitations')
         
         # Update lead status to 'invited' if not already
         if lead['status'] == 'new':
@@ -187,7 +231,7 @@ async def send_invitation(
             opened_at=invitation['opened_at'],
             clicked_at=invitation['clicked_at'],
             responded_at=invitation['responded_at'],
-            email_status='queued'
+            email_status='sent'
         )
         
     finally:
@@ -204,6 +248,8 @@ async def bulk_send_invitations(
     Requires super_admin or back_office role.
     """
     await check_admin_access(user)
+    if body.share_class not in ('Class B', 'Class B - Ordinary Shares'):
+        raise HTTPException(status_code=422, detail='Only Class B is available for investor invitations.')
     
     conn = await get_db_connection()
     try:
@@ -233,7 +279,7 @@ async def bulk_send_invitations(
                 
                 # Generate tracking token
                 tracking_token = secrets.token_urlsafe(32)
-                subscription_url = f"{get_frontend_path()}/share-subscription?invite={tracking_token}"
+                subscription_url = f"{get_frontend_path('/share-subscription')}?invite={tracking_token}"
                 
                 # Create invitation in unified table
                 invitation = await conn.fetchrow(
@@ -265,18 +311,8 @@ async def bulk_send_invitations(
                     contact_phone=body.contact_phone
                 )
                 
-                # Queue email
-                await enqueue_email(
-                    to_email=lead['email'],
-                    subject="Exclusive Investment Opportunity - Citizen Digital Bank",
-                    html_content=email_html,
-                    template_key='investor_invitation_bulk',
-                    metadata={
-                        'lead_id': lead_id,
-                        'invitation_id': invitation['id'],
-                        'tracking_token': tracking_token
-                    }
-                )
+                await send_email(to=lead['email'], subject="Exclusive Investment Opportunity - Citizen Digital Bank",
+                                 content_html=email_html, sender_type='invitations')
                 
                 # Update lead status
                 if lead['status'] == 'new':

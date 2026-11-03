@@ -13,6 +13,7 @@ import traceback
 from fastapi import APIRouter, Header, HTTPException
 
 from app.libs import scheduler
+from app.libs.share_structure_seed import seed_share_structure
 
 router = APIRouter(prefix="/cron")
 
@@ -38,6 +39,8 @@ def _authorized(authorization: str | None) -> bool:
 async def run_job(job: str, authorization: str | None = Header(default=None)) -> dict:
     if not _authorized(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
+    if job == "share-offer-seed":
+        return await seed_share_structure()
     job_name = JOB_SLUGS.get(job)
     func = next((fn for name, _cron, fn in scheduler.JOBS if name == job_name), None)
     if func is None:

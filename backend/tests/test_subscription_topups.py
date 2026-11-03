@@ -47,6 +47,8 @@ async def test_topup_creates_separate_unpaid_record_with_actual_share_class(monk
 
     class Connection:
         async def fetchrow(self, query, *_):
+            if "FROM share_promotions" in query:
+                return None
             if "FROM share_classes" in query:
                 return {"class_name": "Class B", "price_per_share": Decimal("10"),
                         "min_shares": 1000, "shares_on_offer": 10000, "shares_issued": 2000}

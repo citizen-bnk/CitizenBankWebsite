@@ -16,6 +16,7 @@ from app.libs.admin_subscription_emails import (
     send_payment_confirmed_email,
 )
 from app.libs.profile_completion_reminders import schedule_profile_completion_reminder
+from app.libs.share_promotions import active_promotion, effective_price
 
 router = APIRouter()
 
@@ -176,7 +177,7 @@ async def create_subscription_on_behalf(
             """
             SELECT price_per_share, currency, min_shares, shares_on_offer, shares_issued
             FROM share_classes
-            WHERE class_name = $1 AND is_active = true
+            WHERE class_name = $1 AND class_name = 'Class B' AND is_active = true
             FOR UPDATE
             """,
             body.share_class
@@ -217,11 +218,12 @@ async def create_subscription_on_behalf(
             )
         
         # Calculate total amount using database price
-        share_price = float(share_class_data['price_per_share'])
+        existing_user_id = await user_exists(conn, body.email)
+        promotion = await active_promotion(conn, existing_user_id, body.email)
+        share_price = float(effective_price(share_class_data['price_per_share'], promotion))
         total_amount = share_price * body.num_shares
         
         # Check if user exists
-        existing_user_id = await user_exists(conn, body.email)
         user_existed = existing_user_id is not None
         invitation_created = False
         invitation_id = None
@@ -257,7 +259,7 @@ async def create_subscription_on_behalf(
                 payment_method, share_class, status,
                 subscriber_type, user_id, payment_status,
                 created_by_admin, admin_user_id, admin_notes,
-                invitation_id
+                invitation_id, price_per_share, promotion_id
             )
             VALUES (
                 $1, $2, $3, $4, $5,
@@ -265,7 +267,7 @@ async def create_subscription_on_behalf(
                 $8, $9, 'pending',
                 'public', $10, 'pending',
                 true, $11, $12,
-                $13
+                $13, $14, $15
             )
             RETURNING id
             """,
@@ -273,7 +275,7 @@ async def create_subscription_on_behalf(
             body.num_shares, total_amount,
             db_payment_method, body.share_class, existing_user_id,
             user.sub, body.admin_notes,
-            invitation_id
+            invitation_id, share_price, promotion['id'] if promotion else None
         )
         
         print(f"✅ Created subscription {subscription_id} (ID: {subscription['id']})")
@@ -286,7 +288,7 @@ async def create_subscription_on_behalf(
             """,
             user.sub,
             subscription_id,
-            f"Created subscription for {body.full_name} ({body.email}): {body.num_shares} x {body.share_class} = LSL {total_amount:,.2f}"
+            f"Created subscription for {body.full_name} ({body.email}): {body.num_shares} x {body.share_class} = ZAR {total_amount:,.2f}"
         )
         
         # Schedule profile completion reminder if user exists and profile may be incomplete

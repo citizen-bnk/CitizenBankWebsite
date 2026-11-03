@@ -16,6 +16,7 @@ from app.libs import platform_tokens as tokens
 from app.libs.demo_seed import ACCOUNTS as DEMO_ACCOUNTS
 from app.libs.database import db_connection
 from app.libs.platform_people import ensure_person
+from app.libs.institutional_roles import sync_institutional_role
 from .profile_service import profile_service
 
 router = APIRouter(prefix="/platform")
@@ -100,8 +101,10 @@ class HandoffResponse(BaseModel):
     expires_in: int
 
 
-async def _person_for(user) -> dict:
+async def _person_for(user, request: Request | None = None) -> dict:
     try:
+        if request is not None:
+            await sync_institutional_role(request, user)
         async with db_connection() as conn:
             person = await ensure_person(conn, user.sub)
             # Stack Auth may create an identity before the optional profile form.
@@ -152,8 +155,8 @@ async def platform_demo_accounts() -> DemoAccountsResponse:
 
 
 @router.get("/me")
-async def platform_me(user: AuthorizedUser) -> MeResponse:
-    person = await _person_for(user)
+async def platform_me(user: AuthorizedUser, request: Request = None) -> MeResponse:
+    person = await _person_for(user, request)
     return MeResponse(
         person_id=person["person_id"],
         display_name=person["display_name"] or user.name,
@@ -164,8 +167,8 @@ async def platform_me(user: AuthorizedUser) -> MeResponse:
 
 
 @router.get("/services")
-async def platform_services(user: AuthorizedUser) -> list[ServiceInfo]:
-    person = await _person_for(user)
+async def platform_services(user: AuthorizedUser, request: Request = None) -> list[ServiceInfo]:
+    person = await _person_for(user, request)
     held = set(person["roles"])
     out = []
     for sid, svc in SERVICES.items():
@@ -181,13 +184,13 @@ async def platform_services(user: AuthorizedUser) -> list[ServiceInfo]:
 
 
 @router.post("/handoff")
-async def platform_handoff(body: HandoffRequest, user: AuthorizedUser, response: Response) -> HandoffResponse:
+async def platform_handoff(body: HandoffRequest, user: AuthorizedUser, response: Response, request: Request = None) -> HandoffResponse:
     """Start a session on a banking host: returns a URL carrying a one-time, 60-second signed token."""
     service_id = body.audience
     base = _service_url(service_id)
     if not base:
         raise HTTPException(status_code=503, detail=f"{SERVICES[service_id]['name']} is not configured")
-    person = await _person_for(user)
+    person = await _person_for(user, request)
     if SERVICES[service_id]["roles"] is not None and not set(person["roles"]) & SERVICES[service_id]["roles"]:
         raise HTTPException(status_code=403, detail=f"Your account does not include {SERVICES[service_id]['name']}")
     try:

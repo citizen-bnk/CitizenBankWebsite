@@ -20,6 +20,7 @@ from app.libs.email_templates import create_payment_instructions_email
 from app.libs.profile_completion_reminders import schedule_profile_completion_reminder
 from app.libs.rbac import check_user_has_any_role
 from app.libs.basic_profile import ensure_basic_profile
+from app.libs.share_promotions import active_promotion, effective_price
 
 router = APIRouter(prefix="/subscriptions/core")
 
@@ -51,6 +52,7 @@ async def may_access_investments(conn, user: AuthorizedUser, invite_token: str |
         """SELECT EXISTS (SELECT 1 FROM invitations WHERE lower(email)=$1
            AND invitation_type='investor' AND status IN ('pending','sent','accepted')
            AND (status='accepted' OR expires_at>now())
+           AND share_class_offered IN ('Class B', 'Class B - Ordinary Shares')
            AND (tracking_token=$2 OR token::text=$2))""", email, invite_token,
     ))
 
@@ -97,13 +99,21 @@ def validate_subscription_minimum(num_shares: int, minimum: int, existing_invest
 
 
 @router.get("/availability")
-async def core_get_share_availability() -> ShareAvailability:
+async def core_get_share_availability(user: AuthorizedUser, invite: str | None = None) -> ShareAvailability:
     """
     Get current share availability and fundraising progress.
     Shows real-time data on available shares and amount raised.
     """
     async with db_connection() as conn:
-        return await get_share_availability_data(conn)
+        if not await may_access_investments(conn, user, invite):
+            raise HTTPException(status_code=403, detail='Investment access requires an invitation.')
+        availability = await get_share_availability_data(conn)
+        promotion = await active_promotion(conn, user.sub, user.email)
+        if promotion:
+            availability.price_per_share = effective_price(availability.price_per_share, promotion)
+            availability.promotion_title = promotion['title']
+            availability.promotion_ends_at = promotion['ends_at']
+        return availability
 
 
 @router.post("/subscribe")
@@ -126,14 +136,16 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         # Lock the offer row so simultaneous subscriptions cannot reserve the same units.
         offer_class = await conn.fetchrow("""
             SELECT class_name, price_per_share, min_shares, shares_on_offer, shares_issued
-            FROM share_classes WHERE is_active = true
-            ORDER BY is_default DESC, id ASC LIMIT 1 FOR UPDATE
+            FROM share_classes WHERE is_active = true AND class_name = 'Class B'
+            LIMIT 1 FOR UPDATE
         """)
         if not offer_class:
             raise HTTPException(status_code=503, detail="SHARE_OFFER_UNAVAILABLE")
         availability = await get_share_availability_data(conn)
         if Decimal(str(offer_class['price_per_share'])) != availability.price_per_share:
             raise HTTPException(status_code=503, detail="SHARE_PRICE_RECONCILIATION_REQUIRED")
+        promotion = await active_promotion(conn, user.sub, user.email)
+        effective_share_price = effective_price(offer_class['price_per_share'], promotion)
         reserved = await conn.fetchval("""
             SELECT COALESCE(SUM(num_shares), 0) FROM share_subscriptions
             WHERE share_class = $1 AND status IN ('pending', 'active', 'partial')
@@ -171,8 +183,8 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         # Generate subscription ID
         subscription_id = f"SUB-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}"
         
-        # Calculate amounts in LSL (base currency)
-        total_amount_lsl = Decimal(str(request.num_shares)) * availability.price_per_share
+        # Fix the offer price at submission so later promotions never reprice an old subscription.
+        total_amount_lsl = Decimal(str(request.num_shares)) * effective_share_price
         monthly_payment = None
         
         if request.payment_method == 'installment' and request.installment_plan:
@@ -180,7 +192,9 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
             monthly_payment = total_amount_lsl / months
         
         # Get purchase currency from request (default to LSL)
-        purchase_currency = getattr(request, 'purchase_currency', 'LSL') or 'LSL'
+        purchase_currency = getattr(request, 'purchase_currency', 'ZAR') or 'ZAR'
+        if purchase_currency != 'ZAR':
+            raise HTTPException(status_code=422, detail='Class B subscriptions are currently priced and payable in ZAR.')
         
         # Get exchange rate for the purchase currency
         purchase_exchange_rate = None
@@ -212,12 +226,14 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
             INSERT INTO share_subscriptions (
                 subscription_id, user_id, full_name, email, phone, id_number,
                 num_shares, share_class, total_amount, payment_method, installment_plan, status,
-                purchase_currency, purchase_exchange_rate, amount_in_purchase_currency
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                purchase_currency, purchase_exchange_rate, amount_in_purchase_currency,
+                price_per_share, promotion_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         """, subscription_id, user.sub, request.full_name, request.email, request.phone,
             request.id_number, request.num_shares, offer_class['class_name'], float(total_amount_lsl),
             request.payment_method, request.installment_plan, 'pending',
-            purchase_currency, purchase_exchange_rate, amount_in_purchase_currency)
+            purchase_currency, purchase_exchange_rate, amount_in_purchase_currency,
+            effective_share_price, promotion['id'] if promotion else None)
         
         print(f"✅ New subscription created: {subscription_id} - {request.full_name} - {request.num_shares:,} shares - {purchase_currency}")
         

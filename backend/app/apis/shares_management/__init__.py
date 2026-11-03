@@ -8,11 +8,18 @@ from app.auth import AuthorizedUser
 router = APIRouter()
 
 
+async def reserved_class_b_shares(conn) -> int:
+    return int(await conn.fetchval(
+        """SELECT COALESCE(SUM(num_shares),0) FROM share_subscriptions
+           WHERE share_class='Class B' AND status IN ('pending','active','partial','completed')"""
+    ) or 0)
+
+
 # ============ DATABASE CONNECTION ============
 
 async def get_db_connection():
     """Get database connection."""
-    return await asyncpg.connect(os.environ.get("DATABASE_URL"))
+    return await asyncpg.connect(os.environ.get("DATABASE_URL_PROD") or os.environ.get("DATABASE_URL"))
 
 
 # ============ ADMIN ACCESS CHECK ============
@@ -82,7 +89,7 @@ class ShareClassDetailResponse(BaseModel):
     class_name: str
     display_name: str
     description: str
-    price_per_share: float
+    price_per_share: Optional[float]
     currency: str
     min_shares: int
     max_shares: int
@@ -127,7 +134,7 @@ async def get_share_config():
         if not config:
             raise HTTPException(status_code=404, detail="No active share configuration found")
         
-        available_shares = config['offered_for_public'] - config['total_issued']
+        available_shares = max(0, config['offered_for_public'] - await reserved_class_b_shares(conn))
         
         return ShareConfigResponse(
             price_per_share=float(config['price_per_share']),
@@ -167,7 +174,7 @@ async def get_all_share_classes():
                 is_default,
                 is_active
             FROM share_classes
-            WHERE is_active = true
+            WHERE is_active = true AND class_name = 'Class B'
             ORDER BY 
                 CASE class_name
                     WHEN 'Class A' THEN 1
@@ -189,6 +196,7 @@ async def get_all_share_classes():
         if not config:
             raise HTTPException(status_code=404, detail="No active share configuration found")
         
+        reserved = await reserved_class_b_shares(conn)
         # Build share classes list from database
         share_classes = [
             ShareClassInfo(
@@ -200,12 +208,12 @@ async def get_all_share_classes():
                 currency=row['currency'],
                 shares_on_offer=row['shares_on_offer'],
                 shares_issued=row['shares_issued'],
-                available_shares=row['shares_on_offer'] - row['shares_issued']
+                available_shares=max(0, row['shares_on_offer'] - reserved)
             )
             for row in share_classes_data
         ]
         
-        available_shares = config['offered_for_public'] - config['total_issued']
+        available_shares = max(0, config['offered_for_public'] - reserved)
         
         return AllShareClassesResponse(
             classes=share_classes,
@@ -266,19 +274,21 @@ async def get_share_classes_admin(user: AuthorizedUser) -> list[ShareClassDetail
             """
         )
         
+        reserved = await reserved_class_b_shares(conn)
         return [
             ShareClassDetailResponse(
                 id=row['id'],
                 class_name=row['class_name'],
                 display_name=row['display_name'],
                 description=row['description'],
-                price_per_share=float(row['price_per_share']),
+                price_per_share=float(row['price_per_share']) if row['price_per_share'] is not None else None,
                 currency=row['currency'],
                 min_shares=row['min_shares'],
                 max_shares=row['max_shares'],
                 shares_on_offer=row['shares_on_offer'],
                 shares_issued=row['shares_issued'],
-                available_shares=row['shares_on_offer'] - row['shares_issued'],
+                available_shares=(max(0, row['shares_on_offer'] - reserved)
+                                  if row['class_name'] == 'Class B' else 0),
                 is_default=row['is_default'],
                 is_active=row['is_active'],
                 created_at=row['created_at'].isoformat(),
@@ -378,7 +388,7 @@ async def update_share_class(
             class_name=updated['class_name'],
             display_name=updated['display_name'],
             description=updated['description'],
-            price_per_share=float(updated['price_per_share']),
+            price_per_share=float(updated['price_per_share']) if updated['price_per_share'] is not None else None,
             currency=updated['currency'],
             min_shares=updated['min_shares'],
             max_shares=updated['max_shares'],

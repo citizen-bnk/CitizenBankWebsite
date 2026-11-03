@@ -997,8 +997,8 @@ def create_investor_invitation_email(
     subscription_link: str,
     special_terms: Optional[str] = None,
     contact_person: str = "Investor Relations Team",
-    contact_email: str = "invest@citizenhub.co.za",
-    contact_phone: str = "+266 2231 2345"
+    contact_email: str = "admin@citizenbank.co.ls",
+    contact_phone: str = ""
 ) -> str:
     """
     Create professional investor invitation email with HappyCitizen images.
@@ -1164,7 +1164,7 @@ def create_investor_invitation_email(
         <h4 style="color: #0369a1; margin-top: 0; font-size: 18px; font-weight: bold;">💡 Need More Information?</h4>
         <p style="margin: 10px 0; font-size: 15px;"><strong>Contact:</strong> {contact_person}</p>
         <p style="margin: 8px 0; font-size: 15px;"><strong>Email:</strong> <a href="mailto:{contact_email}" style="color: {BRAND_PURPLE};">{contact_email}</a></p>
-        <p style="margin: 8px 0; font-size: 15px;"><strong>Phone:</strong> {contact_phone}</p>
+        {f'<p style="margin: 8px 0; font-size: 15px;"><strong>Phone:</strong> {contact_phone}</p>' if contact_phone else ''}
         <p style="margin-top: 15px; font-size: 14px; color: #333;">Our investor relations team is ready to answer any questions and guide you through the subscription process.</p>
     </div>
 

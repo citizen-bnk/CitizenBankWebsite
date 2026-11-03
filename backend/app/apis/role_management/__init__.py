@@ -15,6 +15,8 @@ import asyncpg
 from app import runtime
 from app.env import Mode, mode
 from app.libs.email_service import send_email
+from app.libs.institutional_roles import sync_institutional_role
+from fastapi import Request
 import os
 
 router = APIRouter(prefix="/roles")
@@ -56,11 +58,13 @@ async def get_db_connection():
 
 
 @router.get("/my-roles")
-async def get_my_roles(user: AuthorizedUser) -> UserRolesResponse:
+async def get_my_roles(user: AuthorizedUser, request: Request = None) -> UserRolesResponse:
     """
     Get the current user's roles.
     This is used by the frontend to determine what the user can access.
     """
+    if request is not None:
+        await sync_institutional_role(request, user)
     roles = await get_user_roles(user.sub)
     return UserRolesResponse(
         user_id=user.sub,

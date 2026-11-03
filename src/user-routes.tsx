@@ -6,6 +6,7 @@ import { RouteObject } from "react-router-dom";
 import { UserGuard } from "./app/auth";
 import { InvestorAccessGate } from "./components/InvestorAccessGate";
 import { RoleGuard } from "./components/RoleGuard";
+import InvestorInvitationHelp from "./pages/InvestorInvitationHelp";
 
 
 import { StackHandlerRoutes, LoginRedirect } from "./app/auth";
@@ -38,6 +39,7 @@ import BackOfficeLicenseDocuments from "./pages/BackOfficeLicenseDocuments.tsx";
 import BackOfficeMediaReleases from "./pages/BackOfficeMediaReleases.tsx";
 import BackOfficeSentItems from "./pages/BackOfficeSentItems.tsx";
 import BackOfficeShareClasses from "./pages/BackOfficeShareClasses.tsx";
+import BackOfficeSharePromotions from "./pages/BackOfficeSharePromotions.tsx";
 import BackOfficeSubscribeOnBehalf from "./pages/BackOfficeSubscribeOnBehalf.tsx";
 import BackOfficeSubscriptions from "./pages/BackOfficeSubscriptions.tsx";
 import BankingEntry from "./pages/BankingEntry.tsx";
@@ -145,6 +147,7 @@ const originalRoutes: RouteObject[] = [
 	{ path: "/back-office-sent-items", element: <UserGuard><BackOfficeSentItems /></UserGuard> },
 	{ path: "/backofficesentitems", element: <UserGuard><BackOfficeSentItems /></UserGuard> },
 	{ path: "/back-office-share-classes", element: <UserGuard><BackOfficeShareClasses /></UserGuard> },
+	{ path: "/back-office-share-promotions", element: <UserGuard><BackOfficeSharePromotions /></UserGuard> },
 	{ path: "/backofficeshareclasses", element: <UserGuard><BackOfficeShareClasses /></UserGuard> },
 	{ path: "/back-office-subscribe-on-behalf", element: <UserGuard><BackOfficeSubscribeOnBehalf /></UserGuard> },
 	{ path: "/backofficesubscribeonbehalf", element: <UserGuard><BackOfficeSubscribeOnBehalf /></UserGuard> },
@@ -194,6 +197,7 @@ const originalRoutes: RouteObject[] = [
 	{ path: "/help-center", element: <HelpCenter /> },
 	{ path: "/helpcenter", element: <HelpCenter /> },
 	{ path: "/invest", element: <UserGuard><InvestorAccessGate><Invest /></InvestorAccessGate></UserGuard> },
+	{ path: "/investor-invitation-help", element: <InvestorInvitationHelp /> },
 	{ path: "/invite", element: <Invite /> },
 	{ path: "/invite-acceptance", element: <InviteAcceptance /> },
 	{ path: "/inviteacceptance", element: <InviteAcceptance /> },

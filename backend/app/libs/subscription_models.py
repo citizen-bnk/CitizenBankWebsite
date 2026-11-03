@@ -16,7 +16,7 @@ class SubscriptionRequest(BaseModel):
     num_shares: int
     payment_method: Literal["one-time", "installment"]
     installment_plan: Optional[Literal["3-months", "6-months", "12-months"]] = None
-    purchase_currency: Optional[str] = "LSL"  # Currency used for purchase (LSL, USD, EUR, GBP, ZAR)
+    purchase_currency: Optional[str] = "ZAR"  # The live Class B offer is priced in rand.
     tracking_token: Optional[str] = None  # Token from investor invitation for lead tracking
     
     @field_validator('num_shares')
@@ -81,6 +81,9 @@ class ShareAvailability(BaseModel):
     fundraising_target: Decimal
     amount_raised: Decimal
     subscription_percentage: float
+    currency: str = 'ZAR'
+    promotion_title: Optional[str] = None
+    promotion_ends_at: Optional[datetime] = None
 
 
 class PaymentRecord(BaseModel):

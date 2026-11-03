@@ -38,6 +38,7 @@ import { Loader2, TrendingUp, CheckCircle2, AlertCircle, Calculator, FileText, C
 import type { ShareAvailability, SubscriptionRequest, UserListItem, CreateSubscriptionRequest } from 'types';
 import { useCurrency } from "components/CurrencyProvider";
 import { useUserGuardContext } from "app/auth";
+import { auth } from "app/auth";
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
 import { UnifiedIdentityForm, type IdentityFormData } from "components/UnifiedIdentityForm";
@@ -69,7 +70,9 @@ export default function ShareSubscription() {
   const [profileLoading, setProfileLoading] = useState(false);
   const [searchParams] = useSearchParams();
   const [trackingToken, setTrackingToken] = useState<string | null>(() => {
-    try { return sessionStorage.getItem('citizen_investor_invite'); } catch { return null; }
+    return searchParams.get('invite') || searchParams.get('token') || (() => {
+      try { return sessionStorage.getItem('citizen_investor_invite'); } catch { return null; }
+    })();
   });
 
   // Form state
@@ -131,7 +134,8 @@ export default function ShareSubscription() {
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
 
-  const { formatCurrency, selectedCurrency } = useCurrency();
+  const { formatCurrency: displayCurrency } = useCurrency();
+  const formatCurrency = (amount: number) => displayCurrency(amount, 'ZAR');
 
   // Track invitation click when page loads with invite parameter
   useEffect(() => {
@@ -223,7 +227,7 @@ export default function ShareSubscription() {
   useEffect(() => {
     console.log('Mount: calling loadShareAvailability');
     loadShareAvailability();
-  }, []);
+  }, [trackingToken]);
 
   useEffect(() => {
     let active = true;
@@ -243,7 +247,10 @@ export default function ShareSubscription() {
     setLoading(true);
     try {
       setError(null);
-      const response = await apiClient.core_get_share_availability();
+      const invite = trackingToken ? `?invite=${encodeURIComponent(trackingToken)}` : '';
+      const response = await fetch(`/api/subscriptions/core/availability${invite}`, {
+        headers: { Authorization: await auth.getAuthHeaderValue() },
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.issue || data.detail || `Share information returned HTTP ${response.status}`);
@@ -347,7 +354,7 @@ export default function ShareSubscription() {
 
   useEffect(() => {
     setShareInputError(validateShareInput(numShares));
-  }, [numShares, availability, minimumShares, selectedCurrency]);
+  }, [numShares, availability, minimumShares]);
 
   const handleBeneficiaryChange = (value: 'self' | 'other') => {
     setBeneficiaryType(value);
@@ -560,7 +567,7 @@ export default function ShareSubscription() {
             phone: identityFormData.phone,
             id_number: identityFormData.id_number,
             num_shares: numShares,
-            share_class: availability.share_class || 'Class A',
+            share_class: 'Class B',
             payment_method: formData.payment_method === 'installment' ? 'installment' : 'one-time',
             payment_proof_filename: null,
             admin_notes: selectedUser 
@@ -581,7 +588,7 @@ export default function ShareSubscription() {
             id_number: identityFormData.id_number,
             num_shares: numShares,
             payment_method: backendPaymentMethod,
-            purchase_currency: selectedCurrency,
+            purchase_currency: 'ZAR',
             tracking_token: trackingToken,
             ...(backendPaymentMethod === 'installment' && formData.installment_plan ? { installment_plan: formData.installment_plan } : {}),
           };
@@ -1395,7 +1402,7 @@ export default function ShareSubscription() {
                                 )}
 
                                 <div>
-                                  <Label className="text-sm text-muted-foreground">Amount (LSL)</Label>
+                                  <Label className="text-sm text-muted-foreground">Amount (ZAR)</Label>
                                   <p className="text-2xl font-bold text-primary">{formatCurrency(totalAmount)}</p>
                                   <p className="text-xs text-muted-foreground mt-1">
                                     Send the equivalent amount in {selectedCrypto} to the wallet address above
@@ -1590,6 +1597,13 @@ export default function ShareSubscription() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          {(availability as (ShareAvailability & { promotion_title?: string; promotion_ends_at?: string }) | null)?.promotion_title &&
+            <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5" role="status">
+              <strong className="block text-lg">{(availability as ShareAvailability & { promotion_title?: string }).promotion_title}</strong>
+              <span>Class B promotional price: {formatCurrency(Number(availability.price_per_share))} per share.</span>
+              {(availability as ShareAvailability & { promotion_ends_at?: string }).promotion_ends_at &&
+                <span className="block text-sm mt-1">Ends {new Date((availability as ShareAvailability & { promotion_ends_at: string }).promotion_ends_at).toLocaleString('en-ZA')}</span>}
+            </div>}
           {step < 5 && renderStepIndicator()}
           
           {step === 1 && (

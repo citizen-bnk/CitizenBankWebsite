@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from 'utils/use-media-query';
+import { useUserRoles } from 'utils/useUserRoles';
 
 interface BackOfficeNavProps {
   currentPage?: string;
@@ -42,6 +43,8 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
   const location = useLocation();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { hasAnyRole } = useUserRoles();
+  const promotionAccess = hasAnyRole(['super_admin', 'staff']);
 
   const navItems = [
     // Dashboard
@@ -172,6 +175,7 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
       children: [
         { title: 'Bank Accounts', path: '/back-office-bank-accounts', icon: Building },
         { title: 'Share Classes', path: '/back-office-share-classes', icon: TrendingUp },
+        { title: 'Share Promotions', path: '/back-office-share-promotions', icon: TrendingUp },
         { title: 'Crypto Wallets', path: '/back-office-crypto-wallets', icon: Bitcoin },
         { title: 'Certificate Templates', path: '/back-office-certificate-templates', icon: FileText },
         { title: 'Communication', path: '/communication-portal', icon: MessageSquare },
@@ -215,6 +219,7 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
                           {item.title}
                         </div>
                         {item.children.map((child) => {
+                          if (child.path === '/back-office-share-promotions' && !promotionAccess) return null;
                           const ChildIcon = child.icon;
                           const childActive = isActive(child.path);
                           return (
@@ -276,6 +281,7 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
             // Handle items with children (dropdown menus) - flatten them in desktop view
             if ('children' in item && item.children) {
               return item.children.map((child) => {
+                if (child.path === '/back-office-share-promotions' && !promotionAccess) return null;
                 const ChildIcon = child.icon;
                 const childActive = isActive(child.path);
                 return (

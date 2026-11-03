@@ -48,6 +48,7 @@ export function InvestorAccessGate({ children }: { children: ReactNode }) {
     </p>
     <div className="flex flex-wrap justify-center gap-3">
       {state === "error" && <button className="rounded-lg bg-[#6d52a2] px-5 py-3 font-semibold text-white" onClick={() => setAttempt(value => value + 1)}>Retry</button>}
+      {state === "denied" && <Link className="rounded-lg bg-[#6d52a2] px-5 py-3 font-semibold text-white" to="/investor-invitation-help">Resend invitation</Link>}
       <Link className="rounded-lg border px-5 py-3 font-semibold" to="/">Back to website</Link>
     </div>
   </main>;

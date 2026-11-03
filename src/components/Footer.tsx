@@ -61,6 +61,7 @@ export function Footer() {
               {investorAccess && <li><Link to="/invest" className="hover:text-[#8f6ec4] transition-colors">Investor Portal</Link></li>}
               {investorAccess && <li><Link to="/data-room" className="hover:text-[#8f6ec4] transition-colors">Investor Data Room</Link></li>}
               <li><Link to="/disclosures" className="hover:text-[#8f6ec4] transition-colors">Public Disclosures</Link></li>
+              <li><Link to="/investor-invitation-help" className="hover:text-[#8f6ec4] transition-colors">Resend investor invitation</Link></li>
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Company Updates</Link></li>
             </ul>
           </div>
