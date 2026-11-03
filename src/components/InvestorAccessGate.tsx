@@ -13,7 +13,8 @@ export function InvestorAccessGate({ children }: { children: ReactNode }) {
       setState("checking");
       try {
         const token = await auth.getAuthHeaderValue();
-        const fromLink = new URLSearchParams(window.location.search).get("invite");
+        const params = new URLSearchParams(window.location.search);
+        const fromLink = params.get("invite") || params.get("token");
         let saved: string | null = null;
         try {
           if (fromLink) sessionStorage.setItem("citizen_investor_invite", fromLink);

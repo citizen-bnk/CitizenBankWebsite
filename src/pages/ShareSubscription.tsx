@@ -135,7 +135,7 @@ export default function ShareSubscription() {
 
   // Track invitation click when page loads with invite parameter
   useEffect(() => {
-    const inviteToken = searchParams.get('invite');
+    const inviteToken = searchParams.get('invite') || searchParams.get('token');
     if (inviteToken) {
       setTrackingToken(inviteToken);
       console.log('📧 User arrived from invitation link:', inviteToken);
