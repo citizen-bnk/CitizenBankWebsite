@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
-  "buildCommand": "node build-api-shell.mjs",
+  "buildCommand": "node api/build-api-shell.mjs",
   "outputDirectory": "dist",
   "functions": {
     "api/index.py": {
