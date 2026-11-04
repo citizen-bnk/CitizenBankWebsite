@@ -4,7 +4,7 @@ from typing import Optional, Dict, List
 import asyncpg
 import json
 from datetime import datetime, timedelta, timezone
-import random
+import secrets
 import uuid
 import os
 from app import runtime
@@ -257,13 +257,18 @@ async def generate_verification_code(body: GenerateCodeRequest, user: Authorized
     Sends code via email, expires in 90 seconds.
     User can resend once (2 total sends). Admins can override this limit.
     """
+    if body.admin_override and not (
+        await check_user_has_role(user.sub, 'super_admin') or
+        await check_user_has_role(user.sub, 'admin')
+    ):
+        raise HTTPException(403, 'Only administrators can override invitation resend limits.')
     try:
         conn = await get_db_connection()
         try:
             # Validate invitation token
             invitation = await conn.fetchrow(
                 """
-                SELECT id, email, role, status, expires_at
+                SELECT id, email, role, status, expires_at, user_resend_count
                 FROM invitations 
                 WHERE token = $1
                 """,
@@ -273,7 +278,12 @@ async def generate_verification_code(body: GenerateCodeRequest, user: Authorized
             if not invitation:
                 raise HTTPException(status_code=404, detail="Invitation not found")
             
-            if invitation['status'] != 'pending':
+            if not body.admin_override:
+                email = await conn.fetchval('SELECT email FROM user_profiles WHERE user_id=$1', user.sub)
+                if not email or email.strip().casefold() != invitation['email'].strip().casefold():
+                    raise HTTPException(403, 'This invitation belongs to another email address.')
+
+            if invitation['status'] not in ('pending', 'sent'):
                 raise HTTPException(status_code=400, detail="Invitation has already been accepted or cancelled")
             
             # Check if invitation expired
@@ -305,7 +315,7 @@ async def generate_verification_code(body: GenerateCodeRequest, user: Authorized
             )
             
             # Generate 6-digit code
-            code = str(random.randint(100000, 999999))
+            code = str(100000 + secrets.randbelow(900000))
             
             # Calculate expiry (90 seconds from now)
             expires_at = datetime.now(timezone.utc) + timedelta(seconds=CODE_EXPIRY_SECONDS)
@@ -389,16 +399,16 @@ async def verify_code_and_accept(body: VerifyCodeRequest, user: AuthorizedUser):
             if invitation['status'] == 'accepted':
                 raise HTTPException(status_code=400, detail="Invitation has already been accepted")
             
-            if invitation['status'] == 'cancelled':
+            if invitation['status'] not in ('pending', 'sent'):
                 raise HTTPException(status_code=400, detail="Invitation has been cancelled")
             
-            # Check invitation expiry (not blocking - just for logging)
+            # Both the invitation and its verification code must remain valid.
             invitation_expires_at = invitation['expires_at']
             if invitation_expires_at.tzinfo is None:
                 invitation_expires_at = invitation_expires_at.replace(tzinfo=timezone.utc)
             
-            # Note: We're being lenient with expiry here to allow code verification
-            # The code itself has its own expiry check
+            if invitation_expires_at <= datetime.now(timezone.utc):
+                raise HTTPException(400, 'Invitation has expired. Ask for a new invitation.')
             
             # Verify email match
             if invitation['email'].lower() != user_profile['email'].lower():

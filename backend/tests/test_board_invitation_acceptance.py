@@ -2,6 +2,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from types import SimpleNamespace
+from fastapi import HTTPException
+from app.apis import board_portal
 
 from app.libs.board_management import accept_invitation
 
@@ -48,3 +51,44 @@ async def test_board_invitation_requires_invited_email_and_grants_role(monkeypat
     assert accepted["success"] is True
     assert any("INSERT INTO user_roles" in query for query, _ in conn.writes)
     assert any("INSERT INTO board_members" in query for query, _ in conn.writes)
+
+
+@pytest.mark.asyncio
+async def test_board_code_resend_override_requires_an_administrator(monkeypatch):
+    async def denied(*args): return False
+    monkeypatch.setattr(board_portal, 'check_user_has_role', denied)
+    with pytest.raises(HTTPException) as error:
+        await board_portal.generate_verification_code(
+            board_portal.GenerateCodeRequest(token='token', admin_override=True), SimpleNamespace(sub='customer'))
+    assert error.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_board_code_resend_checks_recipient_before_writing_or_sending(monkeypatch):
+    class Conn:
+        async def fetchrow(self, *args):
+            return {'id':1, 'email':'invited@example.test', 'status':'sent'}
+        async def fetchval(self, *args): return 'other@example.test'
+        async def close(self): pass
+    async def connect(): return Conn()
+    monkeypatch.setattr(board_portal, 'get_db_connection', connect)
+    with pytest.raises(HTTPException) as error:
+        await board_portal.generate_verification_code(
+            board_portal.GenerateCodeRequest(token='token'), SimpleNamespace(sub='other'))
+    assert error.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_expired_board_invitation_cannot_be_accepted_with_a_code(monkeypatch):
+    class Conn:
+        async def fetchrow(self, sql, *args):
+            if 'user_profiles' in sql: return {'email':'board@example.test', 'full_name':'Board Member'}
+            return {'id':1, 'email':'board@example.test', 'status':'sent',
+                    'expires_at':datetime.now(timezone.utc)-timedelta(days=1)}
+        async def close(self): pass
+    async def connect(): return Conn()
+    monkeypatch.setattr(board_portal, 'get_db_connection', connect)
+    with pytest.raises(HTTPException) as error:
+        await board_portal.verify_code_and_accept(
+            board_portal.VerifyCodeRequest(token='token',code='123456'), SimpleNamespace(sub='board'))
+    assert error.value.status_code == 400 and 'expired' in error.value.detail
