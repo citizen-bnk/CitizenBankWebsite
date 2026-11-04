@@ -2,6 +2,7 @@ import { useUser } from '@stackframe/react';
 import { apiClient } from 'app';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRolesResponse } from 'types';
+import { accessError } from './accessError';
 
 const ROLES_QUERY_KEY = 'userRoles';
 
@@ -19,7 +20,7 @@ export function useUserRoles() {
       if (!user || !user.id) {
         return []; // Return empty array if no user
       }
-      const response = await apiClient.get_my_roles();
+      const response = await apiClient.get_my_roles().catch(async cause => { throw await accessError(cause); });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
         throw new Error(typeof body?.detail === 'string' ? body.detail : 'Failed to load user roles.');
