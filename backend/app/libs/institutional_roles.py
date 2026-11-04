@@ -14,6 +14,8 @@ AUTHORIZED = {
 
 
 async def sync_institutional_role(request: Request, user) -> None:
+    if user.email and user.email.strip().lower() not in AUTHORIZED:
+        return
     # Stack tokens can omit or retain older email claims. Resolve the signed
     # subject's current provider address before deciding institutional access.
     from main import get_stack_auth_config
