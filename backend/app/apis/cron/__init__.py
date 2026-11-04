@@ -34,6 +34,15 @@ def _authorized(authorization: str | None) -> bool:
     return hmac.compare_digest(authorization.encode(), f"Bearer {secret}".encode())
 
 
+@router.post('/prepare-requested-investor-invitation')
+async def prepare_requested_investor_invitation(authorization: str | None = Header(default=None)) -> dict:
+    """Operator-only, repeat-safe preparation; does not email or grant roles."""
+    if not _authorized(authorization):
+        raise HTTPException(401, 'Unauthorized')
+    from app.libs.invitation_setup import prepare_requested_invitation
+    return {'ok': True, **await prepare_requested_invitation()}
+
+
 @router.get("/{job}")
 async def run_job(job: str, authorization: str | None = Header(default=None)) -> dict:
     if not _authorized(authorization):
