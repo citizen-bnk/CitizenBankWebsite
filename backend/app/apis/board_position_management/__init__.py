@@ -2,18 +2,28 @@
 
 
 """Board Position Management API - Manage board positions and assignments"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from app import runtime
 import asyncpg
 from app.env import Mode, mode
 from app.auth import AuthorizedUser
+from app.libs.rbac import check_user_has_any_role
 from pydantic import BaseModel, Field
 from typing import List
 from datetime import datetime, date
 from app.libs.email_queue import enqueue_email
 import os
 
-router = APIRouter(prefix="/board-positions")
+async def require_board_position_access(request: Request, user: AuthorizedUser):
+    roles = ['super_admin', 'admin']
+    if request.method in ('GET', 'HEAD'):
+        roles += ['staff', 'back_office', 'board_member']
+    if not await check_user_has_any_role(user.sub, roles):
+        raise HTTPException(403, 'Board administration access is required.' if request.method not in ('GET', 'HEAD')
+                            else 'Board or authorised staff access is required.')
+
+
+router = APIRouter(prefix="/board-positions", dependencies=[Depends(require_board_position_access)])
 
 # ========== Models ==========
 

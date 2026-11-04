@@ -3,8 +3,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from types import SimpleNamespace
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from app.apis import board_portal
+from app.apis import board_position_management as positions
 
 from app.libs.board_management import accept_invitation
 
@@ -92,3 +93,22 @@ async def test_expired_board_invitation_cannot_be_accepted_with_a_code(monkeypat
         await board_portal.verify_code_and_accept(
             board_portal.VerifyCodeRequest(token='token',code='123456'), SimpleNamespace(sub='board'))
     assert error.value.status_code == 400 and 'expired' in error.value.detail
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('method,role,allowed', [
+    ('POST','customer',False), ('PUT','board_member',False), ('POST','staff',False),
+    ('POST','super_admin',True), ('PUT','admin',True), ('GET','customer',False),
+    ('GET','board_member',True), ('GET','staff',True),
+])
+async def test_board_position_access_is_role_and_action_specific(monkeypatch,method,role,allowed):
+    async def check(subject,roles): return role in roles
+    monkeypatch.setattr(positions,'check_user_has_any_role',check)
+    request=Request({'type':'http','method':method})
+    if allowed:
+        await positions.require_board_position_access(request,SimpleNamespace(sub='user'))
+    else:
+        with pytest.raises(HTTPException) as error:
+            await positions.require_board_position_access(request,SimpleNamespace(sub='user'))
+        assert error.value.status_code == 403
+    assert positions.router.dependencies
