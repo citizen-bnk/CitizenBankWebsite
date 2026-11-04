@@ -18,18 +18,13 @@ export function useUserRoles() {
       if (!user || !user.id) {
         return []; // Return empty array if no user
       }
-      try {
-        const response = await apiClient.get_my_roles();
-        if (!response.ok) {
-          throw new Error(`Failed to fetch user roles: ${response.statusText}`);
-        }
-        const data: UserRolesResponse = await response.json();
-        return Array.isArray(data.roles) ? data.roles : [];
-      } catch (err) {
-        console.error('Failed to fetch user roles:', err);
-        // Let react-query handle the error state
-        throw new Error('Failed to load user roles');
+      const response = await apiClient.get_my_roles();
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(typeof body?.detail === 'string' ? body.detail : 'Failed to load user roles.');
       }
+      const data: UserRolesResponse = await response.json();
+      return Array.isArray(data.roles) ? data.roles : [];
     },
     // Only fetch if there is a user
     enabled: !!user && !!user.id,

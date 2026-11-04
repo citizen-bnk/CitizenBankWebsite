@@ -26,8 +26,12 @@ const constructClient = () => {
     baseUrl,
     baseApiParams,
     customFetch: (url, options) => {
-      // Ensure we always call /api endpoints
-      return resilientFetch(url, options);
+      // The generated client uses the legacy /routes prefix. FastAPI is mounted at /api.
+      const endpoint = new URL(String(url), window.location.origin);
+      if (endpoint.origin === window.location.origin && endpoint.pathname.startsWith("/api/routes/")) {
+        endpoint.pathname = endpoint.pathname.replace(/^\/api\/routes\//, "/api/");
+      }
+      return resilientFetch(endpoint, options);
     },
     securityWorker: async () => {
       return {

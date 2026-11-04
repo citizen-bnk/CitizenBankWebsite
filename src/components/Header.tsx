@@ -16,10 +16,11 @@ const logoUrl = "/brand/logo.png";
 export function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUser();
-  const { roles, loading: rolesLoading } = useUserRoles();
+  const { roles, loading: rolesLoading, error: rolesError, clearCache: retryRoles } = useUserRoles();
   const investorAccess = useInvestorAccess();
 
   const handleLogout = async () => {
@@ -135,6 +136,19 @@ export function Header() {
                       <div className="px-4 py-3 border-b border-gray-200">
                         <p className="font-medium text-gray-900 truncate">{user.displayName || 'User'}</p>
                         <p className="text-sm text-gray-500 truncate">{user.primaryEmail}</p>
+                        {rolesError && <div className="mt-2 space-y-2 text-sm" role="status">
+                          <p>{rolesError}</p>
+                          <button type="button" className="rounded border px-3 py-1" onClick={retryRoles}>Retry access check</button>
+                          {!user.primaryEmailVerified && <button type="button" className="rounded border px-3 py-1" onClick={async () => {
+                            try {
+                              await user.sendVerificationEmail();
+                              setVerificationMessage('Check your inbox for the verification link, then retry the access check.');
+                            } catch {
+                              setVerificationMessage('The verification email could not be requested. Try again.');
+                            }
+                          }}>Send verification email</button>}
+                          {verificationMessage && <p>{verificationMessage}</p>}
+                        </div>}
                         {!rolesLoading && roles.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {roles.map(role => (
