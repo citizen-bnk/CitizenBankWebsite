@@ -52,7 +52,7 @@ export function MobileNav() {
       links.push({ label: 'Back Office', path: '/back-office-dashboard', icon: Building2 });
     }
     
-    if (roles.includes('board_member')) {
+    if (roles.some(role => ['board_member','super_admin'].includes(role))) {
       links.push({ label: 'Board Portal', path: '/board-portal', icon: User });
     }
     

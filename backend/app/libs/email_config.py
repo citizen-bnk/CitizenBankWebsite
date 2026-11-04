@@ -1,10 +1,11 @@
+import os
 """Email configuration and sender addresses for Citizen Bank."""
 
 # ============ EMAIL SENDER CONFIGURATION ============
 
 # Primary subdomain for transactional emails (protects main domain)
 # Recommended: notify.citizenbank.co.za or mail.citizenbank.co.za
-EMAIL_SUBDOMAIN = "invites.citizenbank.co.za"
+EMAIL_SUBDOMAIN = os.environ.get("EMAIL_SUBDOMAIN", "citizenbank.co.ls")
 
 # Sender configurations with friendly names
 EMAIL_SENDERS = {
@@ -66,7 +67,7 @@ def get_sender(sender_type: str = "noreply") -> dict:
     """
     sender = EMAIL_SENDERS.get(sender_type, DEFAULT_SENDER)
     return {
-        "email": sender["email"],
+        "email": os.environ.get("EMAIL_FROM_" + sender_type.upper()) or os.environ.get("EMAIL_FROM") or sender["email"],
         "name": sender["name"]
     }
 

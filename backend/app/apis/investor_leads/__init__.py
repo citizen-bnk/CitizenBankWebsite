@@ -103,7 +103,7 @@ async def log_activity(conn, lead_id: int, activity_type: str, details: Dict[str
 
 async def check_admin_access(user: AuthorizedUser) -> bool:
     """Check if user has admin access to investor leads"""
-    has_access = await check_user_has_any_role(user.sub, ['super_admin', 'back_office'])
+    has_access = await check_user_has_any_role(user.sub, ['super_admin', 'admin', 'staff', 'back_office'])
     if not has_access:
         raise HTTPException(status_code=403, detail="Access denied. Requires super_admin or back_office role.")
     return True

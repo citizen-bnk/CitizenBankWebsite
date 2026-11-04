@@ -1,3 +1,4 @@
+import { useWebsiteSettings } from "utils/useWebsiteSettings";
 import { Link } from "react-router-dom";
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { ComingSoonModal } from 'components/ComingSoonModal';
@@ -7,6 +8,7 @@ import { useInvestorAccess } from 'utils/useInvestorAccess';
 import { useUserRoles } from 'utils/useUserRoles';
 
 export function Footer() {
+  const settings=useWebsiteSettings();
   const logoUrl = "/brand/logo.png";
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [platform, setPlatform] = useState('');
@@ -26,7 +28,7 @@ export function Footer() {
           <div className="lg:col-span-1">
             <img src={logoUrl} alt="Citizen Bank" className="h-10 w-auto mb-4 brightness-0 invert" />
             <p className="text-sm text-gray-400">
-              Citizen Digital Ltd is preparing the proposed Citizen Bank in Lesotho. Banking accounts remain dormant during pre-licensing.
+              {settings.notice}
             </p>
             <div className="flex gap-3 mt-4">
               <button onClick={() => handleSocialClick('Facebook')} className="text-gray-400 hover:text-[#8f6ec4] transition-colors">
@@ -71,11 +73,11 @@ export function Footer() {
             <h3 className="text-white font-semibold mb-4">About</h3>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link to="/" className="hover:text-[#8f6ec4] transition-colors">About Us</Link></li>
-              {roles.includes('board_member') && <li><Link to="/board-portal" className="hover:text-[#8f6ec4] transition-colors">Board Portal</Link></li>}
+              {roles.some(role=>['board_member','super_admin'].includes(role)) && <li><Link to="/board-portal" className="hover:text-[#8f6ec4] transition-colors">Board Portal</Link></li>}
               <li><Link to="/media" className="hover:text-[#8f6ec4] transition-colors">Media Center</Link></li>
               <li><Link to="/careers" className="hover:text-[#8f6ec4] transition-colors">Careers</Link></li>
               <li><Link to="/sustainability" className="hover:text-[#8f6ec4] transition-colors">Sustainability</Link></li>
-              <li><Link to="/contact" className="hover:text-[#8f6ec4] transition-colors">Contact Us</Link></li>
+              <li><a href={"mailto:"+settings.contact_email} className="hover:text-[#8f6ec4] transition-colors">{settings.contact_email}</a></li>
             </ul>
           </div>
 
@@ -95,7 +97,7 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-gray-800 mt-8 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
-            <p>© {new Date().getFullYear()} Citizen Digital Ltd. Banking licence application in preparation.</p>
+            <p>© {new Date().getFullYear()} {settings.company_name}. Banking licence application in preparation.</p>
             <div className="flex gap-6">
               <Link to="/privacy-policy" className="hover:text-[#8f6ec4] transition-colors">Privacy Policy</Link>
               <Link to="/terms-of-service" className="hover:text-[#8f6ec4] transition-colors">Terms of Service</Link>

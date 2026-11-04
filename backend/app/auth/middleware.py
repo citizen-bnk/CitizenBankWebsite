@@ -44,7 +44,7 @@ def get_auth_configs(request: HTTPConnection) -> list[AuthConfig]:
 AuthConfigsDep = Annotated[list[AuthConfig], Depends(get_auth_configs)]
 
 
-def get_authorized_user(
+async def get_authorized_user(
     request: HTTPConnection,
     auth_configs: AuthConfigsDep,
 ) -> User:
@@ -57,8 +57,11 @@ def get_authorized_user(
             raise ValueError("Unexpected request type")
 
         if user is not None:
+            await enforce_account_status(user.sub)
             return user
         print("Request authentication returned no user")
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Request authentication failed: {e}")
 
@@ -197,3 +200,24 @@ def authorize_token(
 
     print("Failed to validate authorization token with any auth config")
     return None
+
+
+async def enforce_account_status(subject: str) -> None:
+    """A valid provider token cannot bypass a suspended Citizen account."""
+    import os
+    import asyncpg
+    url = os.environ.get('DATABASE_URL_PROD') or os.environ.get('DATABASE_URL')
+    if not url:
+        if os.environ.get('APP_ENV') == 'production':
+            raise HTTPException(503, 'Account status could not be verified. Retry.')
+        return
+    try:
+        conn = await asyncpg.connect(url, timeout=5, statement_cache_size=0)
+        try:
+            state = await conn.fetchval('SELECT status FROM user_profiles WHERE user_id=$1', subject)
+        finally:
+            await conn.close()
+    except Exception:
+        raise HTTPException(503, 'Account status could not be verified. Retry.') from None
+    if state in ('suspended','closed','deleted'):
+        raise HTTPException(403, 'This account is restricted. Contact Citizen support.')

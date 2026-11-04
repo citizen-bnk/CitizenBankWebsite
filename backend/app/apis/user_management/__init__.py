@@ -12,7 +12,7 @@ from app.libs.user_models import (
     UserDetailsResponse, SecurityInfo, ActivitySummary, RoleMetadata,
     BoardMemberData, InvestorData, CustomerData
 )
-from app.libs.rbac import assign_role_to_user, check_user_has_role
+from app.libs.rbac import assign_role_to_user, check_user_has_role, check_user_has_any_role
 from app.libs.occ import update_with_version_check, ConcurrencyError
 from app.libs.outbox import write_to_outbox, AggregateType, EventType
 from app.libs.identity_service import IdentityService, IdentityValidationResult, ProfileCompletenessResult
@@ -920,16 +920,17 @@ async def list_all_users(
     user: AuthorizedUser,
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(50, ge=1, le=100, description="Items per page"),
-    status: str | None = Query(None, description="Filter by status (active, suspended, etc.)")
+    status: str | None = Query(None, description="Filter by status (active, suspended, etc.)"),
+    role: str | None = Query(None, max_length=40)
 ) -> UserListResponse:
     """
     List all users with pagination and optional filtering.
     Super admin only. Includes role information for each user.
     """
     # Check if user is super_admin
-    is_admin = await check_user_has_role(user.sub, "super_admin")
+    is_admin = await check_user_has_any_role(user.sub, ["admin", "super_admin"])
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Only super_admin can list users")
+        raise HTTPException(status_code=403, detail="Only administrators can list users")
     
     conn = await get_db_connection()
     try:
@@ -941,6 +942,9 @@ async def list_all_users(
             where_clause = "WHERE status = $1"
             params = [status]
         
+        if isinstance(role, str) and role:
+            params.append(role)
+            where_clause += (' AND ' if where_clause else 'WHERE ') + f"EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=user_profiles.user_id AND r.role_name=${len(params)})"
         # Get total count
         count_query = f"SELECT COUNT(*) FROM user_profiles {where_clause}"
         total = await conn.fetchval(count_query, *params)
@@ -1010,9 +1014,9 @@ async def search_users(
     Super admin only.
     """
     # Check if user is super_admin
-    is_admin = await check_user_has_role(user.sub, "super_admin")
+    is_admin = await check_user_has_any_role(user.sub, ["admin", "super_admin"])
     if not is_admin:
-        raise HTTPException(status_code=403, detail="Only super_admin can search users")
+        raise HTTPException(status_code=403, detail="Only administrators can search users")
     
     conn = await get_db_connection()
     try:
@@ -1083,7 +1087,7 @@ async def suspend_user(
     Super admin only. Cannot suspend yourself.
     """
     # Check if user is super_admin
-    is_admin = await check_user_has_role(user.sub, "super_admin")
+    is_admin = await check_user_has_any_role(user.sub, ["admin", "super_admin"])
     if not is_admin:
         raise HTTPException(status_code=403, detail="Only super_admin can suspend users")
     
@@ -1091,6 +1095,8 @@ async def suspend_user(
     if user_id == user.sub:
         raise HTTPException(status_code=400, detail="Cannot suspend your own account")
     
+    if not await check_user_has_role(user.sub, 'super_admin') and await check_user_has_any_role(user_id, ['admin','super_admin','staff','back_office']):
+        raise HTTPException(403, 'Only a super administrator can manage an institutional account.')
     conn = await get_db_connection()
     try:
         # Check if user exists
@@ -1114,10 +1120,11 @@ async def suspend_user(
         
         # Suspend user
         await conn.execute("""
-            UPDATE user_profiles
-            SET status = 'suspended',
-                updated_at = NOW()
-            WHERE user_id = $1
+            WITH changed AS (UPDATE user_profiles SET status='suspended',updated_at=now()
+                WHERE user_id=$1 RETURNING user_id)
+            UPDATE platform.person SET status='suspended',updated_at=now(),version=version+1
+            WHERE id IN (SELECT person_id FROM platform.identity_mapping
+                WHERE provider='stack_auth' AND subject IN (SELECT user_id FROM changed))
         """, user_id)
         
         # Log suspension with correct schema
@@ -1148,10 +1155,12 @@ async def reactivate_user(
     Super admin only.
     """
     # Check if user is super_admin
-    is_admin = await check_user_has_role(user.sub, "super_admin")
+    is_admin = await check_user_has_any_role(user.sub, ["admin", "super_admin"])
     if not is_admin:
         raise HTTPException(status_code=403, detail="Only super_admin can reactivate users")
     
+    if not await check_user_has_role(user.sub, 'super_admin') and await check_user_has_any_role(user_id, ['admin','super_admin','staff','back_office']):
+        raise HTTPException(403, 'Only a super administrator can manage an institutional account.')
     conn = await get_db_connection()
     try:
         # Check if user exists
@@ -1168,16 +1177,17 @@ async def reactivate_user(
         
         # Reactivate user
         await conn.execute("""
-            UPDATE user_profiles
-            SET status = 'active',
-                updated_at = NOW()
-            WHERE user_id = $1
+            WITH changed AS (UPDATE user_profiles SET status='active',updated_at=now()
+                WHERE user_id=$1 RETURNING user_id)
+            UPDATE platform.person SET status='active',updated_at=now(),version=version+1
+            WHERE id IN (SELECT person_id FROM platform.identity_mapping
+                WHERE provider='stack_auth' AND subject IN (SELECT user_id FROM changed))
         """, user_id)
         
         # Log reactivation
         await conn.execute("""
-            INSERT INTO user_suspension_history (user_id, action, reason, performed_by, created_at)
-            VALUES ($1, 'reactivated', 'Account reactivated by admin', $2, NOW())
+            INSERT INTO user_suspension_history (user_id, action, reason, suspended_by_user_id, suspended_by_name, suspended_at)
+            VALUES ($1, 'reactivate', 'Account reactivated by admin', $2, 'Administrator', NOW())
         """, user_id, user.sub)
         
         print(f"✅ User {user_id} reactivated by {user.sub}")
@@ -1246,5 +1256,72 @@ async def send_profile_completion_reminder(
             message="Profile completion reminder sent successfully"
         )
         
+    finally:
+        await conn.close()
+
+
+class ManagedProfileUpdate(BaseModel):
+    version: int = Field(ge=1)
+    full_name: str = Field(min_length=1, max_length=150)
+    phone: str = Field(max_length=30)
+    country: str = Field(max_length=100)
+
+
+@router.patch('/admin/{user_id}/profile')
+async def manage_profile(user_id: str, body: ManagedProfileUpdate, user: AuthorizedUser):
+    if not await check_user_has_any_role(user.sub, ['admin', 'super_admin']):
+        raise HTTPException(403, 'Administrator access is required.')
+    super_admin = await check_user_has_role(user.sub, 'super_admin')
+    if not super_admin and await check_user_has_any_role(user_id, ['admin', 'super_admin', 'staff', 'back_office']):
+        raise HTTPException(403, 'Only a super administrator can edit an institutional account.')
+    conn = await get_db_connection()
+    try:
+        async with conn.transaction():
+            changed = await conn.fetchrow(
+                """UPDATE user_profiles SET full_name=$2,phone=$3,country=$4,
+                   version=version+1,updated_at=now() WHERE user_id=$1 AND version=$5
+                   RETURNING user_id,version""",
+                user_id,body.full_name.strip(),body.phone.strip(),body.country.strip(),body.version,
+            )
+            if not changed:
+                raise HTTPException(409, 'This profile changed. Reload it before saving.')
+            await conn.execute(
+                """UPDATE platform.person SET display_name=$2,version=version+1,updated_at=now()
+                   WHERE id IN (SELECT person_id FROM platform.identity_mapping WHERE subject=$1 AND provider='stack_auth')""",
+                user_id,body.full_name.strip(),
+            )
+            await conn.execute(
+                """INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+                   VALUES($1,'user.profile_updated_by_admin','user',$2,'{}'::jsonb)""",user.sub,user_id,
+            )
+            return dict(changed)
+    finally:
+        await conn.close()
+
+
+@router.get('/admin/{user_id}/editable-profile')
+async def managed_profile(user_id: str, user: AuthorizedUser):
+    if not await check_user_has_any_role(user.sub, ['admin','super_admin']):
+        raise HTTPException(403, 'Administrator access is required.')
+    conn=await get_db_connection()
+    try:
+        row=await conn.fetchrow('SELECT user_id,full_name,email,phone,country,version FROM user_profiles WHERE user_id=$1',user_id)
+        if not row:
+            raise HTTPException(404,'User not found.')
+        return dict(row)
+    finally:
+        await conn.close()
+
+
+@router.get('/admin/summary')
+async def user_summary(user: AuthorizedUser):
+    if not await check_user_has_any_role(user.sub,['admin','super_admin']):
+        raise HTTPException(403,'Administrator access is required.')
+    conn=await get_db_connection()
+    try:
+        row=await conn.fetchrow("""SELECT count(*) AS total,
+            count(*) FILTER (WHERE status='active') AS active,
+            count(*) FILTER (WHERE status='suspended') AS suspended FROM user_profiles""")
+        return dict(row)
     finally:
         await conn.close()

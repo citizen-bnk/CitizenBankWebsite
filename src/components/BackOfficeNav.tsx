@@ -173,6 +173,8 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
       title: 'Configuration',
       icon: Settings,
       children: [
+        { title: 'Website Settings', path: '/website-settings', icon: Settings },
+        { title: 'Users', path: '/admin-users', icon: Users },
         { title: 'Bank Accounts', path: '/back-office-bank-accounts', icon: Building },
         { title: 'Share Classes', path: '/back-office-share-classes', icon: TrendingUp },
         { title: 'Share Promotions', path: '/back-office-share-promotions', icon: TrendingUp },

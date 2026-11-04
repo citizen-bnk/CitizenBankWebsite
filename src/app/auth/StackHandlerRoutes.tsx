@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import "./access.css";
 import { APP_BASE_PATH } from "@/constants";
 import { StackHandler, StackTheme } from "@stackframe/react";
 import * as React from "react";
@@ -9,12 +11,12 @@ export const StackHandlerRoutes = () => {
   const location = useLocation();
 
   return (
-    <StackTheme>
+    <main className="citizen-access"><section className="citizen-access-brand"><img src="/brand/logo.png" alt="Citizen Bank"/><h1>One Citizen account</h1><p>Your banking, investments and board services.</p></section><section className="citizen-access-form"><StackTheme>
       <StackHandler
         app={stackClientApp}
         location={joinPaths(APP_BASE_PATH, location.pathname)}
-        fullPage={true}
+        fullPage={false}
       />
-    </StackTheme>
+    </StackTheme><div className="citizen-access-actions"><Link to="/">Back to website</Link><Link to="/investor-invitation-help">Resend investor invitation</Link></div></section></main>
   );
 };

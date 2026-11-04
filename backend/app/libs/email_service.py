@@ -4,6 +4,7 @@ Replaces runtime.notify.email for production email delivery.
 """
 
 import resend
+import httpx
 from app import runtime
 from typing import Dict, Any
 from app.libs.email_config import get_sender, format_sender
@@ -45,6 +46,15 @@ async def send_email(
     Raises:
         Exception if email sending fails
     """
+    if sender_type == 'invitations' and os.environ.get('CITIZEN_INVITATION_EMAIL_SECRET'):
+        async with httpx.AsyncClient(timeout=16) as client:
+            response = await client.post(
+                'https://ai.citizenbank.co.ls/api/internal/invitation-email',
+                headers={'Authorization': 'Bearer ' + os.environ['CITIZEN_INVITATION_EMAIL_SECRET']},
+                json={'to': to, 'subject': subject, 'html': content_html, 'text': content_text},
+            )
+            response.raise_for_status()
+            return {'success': True, 'message_id': response.json()['id']}
     try:
         # Get sender configuration
         if from_email and from_name:

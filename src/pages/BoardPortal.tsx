@@ -933,11 +933,9 @@ function BoardPortalContent() {
 }
 
 export default function BoardPortal() {
-  const { user } = useUserGuardContext();
-  const navigate = useNavigate();
-  const location = useLocation();
-  
-  return (
-    <BoardPortalContent />
-  );
+ const { roles, loading } = useUserRoles();
+ const navigate = useNavigate();
+ if (loading) return <div role="status" className="p-8">Checking access…</div>;
+ if (roles.includes('super_admin')) return <div className="min-h-screen bg-gray-50"><Header/><main className="max-w-4xl mx-auto p-6 space-y-6"><Button variant="outline" onClick={()=>navigate('/')}>Back to website</Button><h1 className="text-3xl font-bold">Board portal</h1><p className="text-gray-600">Administrator workspace</p><div className="grid sm:grid-cols-2 gap-4">{[['Board members & appointments','/back-office-board-members'],['Board documents','/back-office-board-documents'],['Meetings','/board-meetings'],['Governance administration','/governance-admin']].map(([label,path])=><Button key={path} variant="outline" className="h-auto p-6 justify-between whitespace-normal text-left" onClick={()=>navigate(path)}>{label}<span aria-hidden="true">↗</span></Button>)}</div></main><Footer/></div>;
+ return <BoardPortalContent/>;
 }

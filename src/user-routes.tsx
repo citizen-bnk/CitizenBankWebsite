@@ -17,6 +17,8 @@ import AdminBoardPositions from "./pages/AdminBoardPositions.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminSetupGuide from "./pages/AdminSetupGuide.tsx";
 import AdminUserDetail from "./pages/AdminUserDetail.tsx";
+import WebsiteSettings from "./pages/WebsiteSettings";
+import UserManagement from "./pages/UserManagement";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import App from "./pages/App.tsx";
 import BackOfficeAchievements from "./pages/BackOfficeAchievements.tsx";
@@ -105,7 +107,9 @@ const originalRoutes: RouteObject[] = [
 	{ path: "/adminsetupguide", element: <UserGuard><AdminSetupGuide /></UserGuard> },
 	{ path: "/admin-user-detail", element: <UserGuard><AdminUserDetail /></UserGuard> },
 	{ path: "/adminuserdetail", element: <UserGuard><AdminUserDetail /></UserGuard> },
-	{ path: "/admin-users", element: <UserGuard><AdminUsers /></UserGuard> },
+	{ path: "/website-settings", element: <UserGuard><WebsiteSettings /></UserGuard> },
+	{ path: "/admin-users", element: <UserGuard><UserManagement /></UserGuard> },
+	{ path: "/admin-users-advanced", element: <UserGuard><AdminUsers /></UserGuard> },
 	{ path: "/adminusers", element: <UserGuard><AdminUsers /></UserGuard> },
 	{ path: "/", element: <App /> },
 	{ path: "/back-office-achievements", element: <UserGuard><BackOfficeAchievements /></UserGuard> },
