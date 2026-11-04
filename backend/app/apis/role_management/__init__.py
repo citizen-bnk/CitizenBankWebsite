@@ -58,13 +58,12 @@ async def get_db_connection():
 
 
 @router.get("/my-roles")
-async def get_my_roles(user: AuthorizedUser, request: Request = None) -> UserRolesResponse:
+async def get_my_roles(user: AuthorizedUser, request: Request) -> UserRolesResponse:
     """
     Get the current user's roles.
     This is used by the frontend to determine what the user can access.
     """
-    if request is not None:
-        await sync_institutional_role(request, user)
+    await sync_institutional_role(request, user)
     roles = await get_user_roles(user.sub)
     return UserRolesResponse(
         user_id=user.sub,
