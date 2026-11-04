@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import { readLoginDestination, rememberLoginDestination, safeDestination } from '../src/app/auth/loginIntent.ts';
+const memory = () => { const values = new Map(); return {getItem:key=>values.get(key)||null, setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)}; };
+globalThis.localStorage = memory(); globalThis.sessionStorage = memory();
+localStorage.setItem('dtbn-login-next', '/enter-banking');
+assert.equal(readLoginDestination(''), '/', 'old local storage cannot send a normal login into banking');
+rememberLoginDestination('/back-office-investor-leads');
+assert.equal(readLoginDestination(''), '/back-office-investor-leads');
+assert.equal(readLoginDestination(''), '/back-office-investor-leads', 'React strict rendering must not consume intent twice');
+rememberLoginDestination(null);
+assert.equal(readLoginDestination(''), '/', 'a fresh website login clears an old portal choice');
+rememberLoginDestination('/enter-app');
+assert.equal(readLoginDestination(''), '/enter-app', 'explicit Customer Portal flow stays supported');
+sessionStorage.setItem('citizen_login_destination',JSON.stringify({next:'/enter-banking',at:Date.now()-16*60*1000}));
+assert.equal(readLoginDestination(''), '/', 'expired intent cannot redirect');
+assert.equal(readLoginDestination('?next=%2Fboard-portal'), '/board-portal');
+for(const unsafe of ['https://example.org','//example.org','/%2fexample.org','/%5cexample.org','/\\evil','/%00','/%zz']) assert.equal(safeDestination(unsafe),null);
+console.log('Login destination tests passed');

@@ -8,7 +8,7 @@ import CurrencySelector from "./CurrencySelector";
 import { MobileNav } from "./MobileNav";
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
-import { bankingDestination } from "utils/bankingDestination";
+import { bankingDestination, ecosystemUrls } from "utils/bankingDestination";
 import { useUserProfile } from "utils/userProfile";
 import { useInvestorAccess } from "utils/useInvestorAccess";
 
@@ -46,6 +46,8 @@ export function Header() {
     if (['super_admin', 'admin', 'staff', 'back_office'].some(role => roles.includes(role))) {
       links.push(
         { label: 'Back Office', path: '/back-office-dashboard', icon: Building2 },
+        { label: 'Citizen Hub', path: ecosystemUrls.hub, icon: Building2 },
+        { label: 'Investor Leads', path: '/back-office-investor-leads', icon: User },
       );
     }
     
@@ -57,7 +59,8 @@ export function Header() {
     
     if (user) {
       links.push(
-        { label: 'Banking', path: '/enter-banking', icon: User },
+        { label: 'Customer Portal', path: '/enter-banking', icon: User },
+        { label: 'Mobile app', path: '/enter-app', icon: User },
       );
     }
     
@@ -226,10 +229,11 @@ export function Header() {
 
                   {showUserMenu && (
                     <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                      <div className="py-2">
+                      <div className="py-2 space-y-2 p-2">
+                        <Link to="/auth/sign-in" onClick={() => setShowUserMenu(false)} className="block rounded-lg bg-[#6d52a2] px-4 py-2.5 text-sm font-semibold text-white">Website sign in</Link>
                         <a
                           href={bankingDestination("/login")}
-                          className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#6d52a2]"
+                          className="block rounded-lg border border-[#6d52a2] px-4 py-2.5 text-sm font-semibold text-[#6d52a2] hover:bg-gray-50"
                           onClick={() => setShowUserMenu(false)}
                         >
                           Customer Portal

@@ -10,13 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { LogoutConfirmDialog } from './LogoutConfirmDialog';
+import { ecosystemUrls } from 'utils/bankingDestination';
 import { useInvestorAccess } from 'utils/useInvestorAccess';
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const user = useUser();
-  const { roles } = useUserRoles();
+  const { roles, loading: rolesLoading, error: rolesError, clearCache: retryRoles } = useUserRoles();
   const investorAccess = useInvestorAccess();
   const { profile, fetchProfile } = useUserProfile();
   const navigate = useNavigate();
@@ -50,6 +51,8 @@ export function MobileNav() {
     
     if (['super_admin', 'admin', 'staff', 'back_office'].some(role => roles.includes(role))) {
       links.push({ label: 'Back Office', path: '/back-office-dashboard', icon: Building2 });
+      links.push({ label: 'Citizen Hub', path: ecosystemUrls.hub, icon: Building2 });
+      links.push({ label: 'Investor Leads', path: '/back-office-investor-leads', icon: User });
     }
     
     if (roles.some(role => ['board_member','super_admin'].includes(role))) {
@@ -57,7 +60,8 @@ export function MobileNav() {
     }
     
     if (user) {
-      links.push({ label: 'Banking', path: '/enter-banking', icon: User });
+      links.push({ label: 'Customer Portal', path: '/enter-banking', icon: User });
+      links.push({ label: 'Mobile app', path: '/enter-app', icon: User });
     }
     
     if (investorAccess) {
@@ -99,6 +103,8 @@ export function MobileNav() {
               <div className="px-2 py-3 bg-gray-50 rounded-lg">
                 <p className="font-medium text-gray-900 truncate">{(profile?.user_id === user.id ? profile.full_name : user.displayName) || 'User'}</p>
                 <p className="text-sm text-gray-500 truncate">{user.primaryEmail}</p>
+                {rolesLoading && <p role="status" className="text-xs">Checking access...</p>}
+                {rolesError && <div role="alert" className="text-xs text-red-700"><p>{rolesError}</p><Button variant="outline" size="sm" onClick={retryRoles}>Retry access check</Button></div>}
                 {roles.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
                     {roles.map(role => (
@@ -218,7 +224,7 @@ export function MobileNav() {
               <Link to="/auth/sign-in" onClick={handleLinkClick}>
                 <Button className="w-full bg-[#6d52a2] hover:bg-[#5a4289]">
                   <User className="h-4 w-4 mr-2" />
-                  Sign In
+                  Website sign in
                 </Button>
               </Link>
             )}

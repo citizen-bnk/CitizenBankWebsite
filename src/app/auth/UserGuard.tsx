@@ -32,12 +32,6 @@ export const useUserGuardContext = () => {
   return context;
 };
 
-const writeToLocalStorage = (key: string, value: string) => {
-  if (typeof window !== "undefined" && window.localStorage) {
-    localStorage.setItem(key, value);
-  }
-};
-
 export const UserGuard = (props: {
   children: React.ReactNode;
 }) => {
@@ -82,7 +76,6 @@ export const UserGuard = (props: {
     // Don't set the next param if the user is logging out
     // to avoid ending up in an infinite redirect loop
     if (pathname !== app.urls.signOut) {
-      writeToLocalStorage("dtbn-login-next", pathname + search);
       queryParams.set("next", pathname + search);
     }
 

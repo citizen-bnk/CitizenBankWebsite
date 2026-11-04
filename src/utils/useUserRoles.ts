@@ -1,15 +1,16 @@
 import { useUser } from '@stackframe/react';
 import { apiClient } from 'app';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRolesResponse } from 'types';
 
 const ROLES_QUERY_KEY = 'userRoles';
 
 export function useUserRoles() {
   const user = useUser();
+  const queryClient = useQueryClient();
 
   const {
-    data: roles = [],
+    data: assignedRoles = [],
     isLoading: loading,
     error,
   } = useQuery<string[], Error>({
@@ -28,15 +29,16 @@ export function useUserRoles() {
     },
     // Only fetch if there is a user
     enabled: !!user && !!user.id,
-    // Cache roles for 2 minutes to reduce redundant API calls
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    // Don't refetch every time the window is focused
-    refetchOnWindowFocus: false,
+    // Refresh permissions when returning from another Citizen service.
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
     // Keep data fresh in the background, but not too often
     refetchIntervalInBackground: false,
     // Retry failed requests up to 2 times
     retry: 2,
   });
+
+  const roles = error ? [] : assignedRoles;
 
   /**
    * Check if user has a specific role
@@ -60,10 +62,7 @@ export function useUserRoles() {
   };
 
   const clearCache = () => {
-    // Invalidate the query to force a refetch
-    // This is handled by react-query's queryClient, but we don't have it here.
-    // A full page refresh will also work.
-    window.location.reload();
+    void queryClient.invalidateQueries({ queryKey: [ROLES_QUERY_KEY, user?.id] });
   };
 
   return {
