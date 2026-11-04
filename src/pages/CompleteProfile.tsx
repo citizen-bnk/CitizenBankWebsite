@@ -1,3 +1,4 @@
+import { clearNotificationCache } from 'utils/useNotifications';
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUserGuardContext } from 'app/auth';

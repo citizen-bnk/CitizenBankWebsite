@@ -148,6 +148,8 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(_request, exc):
+        if isinstance(exc.detail, dict) and exc.detail.get('code') == 'AI_CONNECTION_UNAVAILABLE':
+            return JSONResponse(status_code=503, content={'detail': exc.detail['message'], 'code': exc.detail['code'], 'recovery': 'manual_form'})
         if exc.status_code >= 500:
             reason = str(exc.detail).lower()
             if "does not exist" in reason and ("relation" in reason or "column" in reason):

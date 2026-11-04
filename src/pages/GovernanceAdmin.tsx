@@ -124,7 +124,7 @@ export default function GovernanceAdmin() {
 
   // Reset filters when dialog closes
   const handleEditDialogClose = () => {
-    setEditDialogOpen(false);
+    setIsEditDialogOpen(false);
     setSearchTerm('');
     setPositionFilter('all');
     setEditDialogTab('details');

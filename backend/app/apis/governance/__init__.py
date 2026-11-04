@@ -15,11 +15,16 @@ from app.libs.governance_models import (
     DocumentType, DocumentStatus, ApprovalType, ApprovalStatus,
     RSVPResponse, ProxyScope, ProxyStatus
 )
-from app.libs.rbac import check_user_has_role
+from app.libs.rbac import check_user_has_role, check_user_has_any_role
 import os
 import asyncpg
 
 router = APIRouter(prefix="/governance")
+
+async def require_communications_operator(user):
+    if not user or not await check_user_has_any_role(user.sub, ['super_admin','admin','back_office','staff']):
+        raise HTTPException(403, 'Staff or administrator access is required for governance communications.')
+
 
 
 # ==================== REQUEST/RESPONSE MODELS ====================
@@ -1370,6 +1375,7 @@ async def send_governance_session_notification(
     user: AuthorizedUser
 ) -> SendGovernanceNotificationResponse:
     """Queue governance session notifications for selected board members"""
+    await require_communications_operator(user)
     
     try:
         from app.libs.email_templates import create_governance_session_notification_email
@@ -1377,6 +1383,8 @@ async def send_governance_session_notification(
         
         conn_str = os.environ.get("DATABASE_URL")
         db_conn = await asyncpg.connect(conn_str)
+        from app.libs.governance_email_queue import ensure_queue
+        await ensure_queue(db_conn)
         
         # Get session details
         session_query = """
@@ -1477,10 +1485,13 @@ async def list_email_queue(
     user: AuthorizedUser = None
 ) -> EmailQueueListResponse:
     """List queued emails with optional filters"""
+    await require_communications_operator(user)
     
     try:
         conn_str = os.environ.get("DATABASE_URL")
         db_conn = await asyncpg.connect(conn_str)
+        from app.libs.governance_email_queue import ensure_queue
+        await ensure_queue(db_conn)
         
         # Build query with filters
         conditions = []
@@ -1540,6 +1551,7 @@ async def cancel_queued_email(
 ) -> dict:
     """Cancel a pending email in the queue"""
     
+    await require_communications_operator(user)
     try:
         conn_str = os.environ.get("DATABASE_URL")
         db_conn = await asyncpg.connect(conn_str)
@@ -1574,113 +1586,16 @@ async def cancel_queued_email(
         raise HTTPException(status_code=500, detail=f"Failed to cancel email: {str(e)}")
 
 
-@router.post("/email-queue/process")
 async def process_email_queue() -> dict:
-    """Process pending emails in the queue (called by scheduler)"""
-    
-    try:
-        import requests
-        
-        conn_str = os.environ.get("DATABASE_URL")
-        db_conn = await asyncpg.connect(conn_str)
-        
-        # Get pending emails that are scheduled to be sent
-        tz = ZoneInfo("Africa/Johannesburg")
-        now = datetime.now(tz)
-        
-        pending_query = """
-        SELECT id, recipient_email, recipient_name, subject, html_body
-        FROM governance_email_queue
-        WHERE status = 'pending' AND scheduled_at <= $1
-        ORDER BY scheduled_at ASC
-        """
-        
-        pending_emails = await db_conn.fetch(pending_query, now)
-        
-        sent_count = 0
-        failed_count = 0
-        
-        # Get Resend API key
-        resend_api_key = os.environ["RESEND_API_KEY"]
-        
-        for email in pending_emails:
-            email_id = email["id"]
-            
-            # Mark as sending
-            await db_conn.execute(
-                """UPDATE governance_email_queue SET status = 'sending', updated_at = NOW() WHERE id = $1""",
-                email_id
-            )
-            
-            try:
-                # Send via Resend
-                response = requests.post(
-                    "https://api.resend.com/emails",
-                    headers={
-                        "Authorization": f"Bearer {resend_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "from": "Citizen Bank <notifications@citizenhub.co.za>",
-                        "to": [email["recipient_email"]],
-                        "subject": email["subject"],
-                        "html": email["html_body"]
-                    }
-                )
-                
-                if response.status_code == 200:
-                    # Mark as sent
-                    await db_conn.execute(
-                        """
-                        UPDATE governance_email_queue 
-                        SET status = 'sent', sent_at = $1, updated_at = NOW() 
-                        WHERE id = $2
-                        """,
-                        now,
-                        email_id
-                    )
-                    sent_count += 1
-                    print(f"✅ Sent email to {email['recipient_name']} ({email['recipient_email']})")
-                else:
-                    # Mark as failed
-                    error_msg = f"Resend API error: {response.status_code} - {response.text}"
-                    await db_conn.execute(
-                        """
-                        UPDATE governance_email_queue 
-                        SET status = 'failed', error_message = $1, updated_at = NOW() 
-                        WHERE id = $2
-                        """,
-                        error_msg,
-                        email_id
-                    )
-                    failed_count += 1
-                    print(f"❌ Failed to send email to {email['recipient_name']}: {error_msg}")
-                    
-            except Exception as send_error:
-                # Mark as failed
-                error_msg = str(send_error)
-                await db_conn.execute(
-                    """
-                    UPDATE governance_email_queue 
-                    SET status = 'failed', error_message = $1, updated_at = NOW() 
-                    WHERE id = $2
-                    """,
-                    error_msg,
-                    email_id
-                )
-                failed_count += 1
-                print(f"❌ Exception sending email to {email['recipient_name']}: {error_msg}")
-        
-        await db_conn.close()
-        
-        return {
-            "success": True,
-            "processed": len(pending_emails),
-            "sent": sent_count,
-            "failed": failed_count,
-            "message": f"Processed {len(pending_emails)} email(s): {sent_count} sent, {failed_count} failed"
-        }
-        
-    except Exception as e:
-        print(f"Error processing email queue: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to process email queue: {str(e)}")
+    """Trusted scheduler entry point; delivery uses the shared Citizen email service."""
+    from app.libs.database import db_connection
+    from app.libs.email_service import send_email
+    from app.libs.governance_email_queue import process_queue
+    async with db_connection() as conn:
+        return await process_queue(conn, send_email)
+
+
+@router.post('/email-queue/process')
+async def process_email_queue_manually(user: AuthorizedUser) -> dict:
+    await require_communications_operator(user)
+    return await process_email_queue()

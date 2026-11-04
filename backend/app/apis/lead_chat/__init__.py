@@ -14,7 +14,7 @@ from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 import asyncpg
-from openai import OpenAI
+from app.libs.optional_ai import get_openai_client
 
 from app.auth import AuthorizedUser
 from app.libs.conversational_leads import (
@@ -34,7 +34,7 @@ from app.libs.conversational_leads import (
 router = APIRouter(prefix="/lead-chat", tags=["Lead Chat"])
 
 # Initialize OpenAI client
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
 
 # System prompt for AI conversation
 SYSTEM_PROMPT = """You are a knowledgeable investment consultant for Citizen Bank of Lesotho, helping to qualify and capture information about potential investors.
@@ -312,7 +312,7 @@ async def call_openai(conversation_history: str, user_message: str) -> Dict[str,
         AI response with extracted data
     """
     try:
-        response = client.chat.completions.create(
+        response = get_openai_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
@@ -353,7 +353,7 @@ async def generate_summary(messages: List[ConversationMessage]) -> str:
             if msg.role != MessageRole.SYSTEM
         ])
         
-        response = client.chat.completions.create(
+        response = get_openai_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -415,6 +415,7 @@ async def send_message(
     
     The AI will extract information and ask follow-up questions.
     """
+    get_openai_client()  # Check configuration before recording a message.
     pool = await get_db_pool()
     
     try:

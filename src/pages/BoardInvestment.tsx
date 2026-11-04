@@ -87,6 +87,7 @@ export default function BoardInvestment() {
   const [loadingWallet, setLoadingWallet] = useState(false);
 
   const navigate = useNavigate();
+  const currentInvestment = myInvestment && myInvestment.total_shares_owned > 0 ? myInvestment : null;
 
   useEffect(() => {
     loadData();

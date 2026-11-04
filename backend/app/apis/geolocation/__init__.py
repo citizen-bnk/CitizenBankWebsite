@@ -5,6 +5,7 @@ import httpx
 from app import runtime
 import os
 from functools import lru_cache
+from ipaddress import ip_address as parse_ip
 
 router = APIRouter(prefix="/geolocation")
 
@@ -39,21 +40,21 @@ def get_ipstack_data(ip_address: str):
         # This will be raised once and cached
         raise HTTPException(status_code=500, detail="IPStack API key is not configured.")
 
-    url = f"http://api.ipstack.com/{ip_address}?access_key={api_key}"
+    url = f"https://api.ipstack.com/{ip_address}"
     
     try:
         with httpx.Client() as client:
-            response = client.get(url)
+            response = client.get(url, params={"access_key": api_key}, timeout=5)
             response.raise_for_status()
             data = response.json()
         return data
     except httpx.HTTPStatusError as e:
         # Log the error and raise a generic server error
-        print(f"Error calling ipstack API: {e}")
+        print("Geolocation provider rejected the request")
         # Cache the failure for this IP for a short time if desired, but for now, we'll just raise
         raise HTTPException(status_code=502, detail="Failed to retrieve geolocation data.")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print("Geolocation provider could not be reached")
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 @router.get("/lookup", response_model=GeolocationResponse)
@@ -79,11 +80,19 @@ async def lookup_ip(
         
         print(f"🌍 Auto-detected IP address: {ip_address}")
     
-    # Simple validation for IP address format
-    if not (ip_address and len(ip_address.split('.')) == 4):
-         # In a real-world scenario, more robust validation would be needed
-        raise HTTPException(status_code=400, detail="Invalid IP address format provided.")
-        
+    try:
+        ip_address = str(parse_ip(ip_address))
+    except ValueError:
+        raise HTTPException(400, 'Invalid IP address format provided.') from None
+
+    # Country is a display preference, never an authentication or KYC signal.
+    # Vercel supplies this hint without an external IP-location subscription.
+    if not os.environ.get('IPSTACK_API_KEY'):
+        country = request.headers.get('x-vercel-ip-country', '').upper() if not request.query_params.get('ip_address') else ''
+        currency = COUNTRY_CURRENCY_MAP.get(country, (None, None))
+        return GeolocationResponse(ip=ip_address, country_code=country or None,
+            country_name=None, currency_code=currency[0], currency_name=currency[1])
+
     try:
         data = get_ipstack_data(ip_address)
 

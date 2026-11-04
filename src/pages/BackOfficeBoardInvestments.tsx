@@ -59,6 +59,23 @@ interface BoardMember {
 }
 
 export default function BackOfficeBoardInvestments() {
+  const handleDownloadReceipt = async (subscription: {id:number}) => {
+    try {
+      const response = await apiClient.download_receipt({subscriptionId:subscription.id});
+      const data = await response.json();
+      if (!data.success || !data.receipt_pdf) throw new Error('The receipt is not available yet. Review the recorded payment.');
+      const blob = base64ToBlob(data.receipt_pdf, 'application/pdf');
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = data.filename || `receipt_${subscription.id}.pdf`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (cause) {
+      const {accessError} = await import('utils/accessError');
+      toast.error((await accessError(cause)).message);
+    }
+  };
+
   const navigate = useNavigate();
   const { formatCurrency, selectedCurrency } = useCurrency();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);

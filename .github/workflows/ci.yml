@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, codex/original-investment-website-release]
   pull_request:
 permissions:
   contents: read
@@ -33,4 +33,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      - run: node scripts/check-runtime-identifiers.cjs
+      - run: node --test tests/*.test.cjs
+      - run: node --experimental-strip-types tests/login-intent.test.mjs
       - run: npx vite build

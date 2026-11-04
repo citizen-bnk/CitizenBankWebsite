@@ -173,7 +173,7 @@ export default function DevSetup() {
       const response = await brain.seed_test_users();
       const result = await response.json();
       
-      setCreatedUsers(result.users);
+      await loadTestUserInfo();
       showSuccessToast(
         `Created ${result.users.length} test user${result.users.length !== 1 ? 's' : ''} successfully`
       );

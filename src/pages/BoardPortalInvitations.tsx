@@ -46,6 +46,13 @@ export default function BoardPortalInvitations() {
   const [position, setPosition] = useState<string>('member');
   const [expiryDate, setExpiryDate] = useState('');
   const [message, setMessage] = useState('');
+  const resetForm = () => {
+    setFullName(''); setEmail(''); setMessage('');
+    setRole('board_member'); setPosition('member');
+    const expires = new Date(); expires.setDate(expires.getDate() + 7);
+    setExpiryDate(expires.toISOString().split('T')[0]);
+  };
+
 
   useEffect(() => {
     loadInvitations();

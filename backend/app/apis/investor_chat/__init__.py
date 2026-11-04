@@ -7,7 +7,7 @@ from typing import List, Optional, Dict, Any
 import asyncpg
 import os
 import json
-from openai import OpenAI
+from app.libs.optional_ai import get_openai_client
 from app.auth import AuthorizedUser
 
 router = APIRouter()
@@ -18,7 +18,7 @@ async def get_db_connection():
     return await asyncpg.connect(os.environ.get("DATABASE_URL"))
 
 # OpenAI client
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
 
 
 # Models
@@ -271,6 +271,7 @@ async def send_investor_message(request: SendMessageRequest, user: AuthorizedUse
     If conversation_id is null, starts a new conversation.
     Returns both the user message and AI response.
     """
+    get_openai_client()  # Check configuration before recording a message.
     conn = await get_db_connection()
     try:
         conversation_id = request.conversation_id
@@ -334,7 +335,7 @@ async def send_investor_message(request: SendMessageRequest, user: AuthorizedUse
         messages.append({"role": "user", "content": request.message})
         
         # Call OpenAI
-        response = client.chat.completions.create(
+        response = get_openai_client().chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
             temperature=0.7,

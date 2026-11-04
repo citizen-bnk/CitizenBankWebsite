@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Loader2, Upload, CheckCircle, XCircle, Clock, AlertCircle, FileText, AlertTriangle, ArrowLeft, Info, Download, Eye } from "lucide-react";
+import { Loader2, Upload, CheckCircle, XCircle, Clock, AlertCircle, FileText, AlertTriangle, ArrowLeft, Info, Download, Eye, HelpCircle } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
