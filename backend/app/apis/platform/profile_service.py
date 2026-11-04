@@ -59,8 +59,10 @@ async def profile_service(request: Request) -> dict:
                WHERE p.id=$1 AND m.provider='stack_auth' AND m.status='verified'""",
             person_id,
         )
-        if not person or person["status"] != "active":
+        if not person:
             raise HTTPException(404, "Profile is unavailable")
+        if person["status"] != "active":
+            raise HTTPException(403, "Account access is restricted")
         subject = person["subject"]
         await ensure_basic_profile(conn, subject, person["primary_email"], person["display_name"])
         if request.method == "PATCH":
@@ -98,9 +100,14 @@ async def profile_service(request: Request) -> dict:
             """SELECT r.role_name FROM user_roles ur JOIN roles r ON r.id=ur.role_id
                WHERE ur.user_id=$1""", subject,
         )
+        cutoff = await conn.fetchval(
+            """SELECT max(occurred_at) FROM platform.audit_log
+               WHERE target_type='user' AND target_id=$1
+               AND action IN ('user.account_suspended','user.account_reactivated')""", subject,
+        )
         return {
             "linked": True, "person_id": str(person["id"]), "provider_subject": subject, "scope": "live",
             "email": person["primary_email"] or "", "roles": [row["role_name"] for row in roles],
-            "credentials_revoked_before": None,
+            "credentials_revoked_before": cutoff.isoformat() if cutoff else None,
             "profile": dict(profile) if profile else {"full_name": person["display_name"] or "", "version": 1},
         }

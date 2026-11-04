@@ -1118,23 +1118,24 @@ async def suspend_user(
         )
         admin_name = admin_profile['full_name'] if admin_profile else 'Unknown Admin'
         
-        # Suspend user
-        await conn.execute("""
-            WITH changed AS (UPDATE user_profiles SET status='suspended',updated_at=now()
-                WHERE user_id=$1 RETURNING user_id)
-            UPDATE platform.person SET status='suspended',updated_at=now(),version=version+1
-            WHERE id IN (SELECT person_id FROM platform.identity_mapping
-                WHERE provider='stack_auth' AND subject IN (SELECT user_id FROM changed))
-        """, user_id)
-        
-        # Log suspension with correct schema
-        await conn.execute("""
-            INSERT INTO user_suspension_history 
-            (user_id, action, reason, suspended_by_user_id, suspended_by_name, suspended_at)
-            VALUES ($1, 'suspend', $2, $3, $4, NOW())
-        """, user_id, request.reason, user.sub, admin_name)
-        
-        print(f"🚫 User {user_id} suspended by {user.sub}. Reason: {request.reason}")
+        async with conn.transaction():
+            changed = await conn.fetchval(
+                """UPDATE user_profiles SET status='suspended', updated_at=now()
+                   WHERE user_id=$1 AND status IS NOT DISTINCT FROM $2 RETURNING user_id""",
+                user_id, existing['status'],
+            )
+            if not changed:
+                raise HTTPException(409, 'Account status changed. Reload and try again.')
+            await conn.execute(
+                """UPDATE platform.person SET status='suspended',updated_at=now(),version=version+1
+                   WHERE id IN (SELECT person_id FROM platform.identity_mapping
+                       WHERE provider='stack_auth' AND subject=$1)""", user_id,
+            )
+            await conn.execute(
+                """INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+                   VALUES($1,'user.account_suspended','user',$2,jsonb_build_object('reason',$3::text))""",
+                user.sub,user_id,request.reason.strip(),
+            )
         
         return UserActionResponse(
             success=True,
@@ -1175,22 +1176,24 @@ async def reactivate_user(
         if existing['status'] != 'suspended':
             raise HTTPException(status_code=400, detail="User is not suspended")
         
-        # Reactivate user
-        await conn.execute("""
-            WITH changed AS (UPDATE user_profiles SET status='active',updated_at=now()
-                WHERE user_id=$1 RETURNING user_id)
-            UPDATE platform.person SET status='active',updated_at=now(),version=version+1
-            WHERE id IN (SELECT person_id FROM platform.identity_mapping
-                WHERE provider='stack_auth' AND subject IN (SELECT user_id FROM changed))
-        """, user_id)
-        
-        # Log reactivation
-        await conn.execute("""
-            INSERT INTO user_suspension_history (user_id, action, reason, suspended_by_user_id, suspended_by_name, suspended_at)
-            VALUES ($1, 'reactivate', 'Account reactivated by admin', $2, 'Administrator', NOW())
-        """, user_id, user.sub)
-        
-        print(f"✅ User {user_id} reactivated by {user.sub}")
+        async with conn.transaction():
+            changed = await conn.fetchval(
+                """UPDATE user_profiles SET status='active', updated_at=now()
+                   WHERE user_id=$1 AND status IS NOT DISTINCT FROM $2 RETURNING user_id""",
+                user_id, existing['status'],
+            )
+            if not changed:
+                raise HTTPException(409, 'Account status changed. Reload and try again.')
+            await conn.execute(
+                """UPDATE platform.person SET status='active',updated_at=now(),version=version+1
+                   WHERE id IN (SELECT person_id FROM platform.identity_mapping
+                       WHERE provider='stack_auth' AND subject=$1)""", user_id,
+            )
+            await conn.execute(
+                """INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+                   VALUES($1,'user.account_reactivated','user',$2,jsonb_build_object('reason',$3::text))""",
+                user.sub,user_id,'Account reactivated',
+            )
         
         return UserActionResponse(
             success=True,
@@ -1308,7 +1311,14 @@ async def managed_profile(user_id: str, user: AuthorizedUser):
         row=await conn.fetchrow('SELECT user_id,full_name,email,phone,country,version FROM user_profiles WHERE user_id=$1',user_id)
         if not row:
             raise HTTPException(404,'User not found.')
-        return dict(row)
+        matches = await conn.fetch(
+            """SELECT user_id,full_name,email FROM user_profiles
+               WHERE user_id<>$1 AND (lower(email)=lower($2)
+                   OR ($3::text <> '' AND regexp_replace(coalesce(phone,''),'[^0-9]','','g')=$3))
+               ORDER BY user_id LIMIT 10""",
+            user_id,row['email'],re.sub(r'[^0-9]','',row['phone'] or ''),
+        )
+        return {**dict(row), 'possible_duplicates': [dict(match) for match in matches]}
     finally:
         await conn.close()
 
