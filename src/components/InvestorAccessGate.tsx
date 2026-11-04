@@ -43,7 +43,7 @@ export function InvestorAccessGate({ children }: { children: ReactNode }) {
     <h1 className="text-2xl font-semibold">Private investment access</h1>
     <p role={state === "error" ? "alert" : "status"}>
       {state === "checking" ? "Checking your invitation…" : state === "denied"
-        ? "This area is available to invited and existing investors. Open your invitation using the email address it was sent to."
+        ? "Open an invitation from your notifications, or sign in with the invited account."
         : "Your access could not be checked. Retry in a moment."}
     </p>
     <div className="flex flex-wrap justify-center gap-3">

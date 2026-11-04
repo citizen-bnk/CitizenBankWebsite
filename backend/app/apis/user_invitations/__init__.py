@@ -83,7 +83,7 @@ async def accept_my_invitation(
         invitation = await conn.fetchrow(
             """
             SELECT * FROM invitations 
-            WHERE token = $1 AND lower(email) = $2 AND status = 'pending'
+            WHERE (token::text = $1 OR tracking_token = $1) AND lower(email) = $2
             """,
             request.token, email
         )
@@ -93,7 +93,7 @@ async def accept_my_invitation(
             
         # Accept the invitation using the shared logic
         result = await accept_invitation(
-            token=request.token,
+            token=str(invitation['token']),
             user_id=user.sub,
             user_email=email,
             user_name=full_name
@@ -108,5 +108,35 @@ async def accept_my_invitation(
             message=result.get("message", "Invitation accepted successfully")
         )
         
+    finally:
+        await conn.close()
+
+
+@router.get('/user/invitations/details/{token}')
+async def get_invitation_details(token: str, user: AuthorizedUser) -> dict:
+    """An invitation is visible only to its signed-in recipient."""
+    if len(token) > 128:
+        raise HTTPException(404, 'Invitation not found for this account.')
+    conn = await get_db_connection()
+    try:
+        invitation = await conn.fetchrow(
+            """SELECT token, role, status, expires_at, share_class_offered FROM invitations
+               WHERE (token::text=$1 OR tracking_token=$1) AND lower(email)=$2""",
+            token, (user.email or '').strip().lower(),
+        )
+        if not invitation:
+            raise HTTPException(404, 'This invitation was not found for the signed-in email. Sign in with the invited account.')
+        if invitation['role'] != 'investor':
+            raise HTTPException(409, 'This is a board invitation. Open it from your notifications to accept it.')
+        state = invitation['status']
+        if state not in ('pending', 'sent', 'accepted'):
+            raise HTTPException(410, 'This invitation is no longer available. Contact Investor Relations.')
+        expiry = invitation['expires_at']
+        if expiry and expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if state != 'accepted' and (not expiry or expiry <= datetime.now(timezone.utc)):
+            raise HTTPException(410, 'This invitation has expired. Request a fresh invitation.')
+        return {'token': str(invitation['token']), 'role': invitation['role'], 'status': state,
+                'share_class': invitation['share_class_offered']}
     finally:
         await conn.close()

@@ -149,17 +149,29 @@ async def accept_invitation(
     try:
         async with conn.transaction():
             invitation = await conn.fetchrow(
-                "SELECT * FROM invitations WHERE token = $1 AND status = 'pending' FOR UPDATE",
+                "SELECT * FROM invitations WHERE token = $1 FOR UPDATE",
                 token,
             )
             if not invitation:
                 return {"success": False, "message": "Invalid or already used invitation"}
             if invitation['email'].strip().casefold() != user_email.strip().casefold():
                 return {"success": False, "message": "This invitation belongs to another email address"}
-            if invitation['expires_at'] < datetime.now(timezone.utc):
+            state = invitation.get('status', 'pending')
+            if state == 'accepted':
+                return {'success': True, 'role': invitation['role'], 'message': 'Invitation already confirmed'}
+            if state not in ('pending', 'sent'):
+                return {'success': False, 'message': 'This invitation is no longer available'}
+            expiry = invitation['expires_at']
+            if expiry and expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+            if not expiry or expiry <= datetime.now(timezone.utc):
                 return {"success": False, "message": "Invitation has expired"}
 
             role = await conn.fetchval("SELECT id FROM roles WHERE role_name=$1", invitation['role'])
+            if role is None and invitation['role'] == 'investor' and invitation.get('invitation_type') == 'investor':
+                role = await conn.fetchval(
+                    "INSERT INTO roles(role_name,description) VALUES('investor','Invited investor') ON CONFLICT(role_name) DO UPDATE SET role_name=EXCLUDED.role_name RETURNING id"
+                )
             if role is None:
                 return {"success": False, "message": "The invited role is not available"}
             await conn.execute(

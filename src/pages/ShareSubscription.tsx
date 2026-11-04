@@ -20,6 +20,7 @@
 
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from 'app';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,52 @@ export default function ShareSubscription() {
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const directInvite = searchParams.get('invite') || searchParams.get('token');
+  const [invitation, setInvitation] = useState<{token:string;role:string;status:string;share_class:string}|null>(null);
+  const [invitationError, setInvitationError] = useState<string|null>(null);
+  const [invitationChecking, setInvitationChecking] = useState(Boolean(directInvite));
+  const [acceptingInvitation, setAcceptingInvitation] = useState(false);
+
+  const loadInvitation = useCallback(async () => {
+    if (!directInvite) return;
+    setInvitationChecking(true);
+    setInvitationError(null);
+    try {
+      const response = await fetch('/api/user/invitations/details/' + encodeURIComponent(directInvite), {
+        headers: {Authorization: await auth.getAuthHeaderValue()}, cache:'no-store', signal:AbortSignal.timeout(15000),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'The invitation could not be checked. Retry or return to the website.');
+      setInvitation(result);
+    } catch (cause) {
+      setInvitationError(cause instanceof Error ? cause.message : 'Your invitation could not be loaded. Retry.');
+    } finally { setInvitationChecking(false); }
+  }, [directInvite]);
+  useEffect(() => { void loadInvitation(); }, [loadInvitation]);
+
+  const confirmInvitation = async () => {
+    if (!invitation || acceptingInvitation) return;
+    setAcceptingInvitation(true);
+    setInvitationError(null);
+    try {
+      const response = await fetch('/api/user/invitations/accept', {
+        method:'POST', headers:{Authorization:await auth.getAuthHeaderValue(),'Content-Type':'application/json'},
+        body:JSON.stringify({token:invitation.token}), cache:'no-store', signal:AbortSignal.timeout(20000),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success !== true) throw new Error(typeof result.detail === 'string' ? result.detail : 'Invitation confirmation could not be completed. Retry to check its status.');
+      setInvitation({...invitation,status:'accepted'});
+      try { sessionStorage.removeItem('citizen_investor_invite'); } catch { /* Storage can be disabled. */ }
+      await Promise.all([
+        queryClient.invalidateQueries({queryKey:['userRoles',user.id]}),
+        queryClient.invalidateQueries({queryKey:['websiteInvestorAccess',user.id]}),
+      ]);
+    } catch (cause) {
+      setInvitationError(cause instanceof Error ? cause.message : 'Invitation confirmation could not be completed. Retry.');
+    } finally { setAcceptingInvitation(false); }
+  };
+
   const [trackingToken, setTrackingToken] = useState<string | null>(() => {
     return searchParams.get('invite') || searchParams.get('token') || (() => {
       try { return sessionStorage.getItem('citizen_investor_invite'); } catch { return null; }
@@ -134,7 +181,7 @@ export default function ShareSubscription() {
   const [selectedUser, setSelectedUser] = useState<UserListItem | null>(null);
   const [isNewUser, setIsNewUser] = useState(false);
 
-  const { formatCurrency: displayCurrency } = useCurrency();
+  const { formatCurrency: displayCurrency, selectedCurrency } = useCurrency();
   const formatCurrency = (amount: number) => displayCurrency(amount, 'ZAR');
 
   // Track invitation click when page loads with invite parameter
@@ -142,7 +189,6 @@ export default function ShareSubscription() {
     const inviteToken = searchParams.get('invite') || searchParams.get('token');
     if (inviteToken) {
       setTrackingToken(inviteToken);
-      console.log('📧 User arrived from invitation link:', inviteToken);
       
       // Track the click
       apiClient.track_link_click(inviteToken).catch(err => {
@@ -1180,6 +1226,24 @@ export default function ShareSubscription() {
         return null;
     }
   };
+
+  if (directInvite && (invitationChecking || invitationError || invitation?.status !== 'accepted')) {
+    return <div className="flex min-h-screen flex-col"><Header/>
+      <main className="mx-auto flex w-full max-w-xl flex-1 items-center px-5 py-14">
+        <Card className="w-full"><CardHeader><CardTitle>Your investment invitation</CardTitle>
+          <CardDescription>Confirm your invitation to continue to share subscription.</CardDescription></CardHeader>
+          <CardContent className="space-y-5">
+            {invitationChecking ? <p role="status">Checking your invitation...</p> : <>
+              {invitationError ? <p role="alert">{invitationError}</p> : <p>{invitation?.share_class || 'Class B'} investment access for {user.primaryEmail}.</p>}
+              <div className="flex flex-wrap gap-3">
+                {invitation && invitation.status !== 'accepted' && <Button disabled={acceptingInvitation} onClick={() => void confirmInvitation()}>{acceptingInvitation ? 'Confirming...' : 'Confirm invitation & continue'}</Button>}
+                {invitationError && <Button variant="outline" onClick={() => void loadInvitation()}>Retry invitation</Button>}
+                <Button variant="outline" onClick={() => navigate('/')}>Back to website</Button>
+              </div>
+            </>}
+          </CardContent></Card>
+      </main><Footer/></div>;
+  }
 
   if (!availability) {
     return (
