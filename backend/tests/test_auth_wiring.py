@@ -46,6 +46,9 @@ def bearer(tok):
 
 def fake_db(monkeypatch, module):
     class Conn:
+        async def execute(self, *args):
+            return None
+
         async def fetchrow(self, *a, **k):
             return None
 

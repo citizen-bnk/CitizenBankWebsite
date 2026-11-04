@@ -70,7 +70,9 @@ async def test_new_profile_uses_authenticated_identity_and_no_email_claim():
 
     await ensure_basic_profile(ProfileConnection(), "subject-1", " Person@Example.test ", "Investor")
     assert calls[0][1] == ("subject-1", "person@example.test", "Investor")
-    assert "ON CONFLICT (user_id) DO NOTHING" in calls[0][0]
+    assert "ON CONFLICT (user_id) DO UPDATE" in calls[0][0]
+    assert "ELSE user_profiles.full_name END" in calls[0][0]
+    assert "lower(user_profiles.full_name) = lower(user_profiles.email)" in calls[0][0]
 
 
 @pytest.mark.asyncio

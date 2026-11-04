@@ -44,7 +44,7 @@ def verify_profile_proof(token: str, method: str, body: bytes, secret: str, now:
         raise HTTPException(401, "Profile proof rejected") from None
 
 
-async def profile_service(request: Request) -> dict:
+async def profile_service(request: Request, by_subject: bool = False) -> dict:
     body = await request.body() if request.method == "PATCH" else b""
     if len(body) > 16000:
         raise HTTPException(422, "Profile update is too large")
@@ -53,16 +53,18 @@ async def profile_service(request: Request) -> dict:
         os.environ.get("PROFILE_SERVICE_SECRET", ""),
     )
     async with db_connection() as conn:
+        identity_filter = "m.subject=$1" if by_subject else "p.id=$1"
         person = await conn.fetchrow(
-            """SELECT p.id, p.display_name, p.primary_email, p.status, m.subject
+            f"""SELECT p.id, p.display_name, p.primary_email, p.status, m.subject
                FROM platform.person p JOIN platform.identity_mapping m ON m.person_id=p.id
-               WHERE p.id=$1 AND m.provider='stack_auth' AND m.status='verified'""",
+               WHERE {identity_filter} AND m.provider='stack_auth' AND m.status='verified'""",
             person_id,
         )
         if not person:
             raise HTTPException(404, "Profile is unavailable")
         if person["status"] != "active":
             raise HTTPException(403, "Account access is restricted")
+        person_id = str(person["id"])
         subject = person["subject"]
         await ensure_basic_profile(conn, subject, person["primary_email"], person["display_name"])
         if request.method == "PATCH":

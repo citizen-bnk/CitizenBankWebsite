@@ -25,6 +25,7 @@ class User(BaseModel):
     sub: str
 
     # Optional extra user data
+    iss: str | None = None
     user_id: str | None = None
     name: str | None = None
     picture: str | None = None
@@ -58,6 +59,8 @@ async def get_authorized_user(
 
         if user is not None:
             await enforce_account_status(user.sub)
+            if isinstance(request, Request):
+                user = await hydrate_stack_identity(user, request)
             return user
         print("Request authentication returned no user")
     except HTTPException:
@@ -221,3 +224,35 @@ async def enforce_account_status(subject: str) -> None:
         raise HTTPException(503, 'Account status could not be verified. Retry.') from None
     if state in ('suspended','closed','deleted'):
         raise HTTPException(403, 'This account is restricted. Contact Citizen support.')
+
+
+async def hydrate_stack_identity(user: User, request: Request) -> User:
+    """Resolve provider profile claims omitted from Stack access tokens."""
+    if not user.iss or not user.iss.startswith('https://api.stack-auth.com/api/v1/projects/'):
+        return user
+    from main import get_stack_auth_config
+    import httpx
+    config = get_stack_auth_config() or {}
+    if user.iss != 'https://api.stack-auth.com/api/v1/projects/' + config.get('projectId', ''):
+        raise HTTPException(401, 'Citizen identity project does not match this sign-in.')
+    if user.email and user.name:
+        return user
+    token = request.headers.get('authorization', '').removeprefix('Bearer ')
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            response = await client.get('https://api.stack-auth.com/api/v1/users/me', headers={
+                'x-stack-project-id': config['projectId'],
+                'x-stack-publishable-client-key': config['publishableClientKey'],
+                'x-stack-access-type': 'client',
+                'x-stack-access-token': token,
+            })
+            response.raise_for_status()
+            identity = response.json()
+        if identity.get('id') != user.sub or not identity.get('primary_email'):
+            raise ValueError('Identity mismatch')
+        return user.model_copy(update={
+            'email': identity['primary_email'].strip().lower(),
+            'name': identity.get('display_name') or user.name,
+        })
+    except (httpx.HTTPError, ValueError, KeyError):
+        raise HTTPException(503, 'Your Citizen identity could not be loaded. Retry sign-in.') from None

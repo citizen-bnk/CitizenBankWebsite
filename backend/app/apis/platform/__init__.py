@@ -16,6 +16,7 @@ from app.libs import platform_tokens as tokens
 from app.libs.demo_seed import ACCOUNTS as DEMO_ACCOUNTS
 from app.libs.database import db_connection
 from app.libs.platform_people import ensure_person
+from app.libs.basic_profile import ensure_basic_profile
 from app.libs.institutional_roles import sync_institutional_role
 from .profile_service import profile_service
 
@@ -25,6 +26,12 @@ router = APIRouter(prefix="/platform")
 @router.api_route("/profile-service", methods=["GET", "PATCH"])
 async def platform_profile_service(request: Request) -> dict:
     return await profile_service(request)
+
+@router.api_route("/subject-service", methods=["GET", "PATCH"])
+async def platform_subject_service(request: Request) -> dict:
+    """Private shared profile lookup by verified provider subject."""
+    return await profile_service(request, by_subject=True)
+
 
 # service id -> (display name, env var holding its base URL, audience for handoff, roles that may enter)
 SERVICES: dict[str, dict] = {
@@ -106,6 +113,7 @@ async def _person_for(user, request: Request | None = None) -> dict:
         if request is not None:
             await sync_institutional_role(request, user)
         async with db_connection() as conn:
+            await ensure_basic_profile(conn, user.sub, user.email, user.name)
             person = await ensure_person(conn, user.sub)
             # Stack Auth may create an identity before the optional profile form.
             # The verified identity-provider address must still be available to Core.

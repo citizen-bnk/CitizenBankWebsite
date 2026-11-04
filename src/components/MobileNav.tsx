@@ -97,7 +97,7 @@ export function MobileNav() {
           {user && (
             <div className="space-y-2">
               <div className="px-2 py-3 bg-gray-50 rounded-lg">
-                <p className="font-medium text-gray-900 truncate">{user.displayName || 'User'}</p>
+                <p className="font-medium text-gray-900 truncate">{(profile?.user_id === user.id ? profile.full_name : user.displayName) || 'User'}</p>
                 <p className="text-sm text-gray-500 truncate">{user.primaryEmail}</p>
                 {roles.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">

@@ -9,6 +9,7 @@ import { MobileNav } from "./MobileNav";
 import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 import { NotificationBell } from "./NotificationBell";
 import { bankingDestination } from "utils/bankingDestination";
+import { useUserProfile } from "utils/userProfile";
 import { useInvestorAccess } from "utils/useInvestorAccess";
 
 const logoUrl = "/brand/logo.png";
@@ -20,6 +21,8 @@ export function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUser();
+  const profile = useUserProfile(state => state.profile);
+  const displayName = profile?.user_id === user?.id ? profile?.full_name : user?.displayName;
   const { roles, loading: rolesLoading, error: rolesError, clearCache: retryRoles } = useUserRoles();
   const investorAccess = useInvestorAccess();
 
@@ -126,7 +129,7 @@ export function Header() {
                     className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-[#6d52a2] text-white rounded-lg hover:bg-[#5a4289] transition-colors font-medium text-xs sm:text-sm"
                   >
                     <User className="h-4 w-4" />
-                    <span className="hidden md:inline max-w-[80px] lg:max-w-[150px] truncate">{user.displayName || user.primaryEmail || 'User'}</span>
+                    <span className="hidden md:inline max-w-[80px] lg:max-w-[150px] truncate">{displayName || user.primaryEmail || 'User'}</span>
                     <ChevronDown className="h-4 w-4" />
                   </button>
 
@@ -134,7 +137,7 @@ export function Header() {
                     <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                       {/* User Info */}
                       <div className="px-4 py-3 border-b border-gray-200">
-                        <p className="font-medium text-gray-900 truncate">{user.displayName || 'User'}</p>
+                        <p className="font-medium text-gray-900 truncate">{displayName || 'User'}</p>
                         <p className="text-sm text-gray-500 truncate">{user.primaryEmail}</p>
                         {rolesError && <div className="mt-2 space-y-2 text-sm" role="status">
                           <p>{rolesError}</p>
