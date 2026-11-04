@@ -190,7 +190,7 @@ async def platform_handoff(body: HandoffRequest, user: AuthorizedUser, response:
     base = _service_url(service_id)
     if not base:
         raise HTTPException(status_code=503, detail=f"{SERVICES[service_id]['name']} is not configured")
-    person = await _person_for(user, request)
+    person = await _person_for(user)
     if SERVICES[service_id]["roles"] is not None and not set(person["roles"]) & SERVICES[service_id]["roles"]:
         raise HTTPException(status_code=403, detail=f"Your account does not include {SERVICES[service_id]['name']}")
     try:
