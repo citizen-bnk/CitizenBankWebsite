@@ -49,7 +49,7 @@ export function RoleGuard({ allowedRoles, children, deniedMessage, requireAll = 
   }
 
   // Check if user has required roles
-  const hasAccess = requireAll ? hasAllRoles(allowedRoles) : hasAnyRole(allowedRoles);
+  const hasAccess = roles.includes('super_admin') || (requireAll ? hasAllRoles(allowedRoles) : hasAnyRole(allowedRoles));
 
   // Show access denied if user doesn't have required roles
   if (!hasAccess) {

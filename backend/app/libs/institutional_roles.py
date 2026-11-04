@@ -1,6 +1,8 @@
 """Provision the two explicitly authorised institutional accounts after provider verification."""
 
 import httpx
+import os
+import json
 from fastapi import HTTPException, Request
 
 from app.libs.basic_profile import ensure_basic_profile
@@ -47,11 +49,18 @@ async def sync_institutional_role(request: Request, user) -> None:
     role = AUTHORIZED.get(address)
     if not role:
         return
-    if identity.get('primary_email_verified') is not True:
+    nominated = role == 'super_admin' and bool(os.environ.get('INSTITUTIONAL_SUPER_ADMIN_SUBJECT')) and user.sub == os.environ.get('INSTITUTIONAL_SUPER_ADMIN_SUBJECT')
+    if role == 'super_admin' and os.environ.get('INSTITUTIONAL_SUPER_ADMIN_SUBJECT') and not nominated:
+        raise HTTPException(403, 'This is not the nominated super administrator identity.')
+    if identity.get('primary_email_verified') is not True and not nominated:
         raise HTTPException(status_code=403, detail='Verify this email with the identity provider before institutional access.')
+    await assign_institutional_identity(user.sub, address, user.name, role, 'nominated_subject' if nominated else 'stack_auth_email')
+
+
+async def assign_institutional_identity(subject, address, name, role, verification):
     async with db_transaction() as conn:
-        await ensure_basic_profile(conn, user.sub, address, user.name)
-        profile = await conn.fetchrow('SELECT email FROM user_profiles WHERE user_id=$1 FOR UPDATE', user.sub)
+        await ensure_basic_profile(conn, subject, address, name)
+        profile = await conn.fetchrow('SELECT email FROM user_profiles WHERE user_id=$1 FOR UPDATE', subject)
         if not profile or (profile['email'] or '').strip().lower() != address:
             raise HTTPException(status_code=409, detail='Account email needs reconciliation before assigning institutional access.')
         # A fresh production database may contain the role tables but no role
@@ -64,11 +73,32 @@ async def sync_institutional_role(request: Request, user) -> None:
             """INSERT INTO user_roles(user_id,role_id)
                SELECT $1,id FROM roles WHERE role_name=$2
                ON CONFLICT (user_id,role_id) DO NOTHING RETURNING user_id""",
-            user.sub, role,
+            subject, role,
         )
         if assigned:
             await conn.execute(
                 """INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
                    VALUES($1,'institutional_role.verified_grant','user',$1,$2::jsonb)""",
-                user.sub, '{"verification":"stack_auth_email"}',
+                subject, json.dumps({'verification': verification}),
             )
+
+
+async def reconcile_nominated_owner():
+    """Confirm the configured immutable identity with the provider before granting access."""
+    from main import get_stack_auth_config
+    config = get_stack_auth_config() or {}
+    subject = os.environ.get('INSTITUTIONAL_SUPER_ADMIN_SUBJECT', '')
+    server_key = os.environ.get('STACK_SECRET_SERVER_KEY', '')
+    if not subject or not server_key:
+        raise HTTPException(503, 'Nominated administrator identity is not configured.')
+    async with httpx.AsyncClient(timeout=12) as client:
+        response = await client.get('https://api.stack-auth.com/api/v1/users/' + subject, headers={
+            'x-stack-project-id': config.get('projectId', ''),
+            'x-stack-secret-server-key': server_key, 'x-stack-access-type': 'server',
+        })
+        response.raise_for_status()
+        identity = response.json()
+    if identity.get('id') != subject or (identity.get('primary_email') or '').strip().lower() != 'phafanep@gmail.com':
+        raise HTTPException(403, 'The nominated identity does not match the authorised owner.')
+    await assign_institutional_identity(subject, 'phafanep@gmail.com', identity.get('display_name'), 'super_admin', 'nominated_subject')
+    return {'role': 'super_admin', 'reconciled': True}

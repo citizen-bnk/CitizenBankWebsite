@@ -106,7 +106,7 @@ async def process_profile_completion_reminders() -> Dict[str, Any]:
                     user_id
                 )
                 
-                if profile and profile['profile_completed']:
+                if profile and await _applicable_profile_complete(conn, user_id):
                     print(f"✅ Profile already complete for {user_id}, cancelling reminder {reminder_id}")
                     await conn.execute(
                         """
@@ -207,3 +207,8 @@ async def get_reminder_stats() -> Dict[str, Any]:
         
     finally:
         await conn.close()
+
+
+async def _applicable_profile_complete(conn, user_id):
+    from app.apis.user_management import calculate_profile_completion
+    return await calculate_profile_completion(user_id, conn) == 100

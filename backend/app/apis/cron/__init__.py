@@ -59,3 +59,11 @@ async def run_job(job: str, authorization: str | None = Header(default=None)) ->
         # A failure is reported (so Vercel shows the run as failed) without leaking details in the response.
         raise HTTPException(status_code=500, detail="Job failed; see the logs") from None
     return {"ok": True, "job": job, "seconds": round(time.monotonic() - started, 2)}
+
+
+@router.post('/reconcile-institutional-owner')
+async def reconcile_institutional_owner(authorization: str | None = Header(default=None)) -> dict:
+    if not _authorized(authorization):
+        raise HTTPException(401, 'Unauthorized')
+    from app.libs.institutional_roles import reconcile_nominated_owner
+    return {'ok': True, **await reconcile_nominated_owner()}

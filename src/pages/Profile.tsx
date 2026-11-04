@@ -22,7 +22,7 @@ import { BoardMemberProfileSection } from "components/BoardMemberProfileSection"
 import { BioSection } from "components/BioSection";
 import type { EditingField } from "components/EditableFieldComponent";
 import { apiClient } from "app";
-import { useUserProfile } from 'utils/userProfile';
+import { useUserProfile, calculateProfileCompletion } from 'utils/userProfile';
 
 type UserProfile = {
   user_id: string;
@@ -77,7 +77,7 @@ type BoardMemberData = {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile: profileFromStore, fetchProfile } = useUserProfile();
+  const { profile: profileFromStore, fetchProfile, activeStage, setActiveStage } = useUserProfile();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [boardData, setBoardData] = useState<BoardMemberData | null>(null);
@@ -85,7 +85,6 @@ const Profile = () => {
   const [editingField, setEditingField] = useState<EditingField | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [activeStage, setActiveStage] = useState<'basic' | 'standard' | 'advanced'>('basic');
 
   const [section, setSection] = useState<string | null>(null);
 
@@ -220,7 +219,7 @@ const Profile = () => {
               <Button key={stage} type="button" variant={activeStage === stage ? 'default' : 'outline'}
                 aria-current={activeStage === stage ? 'page' : undefined}
                 onClick={() => setActiveStage(stage)} className="min-w-28 capitalize">
-                {stage}
+                {stage} · {calculateProfileCompletion(profile, stage)}%
               </Button>
             ) : null;
           })}

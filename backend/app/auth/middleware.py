@@ -30,6 +30,7 @@ class User(BaseModel):
     name: str | None = None
     picture: str | None = None
     email: str | None = None
+    email_verified: bool = False
 
 
 def get_auth_configs(request: HTTPConnection) -> list[AuthConfig]:
@@ -253,6 +254,7 @@ async def hydrate_stack_identity(user: User, request: Request) -> User:
         return user.model_copy(update={
             'email': identity['primary_email'].strip().lower(),
             'name': identity.get('display_name') or user.name,
+            'email_verified': identity.get('primary_email_verified') is True,
         })
     except (httpx.HTTPError, ValueError, KeyError):
         raise HTTPException(503, 'Your Citizen identity could not be loaded. Retry sign-in.') from None

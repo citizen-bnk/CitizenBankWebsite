@@ -42,6 +42,9 @@ class UserProfileResponse(BaseModel):
     user_id: str
     profile_stages: List[str] = Field(default_factory=lambda: ["basic"])
     has_investment_subscription: bool = False
+    profile_completion_by_stage: dict[str, int] = Field(default_factory=dict)
+    profile_missing_by_stage: dict[str, List[str]] = Field(default_factory=dict)
+    profile_completed: bool = False
     email: str
     full_name: str
     phone: str

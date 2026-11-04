@@ -8,8 +8,10 @@ from app.libs import institutional_roles as module
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('verified', [True, False])
-async def test_current_provider_identity_and_empty_role_catalog(monkeypatch, verified):
+@pytest.mark.parametrize('verified,nominated', [(True,False),(False,False),(False,True)])
+async def test_current_provider_identity_and_empty_role_catalog(monkeypatch, verified, nominated):
+    monkeypatch.delenv('INSTITUTIONAL_SUPER_ADMIN_SUBJECT', raising=False)
+    if nominated: monkeypatch.setenv('INSTITUTIONAL_SUPER_ADMIN_SUBJECT','signed-subject')
     import main
     monkeypatch.setattr(main, 'get_stack_auth_config', lambda: {
         'projectId': 'citizen', 'publishableClientKey': 'test-public',
@@ -40,7 +42,7 @@ async def test_current_provider_identity_and_empty_role_catalog(monkeypatch, ver
     user = SimpleNamespace(sub='signed-subject',
         iss='https://api.stack-auth.com/api/v1/projects/citizen', email=None, name='Pule')
     request = Request({'type': 'http', 'headers': [(b'authorization', b'Bearer signed-test')]})
-    if not verified:
+    if not verified and not nominated:
         with pytest.raises(HTTPException) as error:
             await module.sync_institutional_role(request, user)
         assert error.value.status_code == 403

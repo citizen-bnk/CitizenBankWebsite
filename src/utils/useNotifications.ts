@@ -32,7 +32,7 @@ export interface UseNotificationsResult {
 export function useNotifications(): UseNotificationsResult {
   const user = useUser();
   const { roles } = useUserRoles();
-  const { profile } = useUserProfile();
+  const { profile, activeStage } = useUserProfile();
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -45,12 +45,13 @@ export function useNotifications(): UseNotificationsResult {
     console.log('🔔 [useNotifications] Starting notification fetch for user:', user.id);
 
     // Check session cache first
-    const sessionKey = `citizen_bank_notifications_${user.id}`;
+    const sessionKey = `citizen_bank_notifications_v2_${user.id}_${activeStage}_${profile?.version || 0}_${roles.slice().sort().join("-")}`;
     const cached = sessionStorage.getItem(sessionKey);
     
     if (cached) {
       try {
-        const { notifications: cachedNotifications } = JSON.parse(cached);
+        const { notifications: cachedNotifications, cachedAt } = JSON.parse(cached);
+        if (!cachedAt || Date.now() - cachedAt > 60_000) throw new Error("Expired notifications");
         console.log(`✅ Using cached notifications from session (${cachedNotifications.length} items)`);
         setNotifications(cachedNotifications);
         return; // Don't fetch again this session
@@ -119,22 +120,21 @@ export function useNotifications(): UseNotificationsResult {
       // This is the fix for the original issue - everyone should complete their profile
       try {
         console.log('👤 Checking profile completion...');
-        console.log('👤 Current profile data:', profileData);
         
         // Use the backend's calculated profile_completion_percentage
-        const completionPercentage = profileData?.profile_completion_percentage || 0;
+        const completionPercentage = calculateProfileCompletion(profileData, activeStage);
         console.log('👤 Profile completion:', completionPercentage + '%');
         
         if (completionPercentage < 100) {
           console.log('⚠️ Profile incomplete - adding notification');
           pendingNotifications.push({
             id: 'profile-incomplete',
-            title: 'Complete Your Profile',
-            message: `Your profile is ${completionPercentage}% complete. Please complete it to access all features.`,
+            title: `Complete your ${activeStage} profile`,
+            message: `Your ${activeStage} profile is ${completionPercentage}% complete. Add the remaining details when convenient.`,
             type: 'profile',
-            severity: 'urgent',
-            cta: 'Complete Profile',
-            metadata: { completionPercentage }
+            severity: 'normal',
+            cta: 'Update profile',
+            metadata: { completionPercentage, profileStage: activeStage }
           });
         } else {
           console.log('✅ Profile is complete');
@@ -145,7 +145,7 @@ export function useNotifications(): UseNotificationsResult {
       
       // 3. Check board documents for ALL users (not just those with board_member role)
       // Some users may have document requirements even before role assignment
-      try {
+      if (roles.includes('board_member')) try {
         console.log('📄 Checking for board document requirements...');
         const statusRes = await brain.get_my_status();
         const statusData = await statusRes.json();
@@ -195,46 +195,13 @@ export function useNotifications(): UseNotificationsResult {
         }
       }
 
-      // 5. Check for admin-created subscriptions with incomplete profile
-      try {
-        const publicSubsRes = await brain.core_get_my_public_subscriptions();
-        if (publicSubsRes.ok) {
-          const publicSubsData = await publicSubsRes.json();
-          
-          // Check if user has admin-created subscriptions and incomplete profile
-          if (publicSubsData.has_admin_created_subscriptions) {
-            // Use backend's calculated profile completion percentage (not frontend calculation)
-            const completionPercentage = profileData?.profile_completion_percentage || 0;
-            
-            if (completionPercentage < 100) {
-              // Replace generic profile notification with this more specific one
-              const genericProfileIndex = pendingNotifications.findIndex(n => n.id === 'profile-incomplete');
-              if (genericProfileIndex !== -1) {
-                pendingNotifications.splice(genericProfileIndex, 1);
-              }
-              
-              pendingNotifications.push({
-                id: 'admin-subscription-profile-incomplete',
-                title: 'Complete Your Investment Profile',
-                message: `Shares have been allocated to you. Please complete your profile (${completionPercentage}% complete) to finalize your investment.`,
-                type: 'profile',
-                severity: 'urgent',
-                cta: 'Complete Profile',
-                metadata: { completionPercentage }
-              });
-            }
-          }
-        }
-      } catch (error) {
-        console.log('Could not check admin-created subscriptions:', error);
-      }
-
       // Sort by severity and type priority
       const sortedNotifications = sortNotificationsByPriority(pendingNotifications);
 
       // Store in sessionStorage
       sessionStorage.setItem(sessionKey, JSON.stringify({
         notifications: sortedNotifications,
+        cachedAt: Date.now(),
         timestamp: Date.now()
       }));
       
@@ -249,7 +216,8 @@ export function useNotifications(): UseNotificationsResult {
 
   // Fetch on mount and when user changes
   useEffect(() => {
-    // Delay notification fetch by 3 seconds to let page render first
+    setNotifications(previous => previous.filter(item => item.type !== 'profile'));
+    // Fetch the currently displayed profile section after the page renders.
     const timer = setTimeout(() => {
       // Use requestIdleCallback if available for better performance
       if ('requestIdleCallback' in window) {
@@ -262,12 +230,12 @@ export function useNotifications(): UseNotificationsResult {
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [user?.id]);
+  }, [user?.id, profile?.version, activeStage, roles.join(",")]);
 
   return {
     notifications,
     loading,
-    refresh: fetchNotifications
+    refresh: () => { if (user) clearNotificationCache(user.id); void fetchNotifications(); }
   };
 }
 
@@ -295,7 +263,8 @@ function sortNotificationsByPriority(notifications: NotificationData[]): Notific
  * that should update notifications (e.g., completing profile, accepting invitation)
  */
 export function clearNotificationCache(userId: string) {
-  const sessionKey = `citizen_bank_notifications_${userId}`;
-  sessionStorage.removeItem(sessionKey);
-  console.log('🗑️ Notification cache cleared');
+  for (let i = sessionStorage.length - 1; i >= 0; i--) {
+    const key = sessionStorage.key(i);
+    if (key === `citizen_bank_notifications_${userId}` || key?.startsWith(`citizen_bank_notifications_v2_${userId}_`)) sessionStorage.removeItem(key);
+  }
 }

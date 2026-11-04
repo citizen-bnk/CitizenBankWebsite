@@ -46,6 +46,15 @@ async def may_access_investments(conn, user: AuthorizedUser, invite_token: str |
     )
     if existing:
         return True
+    # A verified invited member can return from the home page without retaining
+    # a bearer invitation URL in browser storage. Never expose other invitees.
+    if getattr(user, 'email_verified', False) and await conn.fetchval(
+        """SELECT EXISTS (SELECT 1 FROM invitations WHERE lower(email)=$1
+           AND invitation_type='investor' AND status IN ('pending','sent','accepted')
+           AND (status='accepted' OR expires_at>now())
+           AND share_class_offered IN ('Class B','Class B - Ordinary Shares'))""", email,
+    ):
+        return True
     if not invite_token or len(invite_token) > 128 or not all(c.isalnum() or c in "_-" for c in invite_token):
         return False
     return bool(await conn.fetchval(

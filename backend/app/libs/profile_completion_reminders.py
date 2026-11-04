@@ -50,7 +50,7 @@ async def schedule_profile_completion_reminder(
             print(f"⚠️ No profile found for user {user_id}")
             return None
         
-        if profile['profile_completed']:
+        if await _applicable_profile_complete(conn, user_id):
             print(f"✅ Profile already complete for {user_id}, skipping reminder")
             return None
         
@@ -276,3 +276,8 @@ async def mark_reminder_failed(
     except Exception as e:
         print(f"❌ Error marking reminder {reminder_id} as failed: {str(e)}")
         return False
+
+
+async def _applicable_profile_complete(conn, user_id):
+    from app.apis.user_management import calculate_profile_completion
+    return await calculate_profile_completion(user_id, conn) == 100

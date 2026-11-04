@@ -50,80 +50,16 @@ async def get_db_connection():
 # ========== Helper Functions ==========
 
 async def calculate_profile_completion(user_id: str, conn) -> int:
-    """Calculate profile completion percentage based on all applicable fields"""
-    profile = await conn.fetchrow("""
-        SELECT 
-            full_name, phone, id_number, email, account_type,
-            street_address, city, state_province, postal_code, country,
-            date_of_birth, nationality, gender, citizenship_status,
-            occupation, employer, linkedin_profile,
-            source_of_funds, investor_type, investment_purpose,
-            selfie_picture_url, half_body_picture_url,
-            cv_document_url, bio,
-            business_name, company_registration_number, tax_id
-        FROM user_profiles
-        WHERE user_id = $1
-    """, user_id)
-    
+    """Persist completion of requirements applicable to the person's services."""
+    from app.libs.profile_progress import profile_progress
+    profile = await conn.fetchrow('SELECT * FROM user_profiles WHERE user_id=$1', user_id)
     if not profile:
         return 0
-    
-    # Core fields (always required) - 40 points
-    core_fields = ['full_name', 'phone', 'id_number', 'email']
-    core_weight = 40
-    core_completed = sum(1 for field in core_fields if profile.get(field))
-    core_score = int((core_completed / len(core_fields)) * core_weight)
-    
-    # Address fields - 15 points
-    address_fields = ['street_address', 'city', 'postal_code', 'country']
-    address_weight = 15
-    address_completed = sum(1 for field in address_fields if profile.get(field))
-    address_score = int((address_completed / len(address_fields)) * address_weight)
-    
-    # Demographic fields - 15 points
-    demographic_fields = ['date_of_birth', 'nationality', 'gender', 'citizenship_status']
-    demographic_weight = 15
-    demographic_completed = sum(1 for field in demographic_fields if profile.get(field))
-    demographic_score = int((demographic_completed / len(demographic_fields)) * demographic_weight)
-    
-    # Professional fields - 10 points
-    professional_fields = ['occupation', 'employer', 'linkedin_profile']
-    professional_weight = 10
-    professional_completed = sum(1 for field in professional_fields if profile.get(field))
-    professional_score = int((professional_completed / len(professional_fields)) * professional_weight)
-    
-    # Investor fields - 10 points
-    investor_fields = ['source_of_funds', 'investor_type', 'investment_purpose']
-    investor_weight = 10
-    investor_completed = sum(1 for field in investor_fields if profile.get(field))
-    investor_score = int((investor_completed / len(investor_fields)) * investor_weight)
-    
-    # Profile enhancements - 10 points
-    # Picture: either selfie OR half body picture (5 points)
-    has_picture = bool(profile.get('selfie_picture_url') or profile.get('half_body_picture_url'))
-    picture_score = 5 if has_picture else 0
-    
-    # Document/Bio: either CV OR bio (5 points)
-    has_document_or_bio = bool(profile.get('cv_document_url') or profile.get('bio'))
-    document_bio_score = 5 if has_document_or_bio else 0
-    
-    enhancement_score = picture_score + document_bio_score
-    
-    # Business fields (only for business accounts) - replaces investor fields for business accounts
-    business_score = 0
-    if profile.get('account_type') == 'business':
-        business_fields = ['business_name', 'company_registration_number', 'tax_id']
-        business_weight = 10
-        business_completed = sum(1 for field in business_fields if profile.get(field))
-        business_score = int((business_completed / len(business_fields)) * business_weight)
-        # For business accounts, replace investor score with business score
-        investor_score = 0
-    
-    # Calculate total
-    total_score = core_score + address_score + demographic_score + professional_score + investor_score + enhancement_score + business_score
-    
-    # Cap at 100
-    return min(100, total_score)
+    stages, subscribed = await get_profile_stages(conn, user_id)
+    roles = await conn.fetch('SELECT r.role_name FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$1', user_id)
+    progress = profile_progress(dict(profile), stages, [row['role_name'] for row in roles], subscribed)
+    values = progress['profile_completion_by_stage'].values()
+    return round(sum(values) / len(progress['profile_completion_by_stage']))
 
 
 async def update_profile_completion(user_id: str) -> None:
@@ -263,7 +199,7 @@ async def get_profile_stages(conn: asyncpg.Connection, user_id: str) -> tuple[Li
             SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
             WHERE ur.user_id = $1 AND r.role_name = ANY($2::text[])
         )
-    """, user_id, ["investor", "shareholder", "employee", "board_member", "back_office", "admin", "super_admin"])
+    """, user_id, ["investor", "shareholder", "employee", "board_member", "staff", "back_office", "admin", "super_admin"])
     has_subscription = await conn.fetchval("""
         SELECT EXISTS(
             SELECT 1 FROM share_subscriptions
@@ -302,6 +238,9 @@ async def get_user_profile(user: AuthorizedUser) -> UserProfileResponse:
         stages, has_subscription = await get_profile_stages(conn, user.sub)
         response_data["profile_stages"] = stages
         response_data["has_investment_subscription"] = has_subscription
+        from app.libs.profile_progress import profile_progress
+        role_rows = await conn.fetch('SELECT r.role_name FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=$1', user.sub)
+        response_data.update(profile_progress(dict(profile), stages, [row['role_name'] for row in role_rows], has_subscription))
         return UserProfileResponse(**{k: v for k, v in response_data.items() if k in UserProfileResponse.__fields__})
         
     finally:

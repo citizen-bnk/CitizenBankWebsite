@@ -21,8 +21,8 @@ import { LogoutConfirmDialog } from "./LogoutConfirmDialog";
 export const ProfileDropdown = () => {
   const { user } = useUserGuardContext();
   const navigate = useNavigate();
-  const { isInvestor, isBoardMember } = useUserRoles();
-  const { profile, fetchProfile } = useUserProfile();
+  const { isInvestor, isBoardMember, isSuperAdmin } = useUserRoles();
+  const { profile, fetchProfile, activeStage } = useUserProfile();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
 
   // Fetch profile on mount
@@ -31,7 +31,7 @@ export const ProfileDropdown = () => {
   }, []); // Empty array - zustand store functions are stable
 
   // Calculate completion percentage
-  const completionPercentage = calculateProfileCompletion(profile);
+  const completionPercentage = calculateProfileCompletion(profile, activeStage);
 
   // Get user initials for avatar
   const getInitials = () => {
@@ -83,7 +83,7 @@ export const ProfileDropdown = () => {
         </DropdownMenuItem>
 
         {/* Board Member Portal */}
-        {isBoardMember && (
+        {(isBoardMember || isSuperAdmin) && (
           <DropdownMenuItem onClick={() => navigate("/board-portal")}>
             <Shield className="mr-2 h-4 w-4" />
             <span>Board Portal</span>
@@ -91,8 +91,8 @@ export const ProfileDropdown = () => {
         )}
 
         {/* Investor Portal */}
-        {isInvestor && (
-          <DropdownMenuItem onClick={() => navigate("/board-investment")}>
+        {(isInvestor || isSuperAdmin) && (
+          <DropdownMenuItem onClick={() => navigate("/invest")}>
             <TrendingUp className="mr-2 h-4 w-4" />
             <span>My Investments</span>
           </DropdownMenuItem>

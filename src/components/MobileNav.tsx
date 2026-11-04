@@ -19,7 +19,7 @@ export function MobileNav() {
   const user = useUser();
   const { roles, loading: rolesLoading, error: rolesError, clearCache: retryRoles } = useUserRoles();
   const investorAccess = useInvestorAccess();
-  const { profile, fetchProfile } = useUserProfile();
+  const { profile, fetchProfile, activeStage } = useUserProfile();
   const navigate = useNavigate();
 
   // Fetch profile on mount
@@ -30,7 +30,7 @@ export function MobileNav() {
   }, [user?.id]); // Only depend on user ID, not fetchProfile - zustand functions are stable
 
   // Calculate completion percentage
-  const completionPercentage = calculateProfileCompletion(profile);
+  const completionPercentage = calculateProfileCompletion(profile, activeStage);
 
   const handleLogout = async () => {
     await stackClientApp.signOut();

@@ -1,3 +1,4 @@
+import { calculateProfileCompletion } from 'utils/profileProgress';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -63,9 +64,7 @@ export function ProfileCompletionPopup({ autoShow = true }: Props) {
       // 1. Profile completion percentage < 100
       // 2. Email or mobile not verified
       const isIncomplete = 
-        (profile.profile_completion_percentage || 0) < 100 ||
-        !profile.email_verified ||
-        !profile.mobile_verified;
+        calculateProfileCompletion(profile) < 100;
 
       if (isIncomplete) {
         setOpen(true);
@@ -80,7 +79,7 @@ export function ProfileCompletionPopup({ autoShow = true }: Props) {
   const handleCompleteProfile = () => {
     sessionStorage.setItem('profile_popup_dismissed', 'true');
     setOpen(false);
-    navigate('/complete-profile');
+    navigate('/profile');
   };
 
   const handleDismiss = () => {
@@ -104,28 +103,10 @@ export function ProfileCompletionPopup({ autoShow = true }: Props) {
           </div>
           <DialogDescription className="text-base space-y-4 pt-4">
             <p>
-              Your profile is incomplete. To unlock all features and ensure a seamless banking experience, 
-              please take a moment to complete your profile.
+              Add your basic contact details. Other information is requested only when a service needs it.
             </p>
             
-            <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
-              <p className="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4" />
-                Why complete your profile?
-              </p>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 ml-6 list-disc">
-                <li>Required for board appointments</li>
-                <li>Required to subscribe to shares</li>
-                <li>Enables full access to banking services</li>
-                <li>Ensures secure and verified transactions</li>
-                <li>Helps us serve you better</li>
-              </ul>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              <strong>Note:</strong> You will not be able to be appointed to the board or subscribe to shares 
-              until your profile is 100% complete and verified.
-            </p>
+            <p className="text-sm text-muted-foreground">Completing these details does not replace identity verification or service-specific checks.</p>
           </DialogDescription>
         </DialogHeader>
         

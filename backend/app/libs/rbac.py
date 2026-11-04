@@ -42,7 +42,7 @@ async def check_user_has_role(user_id: str, role_name: str) -> bool:
     print(f"🔍 Checking if user {user_id} has role '{role_name}'")
     roles = await get_user_roles(user_id)
     print(f"📋 User {user_id} has roles: {roles}")
-    has_role = role_name in roles
+    has_role = role_name in roles or ('super_admin' in roles and role_name in ('admin', 'staff', 'back_office'))
     print(f"✅ Result: {has_role}")
     return has_role
 
@@ -55,7 +55,7 @@ async def check_user_has_any_role(user_id: str, role_names: List[str]) -> bool:
     print(f"🔍 Checking if user {user_id} has any of roles: {role_names}")
     roles = await get_user_roles(user_id)
     print(f"📋 User {user_id} has roles: {roles}")
-    has_any = any(role in roles for role in role_names)
+    has_any = 'super_admin' in roles or any(role in roles for role in role_names)
     print(f"✅ Result: {has_any}")
     return has_any
 
