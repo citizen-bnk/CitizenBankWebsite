@@ -34,7 +34,7 @@ export const NotificationBell = () => {
   // Handle invitation acceptance
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
-      const response = await apiClient.accept_my_invitation({ invitationId });
+      const response = await apiClient.accept_my_invitation({ token: invitationId });
       const data = await response.json();
       
       if (response.ok && data.success) {
@@ -65,7 +65,9 @@ export const NotificationBell = () => {
       case 'subscription':
         return () => navigate('/my-subscriptions');
       case 'invitation':
-        return () => handleAcceptInvitation(notificationData.id);
+        return notificationData.metadata?.role === 'investor'
+          ? () => navigate('/share-subscription?invite=' + encodeURIComponent(notificationData.id))
+          : () => handleAcceptInvitation(notificationData.id);
       default:
         return () => {};
     }

@@ -92,9 +92,14 @@ export const PersistentNotificationBanner = () => {
         break;
         
       case 'invitation':
-        // Accept invitation
+        if (currentNotification.metadata?.role === 'investor') {
+          navigate('/share-subscription?invite=' + encodeURIComponent(currentNotification.id));
+          handleDismiss();
+          break;
+        }
+        // Accept board invitation
         try {
-          const response = await apiClient.accept_my_invitation({ invitationId: currentNotification.id });
+          const response = await apiClient.accept_my_invitation({ token: currentNotification.id });
           const data = await response.json();
           
           if (response.ok && data.success) {

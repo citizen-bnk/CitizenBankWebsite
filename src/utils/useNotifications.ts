@@ -87,7 +87,6 @@ export function useNotifications(): UseNotificationsResult {
       }
       
       const profileData = await profileResponse.json();
-      console.log('📋 Profile fetched:', profileData);
 
       // 1. Check for Pending Invitations (CRITICAL - Always show)
       let hasPendingInvitations = false;
@@ -101,12 +100,12 @@ export function useNotifications(): UseNotificationsResult {
             hasPendingInvitations = true;
             invitations.forEach((inv: any) => {
               pendingNotifications.push({
-                id: inv.id,
-                title: 'Board Membership Invitation',
-                message: `You have been invited to join the board as ${inv.role}. Accept to access the Board Portal.`,
+                id: inv.token,
+                title: inv.role === 'investor' ? 'Investor invitation' : 'Board membership invitation',
+                message: inv.role === 'investor' ? 'Your private investment invitation is ready.' : 'Review your invitation to the Board Portal.',
                 type: 'invitation',
                 severity: 'urgent',
-                cta: 'Accept Invitation',
+                cta: inv.role === 'investor' ? 'View investment invitation' : 'Accept invitation',
                 metadata: { role: inv.role }
               });
             });

@@ -4,7 +4,7 @@ def profile_progress(profile, stages, roles=(), has_subscription=False):
     if 'standard' in stages:
         fields['standard'] = ['id_number', 'date_of_birth', 'nationality', 'street_address', 'city', 'country']
         if profile.get('account_type') == 'business':
-            fields['standard'] += ['business_name', 'company_registration_number', 'tax_id']
+            fields['standard'] += ['business_name', 'company_registration_number']
     if 'advanced' in stages:
         fields['advanced'] = ['occupation']
         if has_subscription or set(roles) & {'investor', 'shareholder'}:

@@ -48,7 +48,7 @@ async def get_current_user_pending_invitations(user: AuthorizedUser) -> List[Inv
             """
             SELECT token, role, invited_by_name, created_at, expires_at, position, message
             FROM invitations
-            WHERE lower(email) = $1 AND status = 'pending' AND expires_at > NOW()
+            WHERE lower(email) = $1 AND status IN ('pending','sent') AND expires_at > NOW()
             ORDER BY created_at DESC
             """,
             email
