@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, codex/original-investment-website-release]
+    branches: [main, codex/original-investment-website-release, codex/reconcile-production-reference-data]
   pull_request:
 permissions:
   contents: read

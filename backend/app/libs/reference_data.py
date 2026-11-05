@@ -5,6 +5,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = json.loads((ROOT / 'reference_data/baseline.json').read_text())
 MIGRATION = ROOT / 'migrations/reference_data/001_catalogue.sql'
+RESTORE = ROOT / 'migrations/reference_data/000_baseline.sql'
+SETTINGS = ROOT / 'migrations/reference_data/002_settings.sql'
+INVITATION_POLICY = json.loads((ROOT / 'reference_data/invitation_policy.json').read_text())
+CATEGORY_CODES = {'Corporate & Governance':'corporate_governance','Financial Information':'financial_information',
+                  'Investment Documents':'investment_documents','Regulatory & Licensing':'regulatory_licensing',
+                  'Policies':'policies'}
 TABLES = {
     'roles': {'role_name'},
     'board_positions': {'id', 'position_name', 'position_level', 'description'},
@@ -22,6 +28,8 @@ READINESS = {
     'ncnda_templates': 'Legal: publish approved versioned agreement',
     'governance_sessions': 'Governance: review document holding area',
     'engagement_config': 'Communications: keep automatic sends disabled until approved',
+    'board_member_positions': 'Governance: appointment history; never seed appointments',
+    'board_member_documents': 'Compliance: submission records; never fabricate evidence',
 }
 
 
@@ -36,12 +44,17 @@ async def inventory(conn):
     columns = {}
     for row in rows:
         columns.setdefault(row['table_name'], set()).add(row['column_name'])
+    # One round trip for all counts, rather than two queries per catalogue.
+    queries = []
+    for table,names in columns.items():
+        active = 'count(*) FILTER (WHERE is_active=true)' if 'is_active' in names else 'NULL::bigint'
+        queries.append(f"SELECT '{table}' AS name,count(*) AS count,{active} AS active_count FROM \"{table}\"")
+    counts = {r['name']:r for r in await conn.fetch(' UNION ALL '.join(queries))} if queries else {}
     checks = []
     for table, instruction in READINESS.items():
         names = columns.get(table, set())
-        count = await conn.fetchval(f'SELECT count(*) FROM "{table}"') if names else 0
-        active_count = (await conn.fetchval(f'SELECT count(*) FROM "{table}" WHERE is_active=true')
-                        if 'is_active' in names else None)
+        count = counts[table]['count'] if names else 0
+        active_count = counts[table]['active_count'] if names else None
         missing = sorted(TABLES.get(table, set()) - names)
         checks.append({'table': table, 'exists': bool(names), 'count': count,
                        'active_count': active_count, 'missing_columns': missing,
@@ -49,7 +62,7 @@ async def inventory(conn):
     return checks
 
 
-async def seed(conn, *, apply=False, actor='operator'):
+async def seed(conn, *, apply=False, actor='operator', restore_schema=False, invitation_policy=False):
     """Dry-run executes the exact changes then rolls them back, including DDL.
 
     A lock serialises setup. Row-level natural-key checks preserve customisations,
@@ -61,7 +74,10 @@ async def seed(conn, *, apply=False, actor='operator'):
     try:
         await conn.execute("SELECT pg_advisory_xact_lock(hashtext('citizen:reference-data'))")
         before = await inventory(conn)
-        blockers = [c['table'] for c in before if c['table'] in TABLES and c['missing_columns']]
+        if restore_schema:
+            await conn.execute(RESTORE.read_text())
+        current = await inventory(conn) if restore_schema else before
+        blockers = [c['table'] for c in current if c['table'] in TABLES and c['missing_columns']]
         if blockers:
             raise SetupConflict('Restore baseline schema before seeding: ' + ', '.join(blockers))
         duplicates = await conn.fetchval("""SELECT EXISTS(SELECT 1 FROM board_positions
@@ -72,8 +88,14 @@ async def seed(conn, *, apply=False, actor='operator'):
               ELSE lower(position_name) END HAVING count(*)>1)""")
         if duplicates:
             raise SetupConflict('Duplicate board position labels require manual reconciliation. No records were merged.')
+        if await conn.fetchval('''SELECT EXISTS(SELECT 1 FROM data_room_categories
+            GROUP BY lower(trim(category_name)) HAVING count(*)>1)'''):
+            raise SetupConflict('Duplicate data-room category labels require reconciliation. No records were merged.')
         await conn.execute(MIGRATION.read_text())
-        changes = []
+        await conn.execute(SETTINGS.read_text())
+        restored = {c['table'] for c in current if c['exists']}
+        changes = [{'table':c['table'],'code':'schema_restored'} for c in before
+                   if restore_schema and c['table'] in restored and not c['exists']]
         columns = {r['table_name']:set() for r in await conn.fetch("""SELECT DISTINCT table_name
             FROM information_schema.columns WHERE table_schema='public'""")}
         for r in await conn.fetch("SELECT table_name,column_name FROM information_schema.columns WHERE table_schema='public'"):
@@ -87,8 +109,9 @@ async def seed(conn, *, apply=False, actor='operator'):
                 changes.append({'table':'roles','code':role})
             if not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM invitation_permissions WHERE role_name=$1)', role):
                 # Absence never grants a new permission. Super-admin has an existing code-level override.
-                await conn.execute('INSERT INTO invitation_permissions(role_name,can_invite_roles) VALUES($1,$2)', role, [])
-                changes.append({'table':'invitation_permissions','code':role})
+                targets = INVITATION_POLICY['permissions'].get(role, []) if invitation_policy else []
+                await conn.execute('INSERT INTO invitation_permissions(role_name,can_invite_roles) VALUES($1,$2)', role, targets)
+                changes.append({'table':'invitation_permissions','code':role,'can_invite_roles':targets})
         for item in BASELINE['positions']:
             if not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM board_positions WHERE position_code=$1)', item['code']):
                 await conn.execute('''INSERT INTO board_positions
@@ -107,9 +130,11 @@ async def seed(conn, *, apply=False, actor='operator'):
                     item['code'],item['name'],item['description'],['global'],['pdf','jpg','png','docx'],actor)
                 changes.append({'table':'board_document_requirements','code':item['code'],'draft':True})
         for name in BASELINE['categories']:
-            if not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM data_room_categories WHERE lower(category_name)=lower($1))', name):
-                await conn.execute('''INSERT INTO data_room_categories(category_name,description,display_order)
-                    VALUES($1,'Starter category; maintain through data-room administration.',0)''', name)
+            code=CATEGORY_CODES[name]
+            if not await conn.fetchval('''SELECT EXISTS(SELECT 1 FROM data_room_categories
+                WHERE seed_code=$1 OR lower(trim(category_name))=lower($2))''', code,name):
+                await conn.execute('''INSERT INTO data_room_categories(seed_code,category_name,description,display_order)
+                    VALUES($1,$2,'Starter category; maintain through data-room administration.',0)''', code,name)
                 changes.append({'table':'data_room_categories','code':name})
         governance_columns = {r['column_name'] for r in await conn.fetch("""SELECT column_name
             FROM information_schema.columns WHERE table_schema='public' AND table_name='governance_sessions'""")}
@@ -122,11 +147,12 @@ async def seed(conn, *, apply=False, actor='operator'):
                     VALUES('board_meeting','Unlinked Documents','draft',$1,
                     '{"is_default_holding":true,"system_owned":true}'::jsonb)""",actor)
                 changes.append({'table':'governance_sessions','code':'unlinked_documents'})
-        if changes or not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM reference_data_runs WHERE version=$1)', BASELINE['version']):
+        version = INVITATION_POLICY['version'] if invitation_policy or restore_schema else BASELINE['version']
+        if changes or not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM reference_data_runs WHERE version=$1)', version):
             await conn.execute('INSERT INTO reference_data_runs(version,actor,changes) VALUES($1,$2,$3::jsonb)',
-                               BASELINE['version'],actor,json.dumps(changes))
+                               version,actor,json.dumps(changes))
         after = await inventory(conn)
-        report = {'version':BASELINE['version'],'applied':apply,'changes':changes,
+        report = {'version':version,'applied':apply,'changes':changes,
                   'before':before,'after':after,
                   'preview_note':'No catalogue rows or schema changes are saved by a preview. PostgreSQL reference-ID sequences may advance.',
                   'review_required':['Approve draft document requirements and legal templates',

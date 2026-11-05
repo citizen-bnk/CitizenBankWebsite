@@ -8,11 +8,13 @@ export function ReferenceDataSetup({onApplied}: {onApplied:()=>void}) {
   const [error,setError] = useState('');
   const [busy,setBusy] = useState(false);
   const [canApply,setCanApply] = useState(false);
+  const [restoreSchema,setRestoreSchema] = useState(true);
+  const [invitationPolicy,setInvitationPolicy] = useState(false);
   async function run(action:'readiness'|'history'|'preview'|'apply') {
     setBusy(true); setError(''); setCanApply(false);
     try {
       const result = await referenceRequest(action==='readiness' || action==='history' ? action:'seed',
-        action==='readiness' || action==='history' ? undefined : {apply:action==='apply',confirmation:action==='apply'?'APPLY SAFE DEFAULTS':''});
+        action==='readiness' || action==='history' ? undefined : {apply:action==='apply',confirmation:action==='apply'?'APPLY SAFE DEFAULTS':'',restore_schema:restoreSchema,invitation_policy:invitationPolicy});
       setReport(result);
       setCanApply(action==='preview' && !result.applied);
       if (action==='apply') onApplied();
@@ -26,6 +28,8 @@ export function ReferenceDataSetup({onApplied}: {onApplied:()=>void}) {
       no offers, payment destinations, user roles or communications are activated.
     </CardDescription></CardHeader>
     <CardContent className="space-y-4">
+      <label className="flex items-center gap-3"><input type="checkbox" checked={restoreSchema} disabled={busy} onChange={e=>{setRestoreSchema(e.target.checked);setCanApply(false);}}/>Restore missing reference tables</label>
+      <label className="flex items-start gap-3"><input type="checkbox" className="mt-1" checked={invitationPolicy} disabled={busy} onChange={e=>{setInvitationPolicy(e.target.checked);setCanApply(false);}}/>New permission rows: investors, shareholders, staff and administrators can invite investors. Existing permissions stay unchanged.</label>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" disabled={busy} onClick={()=>run('readiness')}>Check readiness</Button>
         <Button variant="outline" disabled={busy} onClick={()=>run('history')}>View change history</Button>

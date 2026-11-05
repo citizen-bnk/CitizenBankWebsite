@@ -29,3 +29,16 @@ def test_fictional_offering_prevents_release(monkeypatch):
     response = TestClient(main.app).get("/api/health/ready")
     assert response.status_code == 503
     assert response.json()["issue"] == "OFFERING_RECONCILIATION_REQUIRED"
+
+
+def test_missing_reference_tables_prevent_release(monkeypatch):
+    class MissingReferences(Connection):
+        async def fetchval(self,*_): return False
+    async def connect(*_,**__): return MissingReferences()
+    monkeypatch.setattr('asyncpg.connect',connect)
+    monkeypatch.setattr(main,'CRITICAL_ROUTERS',set())
+    monkeypatch.setenv('DATABASE_URL_PROD','postgresql://test')
+    response=TestClient(main.app).get('/api/health/ready')
+    assert response.status_code==503
+    assert response.json()['issue']=='REFERENCE_DATA_SETUP_REQUIRED'
+    assert 'board_positions' in response.json()['missing_tables']

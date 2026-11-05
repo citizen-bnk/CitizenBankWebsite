@@ -14,10 +14,10 @@ export function positionPayload(form: {title:string;hierarchy_level:number;descr
 }
 
 // Keep new calls outside the generated client; reuse its authentication and safe-read retry policy.
-export async function referenceRequest(path:string, body?:unknown) {
+export async function referenceRequest(path:string, body?:unknown, method?:'POST'|'PUT') {
   let response:Response;
   try {
-    response = await apiClient.request({path:`/reference-data/${path}`, method:body ? 'POST':'GET',
+    response = await apiClient.request({path:`/reference-data/${path}`, method:method || (body ? 'POST':'GET'),
       ...(body ? {body, type:ContentType.Json} : {})});
   } catch (e) {
     if (e instanceof Response) response=e;

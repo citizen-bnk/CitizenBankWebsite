@@ -13,6 +13,7 @@ from app.libs.reference_data import seed, inventory, SetupConflict
 from app.libs.board_positions import resolve_position
 from app.libs.investment_policy import validate_payment_plan, approved_offer
 from app.apis.reference_data import require_setup_admin, SeedRequest, run_seed
+from app.libs.reference_settings import list_records, save_record, catalogue_config, CategoryValues
 
 
 SCHEMA = '''
@@ -87,6 +88,75 @@ async def test_missing_legacy_schema_rolls_back(db):
     with pytest.raises(SetupConflict,match='invitation_permissions'):
         await seed(db,apply=True)
     assert await db.fetchval('SELECT count(*) FROM roles') == 0
+
+
+@pytest.mark.asyncio
+async def test_explicit_restore_and_invitation_policy_are_idempotent(db):
+    await db.execute('DROP TABLE invitation_permissions')
+    preview=await seed(db,restore_schema=True,invitation_policy=True)
+    assert not preview['applied']
+    assert not await db.fetchval("SELECT to_regclass('public.invitation_permissions')")
+    result=await seed(db,apply=True,restore_schema=True,invitation_policy=True,actor='operator')
+    assert result['version']=='2026-11-05.2'
+    assert await db.fetchval("SELECT can_invite_roles FROM invitation_permissions WHERE role_name='investor'")==['investor']
+    assert await db.fetchval("SELECT can_invite_roles FROM invitation_permissions WHERE role_name='customer'")==[]
+    await db.execute("UPDATE invitation_permissions SET can_invite_roles='{}' WHERE role_name='investor'")
+    repeat=await seed(db,apply=True,restore_schema=True,invitation_policy=True)
+    assert repeat['changes']==[]
+    assert await db.fetchval("SELECT can_invite_roles FROM invitation_permissions WHERE role_name='investor'")==[]
+
+
+@pytest.mark.asyncio
+async def test_category_updates_preserve_ids_and_detect_concurrent_changes(db):
+    await seed(db,apply=True)
+    row=await save_record(db,'categories',None,{'category_name':'Board papers','description':'Approved papers'},'','super')
+    updated=await save_record(db,'categories',row['id'],{'category_name':'Board evidence','is_active':False},row['revision'],'super')
+    assert updated['id']==row['id'] and updated['is_active'] is False
+    with pytest.raises(HTTPException) as error:
+        await save_record(db,'categories',row['id'],{'category_name':'Old edit'},row['revision'],'super')
+    assert error.value.status_code==409
+    with pytest.raises(HTTPException):
+        await save_record(db,'categories',None,{'category_name':'board EVIDENCE'},'','super')
+    records=await list_records(db,'categories')
+    assert any(r['id']==row['id'] and not r['is_active'] for r in records['records'])
+    assert await db.fetchval("SELECT count(*) FROM reference_data_runs WHERE version='reference-settings'")==2
+    baseline=next(r for r in records['records'] if r['category_name']=='Policies')
+    await save_record(db,'categories',baseline['id'],{'category_name':'Company policies','is_active':False},baseline['revision'],'super')
+    assert (await seed(db,apply=True))['changes']==[]
+    assert await db.fetchval('SELECT count(*) FROM data_room_categories')==6
+
+
+@pytest.mark.asyncio
+async def test_catalogue_api_cannot_change_role_codes_or_arbitrary_tables(db):
+    await seed(db,apply=True)
+    with pytest.raises(HTTPException): catalogue_config('user_roles')
+    role=(await list_records(db,'roles'))['records'][0]
+    with pytest.raises(HTTPException):
+        await save_record(db,'roles',role['id'],{'role_name':'super_admin','description':'Changed'},role['revision'],'super')
+    with pytest.raises(HTTPException):
+        await save_record(db,'roles',None,{'description':'new'},'','super')
+    changed=await save_record(db,'roles',role['id'],{'description':'Reviewed description'},role['revision'],'super')
+    assert changed['role_name']==role['role_name']
+
+
+@pytest.mark.asyncio
+async def test_legacy_payment_seed_never_creates_a_destination(monkeypatch):
+    from app.apis import bank_accounts
+    async def allow(*_): return True
+    monkeypatch.setattr(bank_accounts,'check_user_has_any_role',allow)
+    with pytest.raises(HTTPException) as error:
+        await bank_accounts.seed_bank_account(SimpleNamespace(sub='super'))
+    assert error.value.status_code==410
+
+
+@pytest.mark.asyncio
+async def test_customer_cannot_update_payment_destinations(monkeypatch):
+    from app.apis import bank_accounts
+    async def deny(*_): return False
+    monkeypatch.setattr(bank_accounts,'check_user_has_any_role',deny)
+    with pytest.raises(HTTPException) as error:
+        await bank_accounts.update_bank_account(1,bank_accounts.UpdateBankAccountRequest(bank_name='Other'),SimpleNamespace(sub='customer'))
+    assert error.value.status_code==403
 
 
 @pytest.mark.asyncio

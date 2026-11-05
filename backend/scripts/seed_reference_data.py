@@ -21,7 +21,8 @@ async def run(args):
         raise SystemExit('An explicit environment confirmation is required.')
     conn = await asyncpg.connect(url, statement_cache_size=0, timeout=10)
     try:
-        result = await inventory(conn) if args.inventory else await seed(conn, apply=args.apply, actor=args.actor)
+        result = await inventory(conn) if args.inventory else await seed(conn, apply=args.apply, actor=args.actor,
+            restore_schema=args.restore_schema, invitation_policy=args.invitation_policy)
         print(json.dumps(result, indent=2, default=str))
     finally:
         await conn.close()
@@ -33,6 +34,8 @@ if __name__ == '__main__':
     parser.add_argument('--apply',action='store_true')
     parser.add_argument('--confirm-environment')
     parser.add_argument('--actor',default='operator')
+    parser.add_argument('--restore-schema',action='store_true')
+    parser.add_argument('--invitation-policy',action='store_true')
     args = parser.parse_args()
     if args.inventory and args.apply:
         parser.error('--inventory cannot be combined with --apply')

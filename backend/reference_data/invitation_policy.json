@@ -1,0 +1,9 @@
+{
+  "version": "2026-11-05.2",
+  "description": "New permission rows only; existing policy is preserved. Board/staff role grants use separate authorised workflows.",
+  "permissions": {
+    "customer": [], "investor": ["investor"], "shareholder": ["investor"],
+    "board_member": [], "staff": ["investor"], "back_office": ["investor"],
+    "admin": ["investor"], "super_admin": []
+  }
+}

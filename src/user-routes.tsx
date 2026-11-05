@@ -18,6 +18,7 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import AdminSetupGuide from "./pages/AdminSetupGuide.tsx";
 import AdminUserDetail from "./pages/AdminUserDetail.tsx";
 import WebsiteSettings from "./pages/WebsiteSettings";
+import ReferenceSettings from "./pages/ReferenceSettings";
 import UserManagement from "./pages/UserManagement";
 import AdminUsers from "./pages/AdminUsers.tsx";
 import App from "./pages/App.tsx";
@@ -108,6 +109,7 @@ const originalRoutes: RouteObject[] = [
 	{ path: "/admin-user-detail", element: <UserGuard><AdminUserDetail /></UserGuard> },
 	{ path: "/adminuserdetail", element: <UserGuard><AdminUserDetail /></UserGuard> },
 	{ path: "/website-settings", element: <UserGuard><WebsiteSettings /></UserGuard> },
+	{ path: "/reference-settings", element: <UserGuard><ReferenceSettings /></UserGuard> },
 	{ path: "/admin-users", element: <UserGuard><UserManagement /></UserGuard> },
 	{ path: "/admin-users-advanced", element: <UserGuard><AdminUsers /></UserGuard> },
 	{ path: "/adminusers", element: <UserGuard><AdminUsers /></UserGuard> },

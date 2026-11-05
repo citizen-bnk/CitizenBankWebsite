@@ -18,4 +18,10 @@ describe('reference catalogue client',()=>{
     request.mockRejectedValueOnce(new Response(JSON.stringify({detail:'Restore baseline schema'}),{status:409}));
     await expect(referenceRequest('seed',{apply:false})).rejects.toThrow('Restore baseline schema');
   });
+  it('sends catalogue edits with PUT and the concurrency revision',async()=>{
+    request.mockResolvedValueOnce(new Response(JSON.stringify({id:1})));
+    const body={values:{description:'Reviewed'},revision:'current-revision'};
+    await referenceRequest('catalogues/roles/1',body,'PUT');
+    expect(request).toHaveBeenLastCalledWith(expect.objectContaining({path:'/reference-data/catalogues/roles/1',method:'PUT',body}));
+  });
 });

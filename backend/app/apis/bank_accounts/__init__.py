@@ -1,11 +1,17 @@
 """Bank Accounts API - Manage bank accounts for receiving payments."""
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from app import runtime
 from app.auth import AuthorizedUser
 from app.libs.database import get_db_connection
+from app.libs.rbac import check_user_has_any_role
+
+async def require_finance_admin(user):
+    if not await check_user_has_any_role(user.sub,["super_admin","admin"]):
+        raise HTTPException(403,"Administrator access is required to maintain payment destinations.")
+
 import asyncpg
 import os
 
@@ -29,14 +35,15 @@ class BankAccount(BaseModel):
 
 class CreateBankAccountRequest(BaseModel):
     """Request to create a new bank account."""
-    account_name: str
-    bank_name: str
-    account_number: str
-    branch_code: str
+    model_config = ConfigDict(str_strip_whitespace=True,extra='forbid')
+    account_name: str = Field(min_length=2,max_length=200)
+    bank_name: str = Field(min_length=2,max_length=200)
+    account_number: str = Field(min_length=1,max_length=80)
+    branch_code: str = Field(min_length=1,max_length=40)
     branch_name: Optional[str] = None
     swift_code: Optional[str] = None
     currency: str = "ZAR"
-    is_active: bool = True
+    is_active: bool = False
     is_default: bool = False
     description: Optional[str] = None
 
@@ -58,6 +65,7 @@ class UpdateBankAccountRequest(BaseModel):
 @router.get("/list-bank-accounts")
 async def list_bank_accounts(user: AuthorizedUser) -> List[BankAccount]:
     """List all bank accounts."""
+    await require_finance_admin(user)
     from app.env import Mode, mode
     
     db_url = os.environ.get("DATABASE_URL_ADMIN_PROD" if mode == Mode.PROD else "DATABASE_URL_ADMIN_DEV")
@@ -153,6 +161,7 @@ async def create_bank_account(
     user: AuthorizedUser
 ) -> BankAccount:
     """Create a new bank account."""
+    await require_finance_admin(user)
     from app.env import Mode, mode
     
     db_url = os.environ.get("DATABASE_URL_ADMIN_PROD" if mode == Mode.PROD else "DATABASE_URL_ADMIN_DEV")
@@ -214,6 +223,7 @@ async def update_bank_account(
     user: AuthorizedUser
 ) -> BankAccount:
     """Update a bank account."""
+    await require_finance_admin(user)
     from app.env import Mode, mode
     
     db_url = os.environ.get("DATABASE_URL_ADMIN_PROD" if mode == Mode.PROD else "DATABASE_URL_ADMIN_DEV")
@@ -293,6 +303,7 @@ async def delete_bank_account(
     user: AuthorizedUser
 ) -> dict:
     """Delete a bank account."""
+    await require_finance_admin(user)
     from app.env import Mode, mode
     
     db_url = os.environ.get("DATABASE_URL_ADMIN_PROD" if mode == Mode.PROD else "DATABASE_URL_ADMIN_DEV")
@@ -315,37 +326,6 @@ async def delete_bank_account(
 
 @router.post("/bank-accounts/seed")
 async def seed_bank_account(user: AuthorizedUser):
-    """
-    Seed the default FNB bank account if no accounts exist.
-    This is idempotent - only creates if table is empty.
-    """
-    conn = await get_db_connection()
-    try:
-        # Check if any accounts exist
-        existing = await conn.fetchval("""
-            SELECT COUNT(*) FROM bank_accounts
-        """)
-        
-        if existing > 0:
-            return {"message": "Bank account already exists", "seeded": False}
-        
-        # Insert the FNB account
-        await conn.execute("""
-            INSERT INTO bank_accounts (
-                account_name, bank_name, account_number, branch_code,
-                swift_code, currency, is_active, is_default
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        """, 
-            "CITIZEN PAY(PTY)LTD",
-            "First National Bank (FNB), a division of FirstRand Bank Limited",
-            "63128015898",
-            "255355",
-            "FIRNZAJJ",
-            "ZAR",
-            True,
-            True
-        )
-        
-        return {"message": "FNB bank account seeded successfully", "seeded": True}
-    finally:
-        await conn.close()
+    """Historical hard-coded payment destinations must not be activated."""
+    await require_finance_admin(user)
+    raise HTTPException(410, 'Automatic bank-account seeding is retired. Add a verified payment destination in Settings.')

@@ -5,10 +5,15 @@ from app import runtime
 from app.auth import AuthorizedUser
 from datetime import datetime, timezone
 from app.libs.database import db_connection
+from app.libs.rbac import check_user_has_any_role
 from app.libs.data_room_emails import send_new_document_notification
 import re
 
-router = APIRouter(prefix="/data-room/admin")
+async def require_data_room_admin(user: AuthorizedUser):
+    if not await check_user_has_any_role(user.sub, ['super_admin','admin','staff','back_office']):
+        raise HTTPException(403, 'Administrator or staff access is required for data-room maintenance.')
+
+router = APIRouter(prefix="/data-room/admin", dependencies=[Depends(require_data_room_admin)])
 
 # ============= Models =============
 
@@ -73,7 +78,8 @@ async def list_categories(user: AuthorizedUser) -> List[CategoryResponse]:
         rows = await conn.fetch("""
             SELECT id, category_name, description, display_order, 
                    parent_category_id, created_at
-            FROM data_room_categories
+            FROM data_room_categories c
+            WHERE COALESCE((to_jsonb(c)->>'is_active')::boolean,true)
             ORDER BY display_order, category_name
         """)
         
@@ -168,29 +174,8 @@ async def update_category(
 
 @router.delete("/categories/{category_id}")
 async def delete_category(category_id: int, user: AuthorizedUser):
-    """Delete a document category (admin only) - only if no documents are in it"""
-    async with db_connection() as conn:
-        # Check if category has documents
-        doc_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM data_room_documents WHERE category_id = $1 AND status != 'deleted'",
-            category_id
-        )
-        
-        if doc_count > 0:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Cannot delete category with {doc_count} document(s). Move or delete documents first."
-            )
-        
-        result = await conn.execute(
-            "DELETE FROM data_room_categories WHERE id = $1",
-            category_id
-        )
-        
-        if result == "DELETE 0":
-            raise HTTPException(status_code=404, detail="Category not found")
-        
-        return {"message": "Category deleted successfully"}
+    """Keep referenced categories; archive through reference settings instead."""
+    raise HTTPException(409, 'Archive this category in Reference settings. Existing document links are preserved.')
 
 # ============= Document Endpoints =============
 

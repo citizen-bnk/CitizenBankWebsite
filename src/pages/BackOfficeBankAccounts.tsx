@@ -48,6 +48,7 @@ export default function BackOfficeBankAccounts() {
   const { user } = useUserGuardContext();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<BankAccount | null>(null);
   const [formData, setFormData] = useState({
@@ -71,8 +72,7 @@ export default function BackOfficeBankAccounts() {
     try {
       setLoading(true);
       
-      // Seed the account if none exists
-      await apiClient.seed_bank_account();
+      // Reading settings never creates a payment destination.
       
       // Load accounts
       await loadAccounts();
@@ -113,12 +113,14 @@ export default function BackOfficeBankAccounts() {
   };
 
   const handleSubmitEdit = async () => {
-    if (!selectedAccount) return;
-
+    if (saving) return;
+    if (![formData.accountName,formData.bankName,formData.accountNumber,formData.branchCode].every(value=>value.trim())) {
+      toast.error('Enter the account name, bank name, account number and branch code.');
+      return;
+    }
+    setSaving(true);
     try {
-      const response = await apiClient.update_bank_account(
-        { accountId: selectedAccount.id },
-        {
+      const body = {
           account_name: formData.accountName,
           bank_name: formData.bankName,
           account_number: formData.accountNumber,
@@ -129,21 +131,25 @@ export default function BackOfficeBankAccounts() {
           is_active: formData.isActive,
           is_default: formData.isDefault,
           description: formData.description || null,
-        }
-      );
+        };
+      const response = selectedAccount
+        ? await apiClient.update_bank_account({accountId:selectedAccount.id},body)
+        : await apiClient.create_bank_account(body);
 
       if (response.ok) {
-        toast.success('Bank account updated successfully');
+        toast.success('Payment destination saved');
         setShowEditDialog(false);
         setSelectedAccount(null);
         loadAccounts();
       } else {
         const error = await response.json();
-        toast.error(error.detail || 'Failed to update bank account');
+        toast.error(typeof error.detail==='string' ? error.detail : 'Check the payment destination details and try again.');
       }
     } catch (error) {
       console.error('Error updating bank account:', error);
       toast.error('Failed to update bank account');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -164,6 +170,7 @@ export default function BackOfficeBankAccounts() {
             </p>
           </div>
 
+          <div className="my-5"><Button onClick={()=>{setSelectedAccount(null);setFormData({accountName:'',bankName:'',accountNumber:'',branchCode:'',branchName:'',swiftCode:'',currency:'ZAR',isActive:false,isDefault:false,description:''});setShowEditDialog(true);}}>Add payment destination</Button></div>
           {/* Bank Account Card */}
           <Card>
             <CardHeader>
@@ -243,7 +250,7 @@ export default function BackOfficeBankAccounts() {
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Bank Account</DialogTitle>
+            <DialogTitle>{selectedAccount ? "Edit payment destination" : "Add payment destination"}</DialogTitle>
             <DialogDescription>
               Update bank account details for payment instructions
             </DialogDescription>
@@ -345,11 +352,11 @@ export default function BackOfficeBankAccounts() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+            <Button variant="outline" disabled={saving} onClick={() => setShowEditDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSubmitEdit} className="bg-purple-600 hover:bg-purple-700">
-              Save Changes
+            <Button disabled={saving} onClick={handleSubmitEdit} className="bg-purple-600 hover:bg-purple-700">
+              {saving ? 'Saving…' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>

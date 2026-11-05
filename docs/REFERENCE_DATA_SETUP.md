@@ -1,5 +1,36 @@
 # Investment and board reference setup
 
+## Settings maintenance (5 November update)
+
+Open **Website Settings → Reference settings** (`/reference-settings`) as a super
+administrator. Categories have searchable lists, status filters and row-action
+menus. Edit records in a popup; deactivate a category to archive it while keeping
+existing document references. Role descriptions can be edited; role codes and
+user role assignments cannot be changed through a catalogue update. Revisions
+prevent an older form overwriting a newer edit. Changes are recorded in
+`reference_data_runs`. Domain buttons lead to the existing position, document,
+permission, share, payment and certificate editors.
+
+The reviewed `000_baseline.sql` can now explicitly restore missing reference
+structures. Select **Restore missing reference tables**, preview, and then apply.
+It creates no people, appointments, contracts, certificates, payment accounts or
+financial entries. Template and payment tables start empty. The operation is
+transactional and the preview rolls it back. It does not rebuild existing tables.
+
+The optional invitation policy is versioned separately in
+`backend/reference_data/invitation_policy.json`. It only supplies newly inserted
+permission rows: investor/shareholder/staff/back_office/admin can invite investors;
+customer and board_member gain no invitation rights. Existing permission rows,
+including intentionally empty rows, remain untouched. Super admin retains its
+existing code-level authority. Review and maintain the policy using Invitation
+permissions. No invitations are sent by setup.
+
+Trusted host commands can additionally use `--restore-schema --invitation-policy`.
+These flags require an explicit production environment confirmation when applying.
+The legacy hard-coded bank-account seed endpoint is retired. Opening payment
+settings is read-only; administrators add verified destinations themselves, with
+new destinations initially inactive.
+
 ## Scope and safety
 
 Reference setup is an explicit operator action, never an application-startup hook,
