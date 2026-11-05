@@ -12,7 +12,7 @@ import asyncpg
 
 logger = logging.getLogger(__name__)
 ROUTER_IMPORT_ERRORS: dict[str, str] = {}
-CRITICAL_ROUTERS = {"subscriptions_core", "subscriptions_payments", "subscriptions_certificates", "shares_management", "portfolio", "admin_subscriptions"}
+CRITICAL_ROUTERS = {"subscriptions_core", "subscriptions_payments", "subscriptions_certificates", "shares_management", "portfolio", "admin_subscriptions", "reference_data", "board_position_management", "board_investment"}
 
 # Load environment files
 # First load shared .env file

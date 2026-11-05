@@ -30,6 +30,7 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
     jurisdictions: [] as string[],
     file_formats_accepted: ["pdf"],
     max_file_size_mb: 10,
+    is_active: false,
     is_required: true,
     requires_template: false,
     requires_certification: false,
@@ -75,6 +76,7 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
         jurisdictions: requirement.jurisdictions || [],
         file_formats_accepted: requirement.file_formats_accepted || ["pdf"],
         max_file_size_mb: requirement.max_file_size_mb || 10,
+        is_active: requirement.is_active ?? true,
         is_required: requirement.is_required ?? true,
         requires_template: requirement.requires_template ?? false,
         requires_certification: requirement.requires_certification ?? false,
@@ -89,6 +91,7 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
         jurisdictions: [],
         file_formats_accepted: ["pdf"],
         max_file_size_mb: 10,
+        is_active: false,
         is_required: true,
         requires_template: false,
         requires_certification: false,
@@ -488,6 +491,11 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
                   onChange={(e) => setRequirementForm({ ...requirementForm, display_order: parseInt(e.target.value) || 0 })}
                   placeholder="0"
                 />
+              </div>
+              <div className="flex items-center gap-2 pt-6">
+                <input type="checkbox" id="requirement-active" checked={requirementForm.is_active}
+                  onChange={e => setRequirementForm({...requirementForm,is_active:e.target.checked})} />
+                <label htmlFor="requirement-active">Approved and active (visible to members)</label>
               </div>
               <div className="flex items-center gap-2 pt-6">
                 <input

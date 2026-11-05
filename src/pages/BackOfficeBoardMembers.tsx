@@ -19,7 +19,8 @@ import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { UserPlus, FileText, TrendingUp, AlertCircle, Trash2, UserCheck, Home, Loader2, Users, ArrowLeft, Eye, Edit, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { BoardMemberWithInvestment, InvestmentStatus, DocumentCompliance, BoardPosition } from 'types';
+import type { BoardMemberWithInvestment, InvestmentStatus, DocumentCompliance } from 'types';
+import type { BoardPosition } from '@/lib/referenceData';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,7 +85,7 @@ export default function BackOfficeBoardMembers() {
     try {
       const response = await apiClient.list_board_positions();
       const data = await response.json();
-      setPositions(data.positions || []);
+      setPositions((data.positions || []).filter((p: any) => p.is_active !== false));
     } catch (error: any) {
       console.error('Error loading positions:', error);
     }
@@ -167,7 +168,7 @@ export default function BackOfficeBoardMembers() {
   const handleEdit = (member: BoardMemberWithInvestment) => {
     setSelectedMember(member);
     setEditForm({
-      position_id: member.position_name || '',
+      position_id: positions.find(p => p.position_name === member.position_name)?.position_code || member.position_name || '',
       term_end_date: member.term_end_date ? new Date(member.term_end_date).toISOString().split('T')[0] : '',
       status: member.status || ''
     });
@@ -648,8 +649,9 @@ export default function BackOfficeBoardMembers() {
                   <SelectValue placeholder="Select position" />
                 </SelectTrigger>
                 <SelectContent>
+                  {positions.length === 0 && <p className="p-2 text-sm">No active board positions. Ask an administrator to complete reference setup.</p>}
                   {positions.map((position) => (
-                    <SelectItem key={position.id} value={position.position_name}>
+                    <SelectItem key={position.id} value={position.position_code || position.position_name}>
                       {position.position_name}
                     </SelectItem>
                   ))}
@@ -806,8 +808,9 @@ export default function BackOfficeBoardMembers() {
                   <SelectValue placeholder="Select position" />
                 </SelectTrigger>
                 <SelectContent>
+                  {positions.length === 0 && <p className="p-2 text-sm">No active board positions. Ask an administrator to complete reference setup.</p>}
                   {positions.map((position) => (
-                    <SelectItem key={position.id} value={position.position_name}>
+                    <SelectItem key={position.id} value={position.position_code || position.position_name}>
                       {position.position_name}
                     </SelectItem>
                   ))}

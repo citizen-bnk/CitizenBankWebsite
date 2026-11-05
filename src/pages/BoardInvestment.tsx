@@ -44,6 +44,7 @@ interface InvestmentData {
   };
   board_member_status: string;
   class_c_access: boolean;
+  installment_months: number[];
 }
 
 interface MyInvestment {
@@ -72,7 +73,7 @@ export default function BoardInvestment() {
   const [activeTab, setActiveTab] = useState<string>('investment');
   
   // Form state
-  const [selectedClass, setSelectedClass] = useState<string>('Class C');
+  const [selectedClass, setSelectedClass] = useState<string>('Class B');
   const [numShares, setNumShares] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'one_time' | 'installment'>('one_time');
   const [installmentMonths, setInstallmentMonths] = useState<string>('12');
@@ -105,6 +106,7 @@ export default function BoardInvestment() {
       const investmentData = await myInvestmentResponse.json();
       
       setInvestmentData(optionsData);
+      setSelectedClass(optionsData.share_classes?.[0]?.name || '');
       setMyInvestment(investmentData);
     } catch (error: any) {
       console.error('Error loading data:', error);
@@ -149,7 +151,7 @@ export default function BoardInvestment() {
       
       if (result.success) {
         toast.success('Investment created successfully!');
-        const totalAmount = calculateTotal();
+        const totalAmount = Number(result.subscription.total_amount);
         setInvestmentAmount(totalAmount);
         setNumShares('');
         
@@ -408,10 +410,9 @@ export default function BoardInvestment() {
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="6">6 months</SelectItem>
-                                        <SelectItem value="12">12 months</SelectItem>
-                                        <SelectItem value="18">18 months</SelectItem>
-                                        <SelectItem value="24">24 months</SelectItem>
+                                        {(investmentData?.installment_months || []).map(months => (
+                                          <SelectItem key={months} value={String(months)}>{months} months</SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   </div>

@@ -43,6 +43,7 @@ export default function BoardPortalInvitations() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<string>('board_member');
+  const [positions, setPositions] = useState<Array<{id:number;position_name:string;position_code?:string;is_active?:boolean}>>([]);
   const [position, setPosition] = useState<string>('member');
   const [expiryDate, setExpiryDate] = useState('');
   const [message, setMessage] = useState('');
@@ -57,6 +58,9 @@ export default function BoardPortalInvitations() {
   useEffect(() => {
     loadInvitations();
     loadPermittedRoles();
+    apiClient.list_board_positions().then(r => r.json()).then(data => {
+      setPositions((data.positions || []).filter((p: any) => p.is_active !== false));
+    }).catch(() => toast.error('Unable to load board positions. Ask an administrator to review reference setup.'));
     // Set default expiry date to 7 days from now
     const defaultExpiry = new Date();
     defaultExpiry.setDate(defaultExpiry.getDate() + 7);
@@ -466,12 +470,8 @@ export default function BoardPortalInvitations() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="member">Member</SelectItem>
-                            <SelectItem value="chairman">Chairman</SelectItem>
-                            <SelectItem value="vice_chairman">Vice Chairman</SelectItem>
-                            <SelectItem value="secretary">Secretary</SelectItem>
-                            <SelectItem value="treasurer">Treasurer</SelectItem>
-                            <SelectItem value="director">Director</SelectItem>
+                            {positions.map(p => <SelectItem key={p.id} value={p.position_code || p.position_name}>{p.position_name}</SelectItem>)}
+                            {positions.length === 0 && <p className="p-2 text-sm">No active positions configured.</p>}
                           </SelectContent>
                         </Select>
                       </div>

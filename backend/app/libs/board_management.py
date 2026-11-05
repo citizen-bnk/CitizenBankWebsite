@@ -5,6 +5,7 @@ from app import runtime
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 import uuid
+from app.libs.board_positions import resolve_position
 import json
 from app.libs.database import get_db_connection
 from app.libs.rbac import assign_role_to_user
@@ -215,6 +216,8 @@ async def appoint_board_member(
     """Manually appoint a board member and auto-generate document requests."""
     conn = await get_db_connection()
     try:
+        resolved_position = await resolve_position(conn, position)
+        position = resolved_position.get('position_code') or resolved_position['position_name']
         term_end_date = datetime.now(timezone.utc).date() + timedelta(days=term_years * 365)
         
         board_member = await conn.fetchrow(
@@ -238,18 +241,8 @@ async def appoint_board_member(
         board_member_id = board_member['id']
         appointed_at = board_member['appointed_date']
         
-        # Auto-create position assignment in board_member_positions table
-        # Map legacy position string to position_id
-        position_map = {
-            'chairman': 1,
-            'vice_chairman': 2,
-            'director': 5,
-            'secretary': 6,
-            'treasurer': 7,
-            'member': 8
-        }
-        position_id = position_map.get(position.lower(), 8)  # Default to Member
-        
+        position_id = resolved_position['id']
+
         # End any current position assignment for this board member
         await conn.execute("""
             UPDATE board_member_positions
@@ -275,7 +268,7 @@ async def appoint_board_member(
         
         # Auto-generate document requests for all required documents
         doc_types = await conn.fetch(
-            "SELECT id, name FROM license_document_types WHERE is_required = true ORDER BY display_order"
+            "SELECT id, name FROM board_document_requirements WHERE is_required = true AND is_active=true AND ('global'=ANY(jurisdictions) OR 'lesotho'=ANY(jurisdictions)) ORDER BY display_order"
         )
         
         if doc_types:

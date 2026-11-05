@@ -93,7 +93,7 @@ export default function BackOfficeBoardDocuments() {
 
   const loadRequirements = async () => {
     try {
-      const response = await brain.list_requirements();
+      const response = await brain.request({path:'/board-documents/requirements',method:'GET',query:{include_inactive:true}});
       const data = await response.json();
       setAllRequirements(data || []);
     } catch (error) {
