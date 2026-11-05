@@ -1,6 +1,9 @@
 # Investment and board reference-data audit and seed plan
 
 Reviewed 5 November 2026 against `2acd22c` (`agent/reference-data-setup`).
+The subsequent implementation, production seed and verification are recorded in
+[REFERENCE_SETTINGS_RELEASE.md](REFERENCE_SETTINGS_RELEASE.md). Execution-status
+statements below describe the earlier audit, before that release.
 This is an implementation and operational plan, not certification of company
 appointments, holdings, legal terms or payment destinations.
 
