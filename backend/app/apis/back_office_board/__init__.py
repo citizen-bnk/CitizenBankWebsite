@@ -18,6 +18,7 @@ from app.libs.board_management import (
     update_board_member,
     get_db_connection
 )
+from app.libs.board_positions import validate_position, resolve_position
 from app.libs.rbac import assign_role_to_user, remove_role_from_user, check_user_has_role
 # Import email sending function from board_portal
 from app.apis.board_portal import send_invitation_email
@@ -215,10 +216,8 @@ async def create_invitation_endpoint(body: CreateInvitationRequest, user: Author
     if body.role == 'board_member' and not body.position:
         raise HTTPException(status_code=400, detail="Position is required for board member invitations")
     
-    # Validate position
-    valid_positions = ['chairman', 'vice_chairman', 'director', 'secretary', 'treasurer', 'member']
-    if body.position and body.position not in valid_positions:
-        raise HTTPException(status_code=400, detail=f"Invalid position. Must be one of: {', '.join(valid_positions)}")
+    if body.position:
+        body.position = await validate_position(body.position)
     
     try:
         # Check for existing pending invitation to same email
@@ -654,10 +653,7 @@ async def appoint_board_member_endpoint(body: AppointBoardMemberRequest, user: A
     if body.user_id and body.invitation_id:
         raise HTTPException(status_code=400, detail="Provide either user_id or invitation_id, not both")
     
-    # Validate position
-    valid_positions = ['chairman', 'vice_chairman', 'director', 'secretary', 'treasurer', 'member']
-    if body.position not in valid_positions:
-        raise HTTPException(status_code=400, detail=f"Invalid position. Must be one of: {', '.join(valid_positions)}")
+    body.position = await validate_position(body.position)
     
     try:
         conn = await get_db_connection()
@@ -900,18 +896,8 @@ async def update_board_member_endpoint(
             if body.position and body.position.strip():  # Check if position is not empty
                 print(f"✅ Processing position: {body.position}")
                 # Get position ID from position name (case-insensitive)
-                position_row = await conn.fetchrow(
-                    "SELECT id, position_name FROM board_positions WHERE LOWER(position_name) = LOWER($1)",
-                    body.position
-                )
-                
-                if not position_row:
-                    print(f"❌ Position not found: {body.position}")
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Invalid position: {body.position}. Must be one of: Chairman, Vice Chairman, Director, Secretary, Treasurer, Member"
-                    )
-                
+                position_row = await resolve_position(conn, body.position)
+
                 position_id = position_row['id']
                 
                 # End current position assignment if exists

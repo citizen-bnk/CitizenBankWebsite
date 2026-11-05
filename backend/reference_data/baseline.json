@@ -1,0 +1,20 @@
+{
+  "version": "2026-11-05.1",
+  "roles": ["customer", "investor", "shareholder", "board_member", "staff", "back_office", "admin", "super_admin"],
+  "positions": [
+    {"code":"chairman","name":"Chairperson"},
+    {"code":"vice_chairman","name":"Vice Chairperson"},
+    {"code":"director","name":"Director"},
+    {"code":"secretary","name":"Secretary"},
+    {"code":"treasurer","name":"Treasurer"},
+    {"code":"member","name":"Board Member"}
+  ],
+  "document_requirements": [
+    {"code":"identity","name":"Identification document","description":"Draft: Compliance must approve accepted identity documents and certification rules."},
+    {"code":"address","name":"Proof of address","description":"Draft: Compliance must approve evidence and validity periods."},
+    {"code":"cv","name":"Curriculum vitae","description":"Draft: Governance must approve required experience and qualifications."},
+    {"code":"interests","name":"Declaration of interests","description":"Draft: Legal must approve declaration wording and renewal policy."},
+    {"code":"fit_proper","name":"Fit-and-proper declaration","description":"Draft: Compliance must approve jurisdiction-specific form and requirements."}
+  ],
+  "categories": ["Corporate & Governance", "Financial Information", "Investment Documents", "Regulatory & Licensing", "Policies"]
+}

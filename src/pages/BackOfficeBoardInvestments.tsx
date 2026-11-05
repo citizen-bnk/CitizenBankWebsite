@@ -27,6 +27,7 @@ interface Subscription {
   user_id: string;
   num_shares: number;
   share_class: string;
+  subscriber_type?: string;
   total_amount: number;
   payment_method: string;
   payment_status: string;
@@ -101,7 +102,7 @@ export default function BackOfficeBoardInvestments() {
   const [createForm, setCreateForm] = useState({
     board_member_user_id: '',
     num_shares: '',
-    share_class: 'Class A',
+    share_class: 'Class B',
     payment_method: 'one_time',
     payment_status: 'pending',
     installment_months: ''
@@ -184,7 +185,7 @@ export default function BackOfficeBoardInvestments() {
       setCreateForm({
         board_member_user_id: '',
         num_shares: '',
-        share_class: 'Class A',
+        share_class: 'Class B',
         payment_method: 'one_time',
         payment_status: 'pending',
         installment_months: ''
@@ -627,7 +628,7 @@ export default function BackOfficeBoardInvestments() {
               <div>
                 <p className="font-semibold text-blue-900 dark:text-blue-100">Class C Internal Shares</p>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                  Class C shares are exclusively available to board members and employees. These internal shares are tracked separately and can only be purchased upon appointment.
+                  Class A and Class C are reserved allocations, not active sale offers. New subscriptions use the approved Class B offer. Existing holdings remain unchanged.
                 </p>
               </div>
             </div>
@@ -680,6 +681,11 @@ export default function BackOfficeBoardInvestments() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {sub.subscriber_type !== 'board_member' ? (
+                                <DropdownMenuItem onClick={() => navigate('/back-office-subscriptions')}>
+                                  Manage in investor subscriptions
+                                </DropdownMenuItem>
+                              ) : <>
                               <DropdownMenuItem onClick={() => openEditDialog(sub)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit
@@ -718,6 +724,7 @@ export default function BackOfficeBoardInvestments() {
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Cancel
                               </DropdownMenuItem>
+                              </>}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -738,7 +745,7 @@ export default function BackOfficeBoardInvestments() {
           <DialogHeader>
             <DialogTitle>Create Share Subscription</DialogTitle>
             <DialogDescription>
-              Create a share subscription on behalf of a board member
+              Create an unpaid Class B subscription. Members select instalments in their own investor flow; finance records verified payments separately.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -771,9 +778,7 @@ export default function BackOfficeBoardInvestments() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Class A">Class A - Preference Shares</SelectItem>
                   <SelectItem value="Class B">Class B - Ordinary Shares</SelectItem>
-                  <SelectItem value="Class C">Class C - Internal Shares</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -800,7 +805,6 @@ export default function BackOfficeBoardInvestments() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="one_time">One Time</SelectItem>
-                  <SelectItem value="installment">Installment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -829,8 +833,6 @@ export default function BackOfficeBoardInvestments() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -91,6 +91,8 @@ def _ext_from_filename(filename: str) -> str:
 
 # -------------------- Models --------------------
 class RequirementCreate(BaseModel):
+    requires_certification: bool = False
+    is_active: bool = False
     name: str
     description: Optional[str] = None
     jurisdictions: List[str] = Field(default_factory=list)
@@ -103,6 +105,7 @@ class RequirementCreate(BaseModel):
 
 
 class RequirementUpdate(BaseModel):
+    requires_certification: Optional[bool] = None
     name: Optional[str] = None
     description: Optional[str] = None
     jurisdictions: Optional[List[str]] = None
@@ -205,7 +208,7 @@ class IndividualDocumentRequestResponse(BaseModel):
 @router.post("/requirements")
 async def create_requirement(body: RequirementCreate, user: AuthorizedUser) -> BoardDocumentRequirement:
     """Create a new document requirement. Only super_admin and back_office_staff allowed."""
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only admins and back office staff can create requirements")
 
     conn = await get_db_connection()
@@ -214,8 +217,8 @@ async def create_requirement(body: RequirementCreate, user: AuthorizedUser) -> B
             """
             INSERT INTO board_document_requirements (
                 name, description, jurisdictions, file_formats_accepted,
-                max_file_size_mb, is_required, validity_period_days, display_order, created_by
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                max_file_size_mb, is_required, validity_period_days, display_order, created_by,requires_template,requires_certification,is_active
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
             RETURNING *
             """,
             body.name,
@@ -227,6 +230,7 @@ async def create_requirement(body: RequirementCreate, user: AuthorizedUser) -> B
             body.validity_period_days,
             body.display_order,
             user.sub,
+            body.requires_template, body.requires_certification, body.is_active,
         )
         return BoardDocumentRequirement(**dict(row))
     finally:
@@ -234,17 +238,19 @@ async def create_requirement(body: RequirementCreate, user: AuthorizedUser) -> B
 
 
 @router.get("/requirements")
-async def list_requirements(user: AuthorizedUser) -> List[BoardDocumentRequirement]:
+async def list_requirements(user: AuthorizedUser, include_inactive: bool = False) -> List[BoardDocumentRequirement]:
     """List all active document requirements (admin/back office overview)."""
+    if include_inactive and not await check_user_has_any_role(user.sub, ['super_admin','back_office','back_office_staff']):
+        raise HTTPException(403, 'Only authorised operations staff may view draft requirements.')
     conn = await get_db_connection()
     try:
         rows = await conn.fetch(
             """
             SELECT *
             FROM board_document_requirements
-            WHERE is_active = TRUE
+            WHERE (is_active = TRUE OR $1)
             ORDER BY display_order, name
-            """
+            """, include_inactive
         )
         return [BoardDocumentRequirement(**dict(r)) for r in rows]
     finally:
@@ -254,7 +260,7 @@ async def list_requirements(user: AuthorizedUser) -> List[BoardDocumentRequireme
 @router.put("/requirements/{requirement_id}")
 async def update_requirement(requirement_id: int, body: RequirementUpdate, user: AuthorizedUser) -> BoardDocumentRequirement:
     """Update fields on a requirement. Only super_admin and back_office_staff allowed."""
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only admins and back office staff can update requirements")
 
     # Build dynamic update
@@ -293,7 +299,7 @@ async def update_requirement(requirement_id: int, body: RequirementUpdate, user:
 @router.delete("/requirements/{requirement_id}")
 async def delete_requirement(requirement_id: int, user: AuthorizedUser):
     """Soft-delete a requirement. Only super_admin and back_office_staff allowed."""
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only admins and back office staff can delete requirements")
 
     conn = await get_db_connection()
@@ -321,7 +327,7 @@ async def upload_template(
     user: AuthorizedUser = None
 ) -> dict:
     """Upload a template file for a requirement. Only super_admin and back_office_staff allowed."""
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only admins and back office staff can upload templates")
     
     conn = await get_db_connection()
@@ -382,7 +388,7 @@ async def update_template_description(
     user: AuthorizedUser = None
 ) -> dict:
     """Update template description. Only super_admin and back_office_staff allowed."""
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only admins and back office staff can update template description")
     
     conn = await get_db_connection()
@@ -410,7 +416,7 @@ async def delete_template(
     user: AuthorizedUser = None
 ) -> dict:
     """Delete a template file. Only super_admin and back_office_staff allowed."""
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only admins and back office staff can delete templates")
     
     conn = await get_db_connection()
@@ -1132,7 +1138,7 @@ async def get_all_members_status(user: AuthorizedUser) -> List[BoardMemberStatus
     """
     Get overview of all board members' document compliance status (Back Office).
     """
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only back office staff can view this report")
     
     conn = await get_db_connection()
@@ -1204,7 +1210,7 @@ async def get_review_queue(user: AuthorizedUser) -> List[DocumentInReview]:
     """
     Get list of documents pending review (Back Office).
     """
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only back office staff can view review queue")
     
     conn = await get_db_connection()
@@ -1262,7 +1268,7 @@ async def get_readiness_report(user: AuthorizedUser) -> ReadinessReportResponse:
     """
     Get license readiness report by jurisdiction (Back Office).
     """
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only back office staff can view readiness report")
     
     conn = await get_db_connection()
@@ -1424,7 +1430,7 @@ async def broadcast_document_request(
     If board_member_ids is None or empty, broadcasts to all active members.
     Supports multiple channels: email, sms, whatsapp
     """
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(status_code=403, detail="Only back office staff can broadcast requests")
     
     if not body.requirement_ids:
@@ -1687,7 +1693,7 @@ async def list_requirement_settings(user: AuthorizedUser) -> List[RequirementSet
     """
     List all document requirement settings (Back Office).
     """
-    has_role = await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"])
+    has_role = await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"])
     if not has_role:
         raise HTTPException(status_code=403, detail="Only back office staff can view settings")
     
@@ -1732,7 +1738,7 @@ async def update_requirement_settings(
     """
     Update notification settings for a document requirement (Back Office).
     """
-    has_role = await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"])
+    has_role = await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"])
     if not has_role:
         raise HTTPException(status_code=403, detail="Only back office staff can update settings")
     
@@ -1804,7 +1810,7 @@ async def send_individual_document_request(
     Send document request notifications to a specific board member.
     Only super_admin and back_office_staff can send individual requests.
     """
-    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office_staff"]):
+    if not await check_user_has_any_role(user.sub, ["super_admin", "back_office", "back_office_staff"]):
         raise HTTPException(
             status_code=403, detail="Only back office staff can send document requests"
         )

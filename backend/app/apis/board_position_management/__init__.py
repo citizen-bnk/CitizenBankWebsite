@@ -8,7 +8,8 @@ import asyncpg
 from app.env import Mode, mode
 from app.auth import AuthorizedUser
 from app.libs.rbac import check_user_has_any_role
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+import json
 from typing import List
 from datetime import datetime, date
 from app.libs.email_queue import enqueue_email
@@ -32,6 +33,9 @@ class BoardPosition(BaseModel):
     id: int
     position_name: str
     position_level: int
+    position_code: str | None = None
+    is_active: bool = True
+    minimum_investment_shares: int | None = 0
     description: str | None = None
     created_at: datetime
 
@@ -40,14 +44,21 @@ class BoardPositionListResponse(BaseModel):
     positions: List[BoardPosition]
 
 class CreatePositionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    position_code: str = Field(..., pattern=r"^[a-z][a-z0-9_]{1,79}$")
+    is_active: bool = True
+    minimum_investment_shares: int = Field(0, ge=0)
     """Request to create a new board position"""
     position_name: str = Field(..., min_length=2, max_length=100)
     position_level: int = Field(..., ge=1, description="Lower = higher rank")
     description: str | None = None
 
 class UpdatePositionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    is_active: bool | None = None
+    minimum_investment_shares: int | None = Field(None, ge=0)
     """Request to update a board position"""
-    position_name: str | None = None
+    position_name: str | None = Field(None, min_length=2, max_length=100)
     position_level: int | None = Field(None, ge=1)
     description: str | None = None
 
@@ -108,7 +119,7 @@ class InvestmentStatus(BaseModel):
     total_shares: int
     required_shares: int
     shares_needed: int
-    investment_needed: int  # In Maloti
+    investment_needed: float | None  # Unknown when no approved offer is available
 
 class DocumentCompliance(BaseModel):
     """Document compliance status for a board member"""
@@ -156,19 +167,20 @@ async def check_investment_requirement(conn, user_id: str, required_shares: int)
     total_shares = await conn.fetchval("""
         SELECT COALESCE(SUM(num_shares), 0)
         FROM share_subscriptions
-        WHERE user_id = $1 
+        WHERE user_id = $1
         AND status IN ('active', 'completed', 'approved')
     """, user_id)
     
     meets_requirement = total_shares >= required_shares
     shares_needed = max(0, required_shares - total_shares)
     
+    price = await conn.fetchval("SELECT price_per_share FROM share_classes WHERE class_name='Class B' AND is_active=true LIMIT 1")
     return {
         "meets_requirement": meets_requirement,
         "total_shares": total_shares,
         "required_shares": required_shares,
         "shares_needed": shares_needed,
-        "investment_needed": shares_needed * 10  # M10 per share
+        "investment_needed": float(shares_needed * price) if price is not None else None
     }
 
 async def send_investment_reminder_email(conn, board_member: dict, position: dict, investment_status: dict):
@@ -179,7 +191,7 @@ async def send_investment_reminder_email(conn, board_member: dict, position: dic
         # Create email template if it doesn't exist
         template_exists = await conn.fetchval("""
             SELECT EXISTS(
-                SELECT 1 FROM email_templates 
+                SELECT 1 FROM email_templates
                 WHERE template_name = 'board_investment_reminder'
             )
         """)
@@ -187,7 +199,7 @@ async def send_investment_reminder_email(conn, board_member: dict, position: dic
         if not template_exists:
             await conn.execute("""
                 INSERT INTO email_templates (
-                    template_name, category, subject, body_html, 
+                    template_name, category, subject, body_html,
                     variables, created_by, status
                 ) VALUES (
                     'board_investment_reminder',
@@ -235,9 +247,9 @@ async def send_investment_reminder_email(conn, board_member: dict, position: dic
                 'full_name': board_member['full_name'],
                 'position_name': position['position_name'],
                 'required_shares': str(investment_status['required_shares']),
-                'required_amount': f"{investment_status['required_shares'] * 10:,}",
+                'required_amount': 'See approved offer',
                 'shares_needed': str(investment_status['shares_needed']),
-                'investment_needed': f"{investment_status['investment_needed']:,}"
+                'investment_needed': f"{investment_status['investment_needed']:,}" if investment_status['investment_needed'] is not None else 'Awaiting approved offer'
             },
             sent_by='system'
         )
@@ -247,6 +259,18 @@ async def send_investment_reminder_email(conn, board_member: dict, position: dic
     except Exception as e:
         print(f"⚠️ Error sending investment reminder: {str(e)}")
         # Don't fail the appointment if email fails
+
+async def require_catalogue_schema(conn):
+    if not await conn.fetchval("SELECT to_regclass('public.reference_data_runs') IS NOT NULL"):
+        raise HTTPException(409, 'Preview and apply reference setup before editing the position catalogue.')
+
+
+async def audit_position(conn, actor, action, row):
+    await conn.execute("INSERT INTO reference_data_runs(version,actor,changes) VALUES('position-maintenance',$1,$2::jsonb)",
+        actor, json.dumps([{'action':action,'table':'board_positions','id':row['id'],
+                          'position_code':row['position_code'],'position_name':row['position_name'],
+                          'is_active':row['is_active'],'minimum_investment_shares':row['minimum_investment_shares']}]))
+
 
 # ========== Endpoints ==========
 
@@ -258,8 +282,9 @@ async def list_board_positions(user: AuthorizedUser) -> BoardPositionListRespons
     conn = await get_db_connection()
     try:
         rows = await conn.fetch("""
-            SELECT id, position_name, position_level, description, created_at
-            FROM board_positions
+            SELECT bp.*, to_jsonb(bp)->>'position_code' AS position_code,
+                   COALESCE((to_jsonb(bp)->>'is_active')::boolean,true) AS is_active
+            FROM board_positions bp
             ORDER BY position_level ASC
         """)
         
@@ -279,24 +304,27 @@ async def create_board_position(
     """
     conn = await get_db_connection()
     try:
-        # Check if position name already exists
-        exists = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM board_positions WHERE position_name = $1)",
-            body.position_name
-        )
-        if exists:
-            raise HTTPException(status_code=400, detail="Position name already exists")
-        
-        # Create position
-        row = await conn.fetchrow("""
-            INSERT INTO board_positions (position_name, position_level, description)
-            VALUES ($1, $2, $3)
-            RETURNING id, position_name, position_level, description, created_at
-        """, body.position_name, body.position_level, body.description)
-        
-        print(f"✨ New board position created: {body.position_name} (level {body.position_level})")
-        
-        return BoardPosition(**dict(row))
+        async with conn.transaction():
+            await require_catalogue_schema(conn)
+            # Check if position name already exists
+            exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM board_positions WHERE position_name = $1)",
+                body.position_name
+            )
+            if exists:
+                raise HTTPException(status_code=400, detail="Position name already exists")
+
+            # Create position
+            row = await conn.fetchrow("""
+                INSERT INTO board_positions (position_name, position_level, description,position_code,is_active,minimum_investment_shares)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *
+            """, body.position_name, body.position_level, body.description, body.position_code, body.is_active, body.minimum_investment_shares)
+
+            print(f"✨ New board position created: {body.position_name} (level {body.position_level})")
+
+            await audit_position(conn, user.sub, 'create', row)
+            return BoardPosition(**dict(row))
     finally:
         await conn.close()
 
@@ -311,51 +339,61 @@ async def update_board_position(
     """
     conn = await get_db_connection()
     try:
-        # Check if position exists
-        exists = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM board_positions WHERE id = $1)",
-            position_id
-        )
-        if not exists:
-            raise HTTPException(status_code=404, detail="Position not found")
-        
-        # Build update query
-        updates = []
-        values = []
-        param_count = 1
-        
-        if body.position_name is not None:
-            updates.append(f"position_name = ${param_count}")
-            values.append(body.position_name)
-            param_count += 1
-        
-        if body.position_level is not None:
-            updates.append(f"position_level = ${param_count}")
-            values.append(body.position_level)
-            param_count += 1
-        
-        if body.description is not None:
-            updates.append(f"description = ${param_count}")
-            values.append(body.description)
-            param_count += 1
-        
-        if not updates:
-            raise HTTPException(status_code=400, detail="No fields to update")
-        
-        values.append(position_id)
-        
-        query = f"""
-            UPDATE board_positions
-            SET {', '.join(updates)}
-            WHERE id = ${param_count}
-            RETURNING id, position_name, position_level, description, created_at
-        """
-        
-        row = await conn.fetchrow(query, *values)
-        
-        print(f"📝 Board position updated: {row['position_name']}")
-        
-        return BoardPosition(**dict(row))
+        async with conn.transaction():
+            await require_catalogue_schema(conn)
+            # Check if position exists
+            exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM board_positions WHERE id = $1)",
+                position_id
+            )
+            if not exists:
+                raise HTTPException(status_code=404, detail="Position not found")
+
+            # Build update query
+            updates = []
+            values = []
+            param_count = 1
+
+            if body.position_name is not None:
+                updates.append(f"position_name = ${param_count}")
+                values.append(body.position_name)
+                param_count += 1
+
+            if body.position_level is not None:
+                updates.append(f"position_level = ${param_count}")
+                values.append(body.position_level)
+                param_count += 1
+
+            if body.description is not None:
+                updates.append(f"description = ${param_count}")
+                values.append(body.description)
+                param_count += 1
+
+            for field in ('is_active', 'minimum_investment_shares'):
+                value = getattr(body, field)
+                if value is not None:
+                    updates.append(f"{field} = ${param_count}")
+                    values.append(value)
+                    param_count += 1
+
+            if not updates:
+                raise HTTPException(status_code=400, detail="No fields to update")
+
+            values.append(position_id)
+
+            query = f"""
+                UPDATE board_positions
+                SET {', '.join(updates)}
+                WHERE id = ${param_count}
+                RETURNING *
+            """
+
+            row = await conn.fetchrow(query, *values)
+
+            print(f"📝 Board position updated: {row['position_name']}")
+
+            await audit_position(conn, user.sub, 'update', row)
+            return BoardPosition(**dict(row))
     finally:
         await conn.close()
 
@@ -375,7 +413,7 @@ async def appoint_board_member(
         # Check if board member exists and get their details
         board_member = await conn.fetchrow("""
             SELECT id, user_id, full_name, email
-            FROM board_members 
+            FROM board_members
             WHERE id = $1
         """, member_id)
         
@@ -386,8 +424,9 @@ async def appoint_board_member(
         
         # Check if position exists and get requirements
         position = await conn.fetchrow("""
-            SELECT id, position_name, minimum_investment_shares
-            FROM board_positions 
+            SELECT id, position_name, minimum_investment_shares,
+                   COALESCE((to_jsonb(board_positions)->>'is_active')::boolean,true) AS is_active
+            FROM board_positions
             WHERE id = $1
         """, body.position_id)
         
@@ -395,6 +434,8 @@ async def appoint_board_member(
             raise HTTPException(status_code=404, detail="Position not found")
         
         position = dict(position)
+        if not position['is_active']:
+            raise HTTPException(400, 'This position is archived.')
         
         # End any current position assignment for this member
         await conn.execute("""
@@ -412,7 +453,7 @@ async def appoint_board_member(
         
         # Create new position assignment
         await conn.execute("""
-            INSERT INTO board_member_positions 
+            INSERT INTO board_member_positions
             (board_member_id, position_id, appointed_at, term_end_date, appointed_by, is_current, notes)
             VALUES ($1, $2, $3, $4, $5, TRUE, $6)
         """, member_id, body.position_id, appointed_at, term_end_date, user.sub, body.notes)
@@ -420,10 +461,10 @@ async def appoint_board_member(
         print(f"👔 Board member {member_id} assigned to position {body.position_id} from {appointed_at_date}")
         
         # Check investment requirement
-        if position['minimum_investment_shares'] > 0 and board_member['user_id']:
+        if (position['minimum_investment_shares'] or 0) > 0 and board_member['user_id']:
             investment_status = await check_investment_requirement(
-                conn, 
-                board_member['user_id'], 
+                conn,
+                board_member['user_id'],
                 position['minimum_investment_shares']
             )
             
@@ -457,7 +498,7 @@ async def get_current_board_composition(user: AuthorizedUser) -> CurrentBoardRes
     conn = await get_db_connection()
     try:
         rows = await conn.fetch("""
-            SELECT 
+            SELECT
                 bm.id as board_member_id,
                 bm.user_id,
                 bm.full_name,
@@ -517,7 +558,7 @@ async def get_position_history(
         params.append(limit)
         
         query = f"""
-            SELECT 
+            SELECT
                 bmp.id,
                 bmp.board_member_id,
                 bm.full_name as board_member_name,
@@ -573,7 +614,7 @@ async def get_board_members_with_investment_status(
     try:
         # Get all current board members with their positions (including those without positions)
         rows = await conn.fetch("""
-            SELECT 
+            SELECT
                 bm.id as board_member_id,
                 bm.user_id,
                 bm.full_name,
@@ -636,7 +677,7 @@ async def get_board_members_with_investment_status(
                     
                     # Get document submission stats - count by document_type instead
                     doc_stats = await conn.fetchrow("""
-                        SELECT 
+                        SELECT
                             COUNT(DISTINCT document_type) FILTER (WHERE status IN ('approved', 'pending_review', 'rejected')) as uploaded,
                             COUNT(DISTINCT document_type) FILTER (WHERE status = 'approved') as approved,
                             COUNT(DISTINCT document_type) FILTER (WHERE status = 'pending_review') as pending_review

@@ -17,6 +17,7 @@ import base64
 from app.auth import AuthorizedUser
 from app.libs.board_management import get_db_connection, get_board_member_by_user_id
 from app.libs.rbac import check_user_has_role
+from app.libs.investment_policy import approved_offer, validate_payment_plan, INSTALLMENT_MONTHS
 
 router = APIRouter()
 
@@ -105,73 +106,27 @@ async def get_investment_options(user: AuthorizedUser):
         
         conn = await get_db_connection()
         try:
-            # Get current share offering configuration
-            config = await conn.fetchrow(
-                "SELECT * FROM share_offering_config WHERE is_active = true LIMIT 1"
-            )
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active share offering found")
-            
-            # Define available share classes for board members
-            share_classes = [
-                {
-                    "name": "Class C",
-                    "description": "Internal shares - Exclusive to board members and employees",
-                    "min_shares": config['min_shares'],
-                    "max_shares": config['max_shares'],
-                    "price_per_share": float(config['share_price']),
-                    "restricted": True,
-                    "highlighted": True,  # Highlight for board members
-                    "benefits": [
-                        "Exclusive access for board members and employees",
-                        "Special voting rights",
-                        "Priority in dividend distribution",
-                        "Access to internal decision-making"
-                    ]
-                },
-                {
-                    "name": "Class A",
-                    "description": "Preference shares - Also available to board members",
-                    "min_shares": config['min_shares'],
-                    "max_shares": config['max_shares'],
-                    "price_per_share": float(config['share_price']),
-                    "restricted": False,
-                    "highlighted": False,
-                    "benefits": [
-                        "Fixed dividend rate",
-                        "Priority over ordinary shares",
-                        "Lower risk investment"
-                    ]
-                },
-                {
-                    "name": "Class B",
-                    "description": "Ordinary shares - Also available to board members",
-                    "min_shares": config['min_shares'],
-                    "max_shares": config['max_shares'],
-                    "price_per_share": float(config['share_price']),
-                    "restricted": False,
-                    "highlighted": False,
-                    "benefits": [
-                        "Voting rights",
-                        "Dividend eligibility",
-                        "Capital appreciation potential"
-                    ]
-                }
-            ]
-            
+            config = await approved_offer(conn)
+            from app.libs.share_promotions import active_promotion, effective_price
+            from app.libs.subscription_core import get_share_availability_data
+            availability = await get_share_availability_data(conn)
+            promotion = await active_promotion(conn, user.sub, user.email)
+            price = effective_price(config['price_per_share'], promotion)
             return {
-                "share_classes": share_classes,
+                "share_classes": [{
+                    "name":config['class_name'], "description":config['description'] or config['display_name'],
+                    "min_shares":config['min_shares'], "max_shares":config['max_shares'],
+                    "price_per_share":float(price), "restricted":False,
+                    "highlighted":True, "benefits":[]
+                }],
                 "offering_details": {
-                    "target_amount": float(config['target_amount']),
-                    "current_amount": float(config['current_amount']),
-                    "min_shares": config['min_shares'],
-                    "max_shares": config['max_shares'],
-                    "share_price": float(config['share_price']),
-                    "offering_status": config['offering_status']
+                    "target_amount":float(availability.fundraising_target),
+                    "current_amount":float(availability.amount_raised),
+                    "min_shares":config['min_shares'], "max_shares":config['max_shares'],
+                    "share_price":float(price), "offering_status":"active"
                 },
-                "board_member_status": member_status,
-                "class_c_access": True  # Board members and invited members have Class C access
+                "installment_months":list(INSTALLMENT_MONTHS),
+                "board_member_status":member_status, "class_c_access":False
             }
         finally:
             await conn.close()
@@ -185,156 +140,27 @@ async def get_investment_options(user: AuthorizedUser):
 
 @router.post("/board/invest")
 async def create_board_investment(body: InvestmentRequest, user: AuthorizedUser):
-    """Create a share subscription for board member or invited board member."""
-    # Check if user has board_member role OR has a pending board_member invitation
-    is_board_member = await check_user_has_role(user.sub, "board_member")
-    
-    # If not already a board member, check for pending invitation
-    has_invitation = False
-    if not is_board_member:
-        conn = await get_db_connection()
-        try:
-            # Get user email
-            user_profile = await conn.fetchrow(
-                "SELECT email FROM user_profiles WHERE user_id = $1",
-                user.sub
-            )
-            
-            if user_profile:
-                # Check for pending board_member invitation
-                invitation = await conn.fetchrow(
-                    """
-                    SELECT id, status, expires_at 
-                    FROM invitations 
-                    WHERE email = $1 
-                    AND role = 'board_member' 
-                    AND status = 'pending'
-                    AND expires_at > NOW()
-                    LIMIT 1
-                    """,
-                    user_profile['email']
-                )
-                has_invitation = invitation is not None
-        finally:
-            await conn.close()
-    
-    # Allow access if user is board_member OR has pending invitation
-    if not is_board_member and not has_invitation:
-        raise HTTPException(
-            status_code=403, 
-            detail="Only board members or invited board members can invest"
-        )
-    
-    # Validate share class
-    valid_classes = ['Class A', 'Class B', 'Class C']
-    if body.share_class not in valid_classes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid share class. Must be one of: {', '.join(valid_classes)}"
-        )
-    
-    # CRITICAL: Validate Class C restriction
-    if body.share_class == 'Class C':
-        # Check board_member role, employee role, or pending board_member invitation
-        is_employee = await check_user_has_role(user.sub, "employee")
-        if not (is_board_member or is_employee or has_invitation):
-            raise HTTPException(
-                status_code=403,
-                detail="Class C shares can ONLY be purchased by board members, employees, or invited board members"
-            )
-    
-    # Validate payment method
-    if body.payment_method not in ['one_time', 'installment']:
-        raise HTTPException(
-            status_code=400,
-            detail="Payment method must be 'one_time' or 'installment'"
-        )
-    
-    if body.payment_method == 'installment' and not body.installment_months:
-        raise HTTPException(
-            status_code=400,
-            detail="Installment months required for installment payment"
-        )
-    
+    """Use the same approved offer and reservation path as all other investors."""
+    if body.share_class != 'Class B':
+        raise HTTPException(409, 'Only the approved Class B offer is available for new subscriptions.')
+    validate_payment_plan(body.payment_method, body.installment_months)
+    from app.apis.subscriptions_core import core_create_subscription
+    from app.libs.subscription_models import SubscriptionRequest
+    conn = await get_db_connection()
     try:
-        # Get user profile for email and name
-        conn = await get_db_connection()
-        try:
-            user_profile = await conn.fetchrow(
-                "SELECT email, full_name FROM user_profiles WHERE user_id = $1",
-                user.sub
-            )
-            
-            if not user_profile:
-                raise HTTPException(status_code=404, detail="User profile not found")
-        finally:
-            await conn.close()
-        
-        conn = await get_db_connection()
-        try:
-            # Get share offering configuration
-            config = await conn.fetchrow(
-                "SELECT * FROM share_offering_config WHERE is_active = true LIMIT 1"
-            )
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active share offering found")
-            
-            # Validate share count
-            if body.num_shares < config['min_shares']:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Minimum {config['min_shares']} shares required"
-                )
-            
-            if body.num_shares > config['max_shares']:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Maximum {config['max_shares']} shares allowed"
-                )
-            
-            # Calculate total amount
-            total_amount = body.num_shares * config['share_price']
-            
-            # Create share subscription with subscriber_type='board_member'
-            subscription = await conn.fetchrow(
-                """
-                INSERT INTO share_subscriptions (
-                    user_id, num_shares, share_class, subscriber_type,
-                    total_amount, payment_method, payment_status,
-                    installment_months
-                )
-                VALUES ($1, $2, $3, 'board_member', $4, $5, 'pending', $6)
-                RETURNING *
-                """,
-                user.sub, body.num_shares, body.share_class,
-                total_amount, body.payment_method, body.installment_months
-            )
-            
-            # The database constraint will enforce Class C restriction
-            # If they don't have board_member or employee subscriber_type, it will fail
-            
-            return {
-                "success": True,
-                "subscription": dict(subscription),
-                "message": f"Successfully subscribed to {body.num_shares} {body.share_class} shares"
-            }
-        finally:
-            await conn.close()
-    
-    except HTTPException:
-        raise
-    except asyncpg.exceptions.CheckViolationError as e:
-        # This catches the Class C restriction violation
-        if 'class_c_restriction' in str(e):
-            raise HTTPException(
-                status_code=403,
-                detail="Class C shares can ONLY be purchased by board members or employees"
-            )
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        print(f"Error creating board investment: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        profile = await conn.fetchrow('SELECT * FROM user_profiles WHERE user_id=$1', user.sub)
+        if not profile:
+            raise HTTPException(409, 'Complete your investor profile before subscribing.')
+    finally:
+        await conn.close()
+    request = SubscriptionRequest(
+        full_name=profile['full_name'], email=profile['email'], phone=profile.get('phone') or '',
+        id_number=profile.get('id_number') or '', num_shares=body.num_shares,
+        payment_method='installment' if body.payment_method=='installment' else 'one-time',
+        installment_plan=f'{body.installment_months}-months' if body.payment_method=='installment' else None,
+        purchase_currency='ZAR')
+    result = await core_create_subscription(request, user)
+    return {'success':True, 'subscription':result.model_dump(), 'message':'Subscription created; payment is pending.'}
 
 
 @router.get("/board/my-investment")
@@ -544,115 +370,30 @@ class CreateOnBehalfRequest(BaseModel):
 
 @router.post("/back-office/board/investments/create")
 async def create_investment_on_behalf(body: CreateOnBehalfRequest, user: AuthorizedUser):
-    """Create a share subscription on behalf of a board member (super_admin only)."""
-    # Check if user is super_admin
-    is_admin = await check_user_has_role(user.sub, "super_admin")
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Only super admins can create investments on behalf of board members")
-    
-    # Validate share class
-    valid_classes = ['Class A', 'Class B', 'Class C']
-    if body.share_class not in valid_classes:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid share class. Must be one of: {', '.join(valid_classes)}"
-        )
-    
-    # Validate payment method
-    if body.payment_method not in ['one_time', 'installment']:
-        raise HTTPException(status_code=400, detail="Payment method must be 'one_time' or 'installment'")
-    
-    # Validate payment status
-    if body.payment_status not in ['pending', 'completed', 'failed']:
-        raise HTTPException(status_code=400, detail="Payment status must be 'pending', 'completed', or 'failed'")
-    
+    """Create an unpaid Class B allocation via the finance administration workflow."""
+    if not await check_user_has_role(user.sub, 'super_admin'):
+        raise HTTPException(403, 'Only super administrators may create on behalf.')
+    if body.payment_status != 'pending':
+        raise HTTPException(422, 'New allocations must start unpaid. Record verified payments separately.')
+    if body.share_class != 'Class B':
+        raise HTTPException(409, 'Only the approved Class B offer is available.')
+    validate_payment_plan(body.payment_method, body.installment_months)
+    if body.payment_method == 'installment':
+        raise HTTPException(409, 'Ask the member to select an instalment plan in the investor subscription flow.')
+    conn = await get_db_connection()
     try:
-        conn = await get_db_connection()
-        try:
-            # Verify board member exists
-            board_member = await conn.fetchrow(
-                "SELECT * FROM board_members WHERE user_id = $1",
-                body.board_member_user_id
-            )
-            
-            if not board_member:
-                raise HTTPException(status_code=404, detail="Board member not found")
-            
-            # Get share offering configuration
-            config = await conn.fetchrow(
-                "SELECT * FROM share_offering_config WHERE is_active = true LIMIT 1"
-            )
-            
-            if not config:
-                raise HTTPException(status_code=404, detail="No active share offering found")
-            
-            # Validate share count
-            if body.num_shares < config['min_shares']:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Minimum {config['min_shares']} shares required"
-                )
-            
-            if body.num_shares > config['max_shares']:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Maximum {config['max_shares']} shares allowed"
-                )
-            
-            # Calculate total amount
-            total_amount = body.num_shares * config['share_price']
-            
-            # Create share subscription
-            subscription = await conn.fetchrow(
-                """
-                INSERT INTO share_subscriptions (
-                    user_id, num_shares, share_class, subscriber_type,
-                    total_amount, payment_method, payment_status,
-                    installment_months
-                )
-                VALUES ($1, $2, $3, 'board_member', $4, $5, $6, $7)
-                RETURNING *
-                """,
-                body.board_member_user_id, body.num_shares, body.share_class,
-                total_amount, body.payment_method, body.payment_status, body.installment_months
-            )
-            
-            # If payment is completed, update board member's total shares
-            if body.payment_status == 'completed':
-                await conn.execute(
-                    """
-                    UPDATE board_members
-                    SET total_shares = total_shares + $1, updated_at = NOW()
-                    WHERE user_id = $2
-                    """,
-                    body.num_shares, body.board_member_user_id
-                )
-            
-            # Log audit trail
-            await conn.execute(
-                """
-                INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes, created_by)
-                VALUES ($1, 'create_investment_on_behalf', 'share_subscription', $2, $3, $4)
-                """,
-                body.board_member_user_id,
-                str(subscription['id']),
-                f"Admin created {body.num_shares} {body.share_class} shares for board member",
-                user.sub
-            )
-            
-            return {
-                "success": True,
-                "subscription": dict(subscription),
-                "message": f"Successfully created {body.num_shares} {body.share_class} shares for board member"
-            }
-        finally:
-            await conn.close()
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error creating investment on behalf: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        profile = await conn.fetchrow('SELECT * FROM user_profiles WHERE user_id=$1', body.board_member_user_id)
+        member = await conn.fetchval('SELECT EXISTS(SELECT 1 FROM board_members WHERE user_id=$1)', body.board_member_user_id)
+        if not profile or not member:
+            raise HTTPException(404, 'A registered board member profile is required.')
+    finally:
+        await conn.close()
+    from app.apis.admin_subscriptions import create_subscription_on_behalf, CreateSubscriptionRequest
+    result = await create_subscription_on_behalf(CreateSubscriptionRequest(
+        full_name=profile['full_name'],email=profile['email'],phone=profile.get('phone') or '',
+        id_number=profile.get('id_number') or '',share_class='Class B',num_shares=body.num_shares,
+        payment_method='bank_transfer',admin_notes='Board member allocation; no payment recorded.'), user)
+    return {'success':True,'subscription':result.model_dump(),'message':result.message}
 
 
 class UpdateSharesRequest(BaseModel):
@@ -1288,6 +1029,9 @@ async def record_board_member_payment(
                 if not subscription:
                     raise HTTPException(status_code=404, detail="Subscription not found")
                 
+                if subscription.get('subscriber_type') != 'board_member':
+                    raise HTTPException(409, 'Manage this subscription and its payments in the canonical investor subscriptions workflow.')
+
                 if subscription['payment_status'] == 'completed':
                     raise HTTPException(status_code=400, detail="Payment already recorded for this subscription")
                 

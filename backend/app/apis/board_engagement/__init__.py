@@ -285,8 +285,7 @@ async def get_next_feature() -> FeatureHighlight:
     """
     conn = await get_db_connection()
     try:
-        # Auto-seed if no features exist
-        await seed_default_features(conn)
+        # Reads never create or reactivate unreviewed marketing content.
         
         # Get next feature to rotate
         row = await conn.fetchrow("""

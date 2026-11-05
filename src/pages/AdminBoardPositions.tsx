@@ -35,7 +35,10 @@ import brain from 'brain';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, Edit, Users, Building2, TrendingUp, History, CheckCircle, XCircle, Clock, Pencil, UserPlus, MoreVertical, Trash2, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { BoardPosition, CurrentBoardMember } from 'types';
+import type { CurrentBoardMember } from 'types';
+import type { BoardPosition } from '@/lib/referenceData';
+import { positionPayload } from '@/lib/referenceData';
+import { ReferenceDataSetup } from '@/components/ReferenceDataSetup';
 
 // Extended types for enriched data
 interface EnrichedBoardMember extends CurrentBoardMember {
@@ -88,7 +91,8 @@ export default function AdminBoardPositions() {
     title: '',
     description: '',
     hierarchy_level: 1,
-    responsibilities: '',
+    position_code: '',
+    minimum_investment_shares: 0,
     is_active: true
   });
   const [savingPosition, setSavingPosition] = useState(false);
@@ -192,7 +196,8 @@ export default function AdminBoardPositions() {
       title: '',
       description: '',
       hierarchy_level: 1,
-      responsibilities: '',
+      position_code: '',
+      minimum_investment_shares: 0,
       is_active: true
     });
     setShowPositionModal(true);
@@ -204,8 +209,9 @@ export default function AdminBoardPositions() {
       title: position.position_name,
       description: position.description || '',
       hierarchy_level: position.position_level,
-      responsibilities: '',
-      is_active: true
+      position_code: position.position_code || '',
+      minimum_investment_shares: position.minimum_investment_shares || 0,
+      is_active: position.is_active !== false
     });
     setShowPositionModal(true);
   };
@@ -223,7 +229,7 @@ export default function AdminBoardPositions() {
         // Update existing position
         const response = await brain.update_board_position(
           { positionId: editingPosition.id },
-          positionForm
+          positionPayload(positionForm, false)
         );
         
         if (response.ok) {
@@ -235,7 +241,7 @@ export default function AdminBoardPositions() {
         }
       } else {
         // Create new position
-        const response = await brain.create_board_position(positionForm);
+        const response = await brain.create_board_position(positionPayload(positionForm, true));
         
         if (response.ok) {
           toast.success('Position created successfully');
@@ -861,6 +867,8 @@ export default function AdminBoardPositions() {
       </div>
 
       {/* Create/Edit Position Modal */}
+      <ReferenceDataSetup onApplied={loadData} />
+
       <Dialog open={showPositionModal} onOpenChange={setShowPositionModal}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -912,14 +920,17 @@ export default function AdminBoardPositions() {
             </div>
 
             <div>
-              <Label htmlFor="responsibilities">Key Responsibilities</Label>
-              <Textarea
-                id="responsibilities"
-                placeholder="List key responsibilities (one per line)..."
-                value={positionForm.responsibilities}
-                onChange={(e) => setPositionForm({ ...positionForm, responsibilities: e.target.value })}
-                rows={4}
-              />
+              <Label htmlFor="position_code">Stable position code *</Label>
+              <Input id="position_code" value={positionForm.position_code} disabled={!!editingPosition}
+                placeholder="e.g. independent_director"
+                onChange={e => setPositionForm({...positionForm, position_code:e.target.value})} />
+              <p className="text-sm text-muted-foreground">Use lowercase letters, numbers and underscores. Codes cannot be renamed.</p>
+            </div>
+            <div>
+              <Label htmlFor="minimum_investment_shares">Minimum investment shares</Label>
+              <Input id="minimum_investment_shares" type="number" min="0" step="1"
+                value={positionForm.minimum_investment_shares}
+                onChange={e => setPositionForm({...positionForm, minimum_investment_shares:Number(e.target.value)})} />
             </div>
 
             <div className="flex items-center gap-2">
