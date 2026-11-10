@@ -36,3 +36,13 @@ def test_profile_proof_binds_identity_method_and_body():
     with pytest.raises(HTTPException) as error:
         verify_profile_proof("not-base64.%%%", "GET", b"", secret, 1_800_000_010)
     assert error.value.status_code == 401
+
+
+def test_profile_proof_cannot_open_hub_operations():
+    secret = "test-secret" * 5
+    actor = "f2c96e94-873d-4cee-8cae-72b5f56c7d42"
+    body = b'{"operation":"investment.list"}'
+    token = proof(actor, "POST", body, secret)
+    with pytest.raises(HTTPException) as error:
+        verify_profile_proof(token, "POST", body, secret, 1_800_000_010, purpose="hub-operations")
+    assert error.value.status_code == 401

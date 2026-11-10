@@ -830,119 +830,30 @@ async def update_board_member_endpoint(
     body: UpdateBoardMemberRequest,
     user: AuthorizedUser
 ):
-    """Update a board member's details (super_admin only)."""
-    # Check if user is super_admin
-    is_admin = await check_user_has_role(user.sub, "super_admin")
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Only super admins can update board members")
-    
-    # Debug logging
-    print(f"🔍 Update board member request:")
-    print(f"   Member ID: {member_user_id}")
-    print(f"   Position: {repr(body.position)}")
-    print(f"   Term End Date: {repr(body.term_end_date)}")
-    print(f"   Status: {repr(body.status)}")
-    
+    """Update the canonical board record using the same workflow as the Hub."""
+    if not await check_user_has_role(user.sub, "super_admin"):
+        raise HTTPException(403, "Only super admins can update board members.")
+    conn = await get_db_connection()
     try:
-        conn = await get_db_connection()
-        try:
-            # Get the board member record
-            member = await conn.fetchrow(
-                "SELECT * FROM board_members WHERE user_id = $1",
-                member_user_id
-            )
-            
-            if not member:
-                raise HTTPException(status_code=404, detail="Board member not found")
-            
-            board_member_id = member['id']
-            
-            # Handle position assignment separately via board_member_positions
-            if body.position and body.position.strip():  # Check if position is not empty
-                print(f"✅ Processing position: {body.position}")
-                # Get position ID from position name (case-insensitive)
-                position_row = await resolve_position(conn, body.position)
-
-                position_id = position_row['id']
-                
-                # End current position assignment if exists
-                await conn.execute(
-                    """
-                    UPDATE board_member_positions
-                    SET is_current = FALSE, ended_at = NOW(), updated_at = NOW()
-                    WHERE board_member_id = $1 AND is_current = TRUE
-                    """,
-                    board_member_id
-                )
-                
-                # Create new position assignment
-                await conn.execute(
-                    """
-                    INSERT INTO board_member_positions 
-                    (board_member_id, position_id, appointed_by, appointed_at, is_current)
-                    VALUES ($1, $2, $3, NOW(), TRUE)
-                    """,
-                    board_member_id,
-                    position_id,
-                    user.sub
-                )
-                
-                print(f"✅ Assigned position '{position_row['position_name']}' to board member {board_member_id}")
-            
-            # Handle other updates (term_end_date, status)
-            updates = []
-            values = []
-            param_count = 1
-            
-            if body.term_end_date:
-                updates.append(f"term_end_date = ${param_count}")
-                values.append(body.term_end_date)
-                param_count += 1
-            
-            if body.status:
-                # Validate status
-                valid_statuses = ['active', 'inactive', 'resigned', 'removed']
-                if body.status not in valid_statuses:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Invalid status: {body.status}. Must be one of: {', '.join(valid_statuses)}"
-                    )
-                updates.append(f"status = ${param_count}")
-                values.append(body.status)
-                param_count += 1
-            
-            # Apply updates if any
-            if updates:
-                updates.append(f"updated_at = NOW()")
-                values.append(member_user_id)
-                
-                query = f"""
-                    UPDATE board_members
-                    SET {', '.join(updates)}
-                    WHERE user_id = ${param_count}
-                    RETURNING *
-                """
-                
-                updated_member = await conn.fetchrow(query, *values)
-            else:
-                # No updates to board_members table, just return current member
-                updated_member = member
-            
-            return {"success": True, "board_member": dict(updated_member)}
-            
-        finally:
-            await conn.close()
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Error updating board member: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to update board member: {str(e)}"
-        )
+        member = await conn.fetchrow("SELECT * FROM board_members WHERE user_id=$1", member_user_id)
+    finally:
+        await conn.close()
+    if not member:
+        raise HTTPException(404, "Board member not found.")
+    from app.apis.platform.hub_operations import board_update
+    await board_update({
+        "user_id": member_user_id,
+        "version": member["version"],
+        "position": body.position or member["position"],
+        "term_end_date": body.term_end_date or member["term_end_date"],
+        "status": body.status or member["status"],
+    }, user)
+    conn = await get_db_connection()
+    try:
+        updated = await conn.fetchrow("SELECT * FROM board_members WHERE user_id=$1", member_user_id)
+        return {"success": True, "board_member": dict(updated)}
+    finally:
+        await conn.close()
 
 
 @router.post("/board/map-user")

@@ -33,6 +33,13 @@ async def platform_subject_service(request: Request) -> dict:
     return await profile_service(request, by_subject=True)
 
 
+@router.post("/hub-operations")
+async def hub_operations(request: Request):
+    """Narrow private bridge for the Hub's canonical administration workspace."""
+    from .hub_operations import dispatch
+    return await dispatch(request)
+
+
 # service id -> (display name, env var holding its base URL, audience for handoff, roles that may enter)
 SERVICES: dict[str, dict] = {
     "hub": {

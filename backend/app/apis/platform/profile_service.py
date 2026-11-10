@@ -21,7 +21,7 @@ FIELDS = {
 }
 
 
-def verify_profile_proof(token: str, method: str, body: bytes, secret: str, now: int | None = None) -> str:
+def verify_profile_proof(token: str, method: str, body: bytes, secret: str, now: int | None = None, *, purpose: str = "profile") -> str:
     """Match Core's short-lived HMAC proof without trusting caller-supplied person IDs."""
     if len(secret) < 32 or len(token) > 2000 or token.count(".") != 1:
         raise HTTPException(401, "Profile proof rejected")
@@ -34,7 +34,7 @@ def verify_profile_proof(token: str, method: str, body: bytes, secret: str, now:
         payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
         now = now or int(time.time())
         issued, expires = payload["iat"], payload["exp"]
-        if (payload.get("use") != "profile" or not UUID.fullmatch(payload.get("sub", ""))
+        if (payload.get("use") != purpose or not UUID.fullmatch(payload.get("sub", ""))
                 or payload.get("method") != method or payload.get("body") != hashlib.sha256(body).hexdigest()
                 or type(issued) is not int or type(expires) is not int or issued > now + 5
                 or issued < now - 35 or expires <= now or expires - issued > 30 or expires <= issued):

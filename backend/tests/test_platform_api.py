@@ -186,7 +186,7 @@ def test_router_is_public_in_routers_json_and_endpoints_still_require_a_user():
     cfg = json.loads(pathlib.Path("routers.json").read_text())
     assert cfg["routers"]["platform"]["disableAuth"] is True
     # Router-level auth is off, so each protected endpoint must declare AuthorizedUser itself.
-    public = {"/platform/jwks.json", "/platform/config", "/platform/demo-accounts", "/platform/profile-service", "/platform/subject-service"}
+    public = {"/platform/jwks.json", "/platform/config", "/platform/demo-accounts", "/platform/profile-service", "/platform/subject-service", "/platform/hub-operations"}
     for route in api.router.routes:
         names = {d.call.__name__ for d in route.dependant.dependencies}
         if route.path in public:
