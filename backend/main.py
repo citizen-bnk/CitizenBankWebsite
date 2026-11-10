@@ -67,6 +67,9 @@ def import_api_routers() -> APIRouter:
             api_module = __import__(api_module_prefix + name, fromlist=[name])
             api_router = getattr(api_module, "router", None)
             if isinstance(api_router, APIRouter):
+                # Static action paths must precede /{record_id}; otherwise e.g.
+                # /sessions/available is parsed as a record ID and fails validation.
+                api_router.routes.sort(key=lambda r:(getattr(r,'path','').count('{'),-len(getattr(r,'path','').split('/'))))
                 routes.include_router(
                     api_router,
                     dependencies=(
@@ -205,6 +208,8 @@ def create_app() -> FastAPI:
         db_url = os.environ.get("DATABASE_URL_PROD") or os.environ.get("DATABASE_URL")
         if not db_url:
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DATABASE_NOT_CONFIGURED"})
+        workflow_tables = {"crypto_wallets", "email_queue", "email_history", "board_meetings",
+                           "governance_sessions", "document_requests", "messages", "user_role_history"}
         try:
             conn = await asyncpg.connect(db_url, timeout=4, statement_cache_size=0)
             try:
@@ -214,7 +219,7 @@ def create_app() -> FastAPI:
                 """, ["user_profiles", "roles", "user_roles", "share_classes", "share_config",
                       "share_subscriptions", "subscription_payments", "share_certificates", "audit_logs",
                       "board_positions", "board_document_requirements", "data_room_categories",
-                      "invitation_permissions", "reference_data_runs"])
+                      "invitation_permissions", "reference_data_runs", *sorted(workflow_tables)])
                 demo_offering = False
                 if any(row["table_name"] == "share_classes" for row in rows):
                     demo_offering = await conn.fetchval("""
@@ -240,6 +245,9 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=503, content={"status":"unavailable",
                 "issue":"REFERENCE_DATA_SETUP_REQUIRED", "missing_tables":missing,
                 "recovery":"Open Settings → Reference settings and preview setup."})
+        if missing := sorted(workflow_tables - found):
+            return JSONResponse(status_code=503, content={"status":"unavailable",
+                "issue":"WORKFLOW_SCHEMA_INCOMPLETE", "missing_tables":missing})
         blob_ready = bool(os.environ.get("BLOB_STORE_ID") or os.environ.get("BLOB_READ_WRITE_TOKEN"))
         storage_keys = ("R2_BUCKET", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY")
         s3_ready = all(os.environ.get(key) for key in storage_keys) and bool(os.environ.get("R2_ACCOUNT_ID") or os.environ.get("S3_ENDPOINT_URL"))

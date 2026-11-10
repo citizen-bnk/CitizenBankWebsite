@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from 'app';
@@ -389,14 +390,14 @@ export default function BackOfficeSubscriptions() {
 
     setProcessingPayment(true);
     try {
-      const response = await apiClient.record_payment(
+      const response = await checkedResponse(apiClient.record_payment(
         { subscriptionId: selectedSubscription.subscription_id },
         {
           amount: parseFloat(paymentData.amount),
           payment_reference: paymentData.payment_reference,
           notes: paymentData.notes || undefined
         }
-      );
+      ));
 
       const result = await response.json();
       console.log('✅ Payment recorded:', result);

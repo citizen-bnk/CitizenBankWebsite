@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from "react";
 import { useUserGuardContext, auth } from "app/auth";
 import brain from "brain";
@@ -356,12 +357,12 @@ export default function BackOfficeBoardDocuments() {
     }
 
     try {
-      const response = await brain.send_individual_document_request({
+      const response = await checkedResponse(brain.send_individual_document_request({
         board_member_id: selectedMember.board_member_id,
         requirement_ids: individualRequirements,
         message: individualMessage || undefined,
         severity: individualSeverity
-      });
+      }));
 
       const data = await response.json();
       toast.success(`Document request sent to ${data.board_member_name} for ${data.documents_requested} document(s)`);
@@ -388,7 +389,7 @@ export default function BackOfficeBoardDocuments() {
     if (!editingSetting) return;
 
     try {
-      const response = await brain.update_requirement_settings(
+      const response = await checkedResponse(brain.update_requirement_settings(
         { requirementId: editingSetting.requirement_id },
         {
           default_severity: editSeverity,
@@ -396,7 +397,7 @@ export default function BackOfficeBoardDocuments() {
           auto_reminder_interval_days: editReminderDays ? parseInt(editReminderDays) : null,
           escalation_enabled: editEscalationEnabled
         }
-      );
+      ));
 
       await response.json();
       toast.success('Settings updated successfully');

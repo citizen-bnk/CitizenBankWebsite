@@ -658,141 +658,106 @@ async def appoint_board_member_endpoint(body: AppointBoardMemberRequest, user: A
     try:
         conn = await get_db_connection()
         try:
-            # Case 1: Appointment from invitation
-            if body.invitation_id:
-                # Get invitation details
-                invitation = await conn.fetchrow(
-                    """
-                    SELECT id, email, role, status, expires_at, full_name, position
-                    FROM invitations
-                    WHERE id = $1
-                    """,
-                    body.invitation_id
-                )
-                
-                if not invitation:
-                    raise HTTPException(status_code=404, detail="Invitation not found")
-                
-                if invitation['status'] != 'pending':
-                    raise HTTPException(status_code=400, detail=f"Invitation is {invitation['status']}, cannot appoint")
-                
-                if invitation['expires_at'] < datetime.now(timezone.utc):
-                    raise HTTPException(status_code=400, detail="Invitation has expired")
-                
-                if invitation['role'] != 'board_member':
-                    raise HTTPException(status_code=400, detail="Invitation is not for a board member role")
-                
-                # Check if user already exists with this email
-                user_profile = await conn.fetchrow(
-                    "SELECT user_id, email, full_name FROM user_profiles WHERE email = $1",
-                    invitation['email']
-                )
-                
-                # Use position from request (allows admin to override invitation position)
-                position_to_use = body.position
-                
-                if user_profile:
-                    # User exists - use their user_id and full appointment
-                    target_user_id = user_profile['user_id']
-                    email = user_profile['email']
-                    full_name = user_profile['full_name']
-                    
-                    # Accept the invitation (mark as accepted)
-                    await conn.execute(
+            async with conn.transaction():
+                # Case 1: Appointment from invitation
+                if body.invitation_id:
+                    # Get invitation details
+                    invitation = await conn.fetchrow(
                         """
-                        UPDATE invitations 
-                        SET status = 'accepted', accepted_at = $1
-                        WHERE id = $2
+                        SELECT id, email, role, status, expires_at, full_name, position
+                        FROM invitations
+                        WHERE id = $1
                         """,
-                        datetime.utcnow(), body.invitation_id
+                        body.invitation_id
                     )
+                
+                    if not invitation:
+                        raise HTTPException(status_code=404, detail="Invitation not found")
+                
+                    if invitation['status'] != 'pending':
+                        raise HTTPException(status_code=400, detail=f"Invitation is {invitation['status']}, cannot appoint")
+                
+                    if invitation['expires_at'] < datetime.now(timezone.utc):
+                        raise HTTPException(status_code=400, detail="Invitation has expired")
+                
+                    if invitation['role'] != 'board_member':
+                        raise HTTPException(status_code=400, detail="Invitation is not for a board member role")
+                
+                    # Check if user already exists with this email
+                    user_profile = await conn.fetchrow(
+                        "SELECT user_id, email, full_name FROM user_profiles WHERE email = $1",
+                        invitation['email']
+                    )
+                
+                    # Use position from request (allows admin to override invitation position)
+                    position_to_use = body.position
+                
+                    if user_profile:
+                        # User exists - use their user_id and full appointment
+                        target_user_id = user_profile['user_id']
+                        email = user_profile['email']
+                        full_name = user_profile['full_name']
                     
+                        # Accept the invitation (mark as accepted)
+                        await conn.execute(
+                            """
+                            UPDATE invitations
+                            SET status = 'accepted', accepted_at = $1
+                            WHERE id = $2
+                            """,
+                            datetime.utcnow(), body.invitation_id
+                        )
+                    
+                        # Assign board_member role via RBAC
+                        await assign_role_to_user(target_user_id, "board_member",assigned_by=user.sub,conn=conn)
+                    
+                        # Create board member record
+                        member = await appoint_board_member(
+                            user_id=target_user_id,
+                            email=email,
+                            full_name=full_name,
+                            position=position_to_use,
+                            term_years=body.term_years,
+                            appointed_by=user.sub,conn=conn
+                        )
+                    
+                        return {
+                            "success": True,
+                            "board_member": member,
+                            "message": f"Invitation accepted and {full_name} appointed successfully"
+                        }
+                    else:
+                        raise HTTPException(409,"The invitee must register before a board appointment can be completed. Resend their invitation; no appointment has been saved.")
+
+                # Case 2: Manual appointment by user_id
+                else:
+                    # Get user details
+                    user_profile = await conn.fetchrow(
+                        "SELECT email, full_name FROM user_profiles WHERE user_id = $1",
+                        body.user_id
+                    )
+
+                    if not user_profile:
+                        raise HTTPException(status_code=404, detail="User not found")
+
                     # Assign board_member role via RBAC
-                    await assign_role_to_user(target_user_id, "board_member")
-                    
+                    await assign_role_to_user(body.user_id, "board_member",assigned_by=user.sub,conn=conn)
+
                     # Create board member record
                     member = await appoint_board_member(
-                        user_id=target_user_id,
-                        email=email,
-                        full_name=full_name,
-                        position=position_to_use,
+                        user_id=body.user_id,
+                        email=user_profile['email'],
+                        full_name=user_profile['full_name'],
+                        position=body.position,
                         term_years=body.term_years,
-                        appointed_by=user.sub
+                        appointed_by=user.sub,conn=conn
                     )
-                    
+
                     return {
                         "success": True,
                         "board_member": member,
-                        "message": f"Invitation accepted and {full_name} appointed successfully"
+                        "message": "Board member appointed successfully"
                     }
-                else:
-                    # User doesn't exist yet - create pending board member record
-                    # This will be linked when they register
-                    email = invitation['email']
-                    full_name = invitation['full_name']
-                    
-                    # Accept the invitation (mark as accepted)
-                    await conn.execute(
-                        """
-                        UPDATE invitations 
-                        SET status = 'accepted', accepted_at = $1
-                        WHERE id = $2
-                        """,
-                        datetime.utcnow(), body.invitation_id
-                    )
-                    
-                    # Create pending board member record without user_id
-                    # Use a placeholder user_id format: 'pending_' + invitation_id
-                    pending_user_id = f"pending_{invitation['id']}"
-                    
-                    # NOTE: We do NOT assign the role here because the user hasn't registered yet
-                    # The role will be assigned when they register and accept the invitation
-                    
-                    member = await appoint_board_member(
-                        user_id=pending_user_id,
-                        email=email,
-                        full_name=full_name,
-                        position=position_to_use,
-                        term_years=body.term_years,
-                        appointed_by=user.sub
-                    )
-                    
-                    return {
-                        "success": True,
-                        "board_member": member,
-                        "message": f"{full_name} appointed successfully. Status will update to active when they register.",
-                        "pending_registration": True
-                    }
-            
-            # Case 2: Manual appointment by user_id
-            else:
-                # Get user details
-                user_profile = await conn.fetchrow(
-                    "SELECT email, full_name FROM user_profiles WHERE user_id = $1",
-                    body.user_id
-                )
-                
-                if not user_profile:
-                    raise HTTPException(status_code=404, detail="User not found")
-                
-                # Assign board_member role via RBAC
-                await assign_role_to_user(body.user_id, "board_member")
-                
-                # Create board member record
-                member = await appoint_board_member(
-                    user_id=body.user_id,
-                    email=user_profile['email'],
-                    full_name=user_profile['full_name'],
-                    position=body.position,
-                    term_years=body.term_years,
-                    appointed_by=user.sub
-                )
-                
-                return {
-                    "success": True,
-                    "board_member": member,
-                    "message": "Board member appointed successfully"
-                }
         finally:
             await conn.close()
     
@@ -1207,7 +1172,7 @@ Citizen Bank Team
     subject = f"Reminder #{reminder_count}: Your Citizen Bank Invitation is Pending"
     
     # Send email using existing send_email function
-    from app.libs.email_service import send_email
+    from app.libs.queued_email import send_email
     await send_email(
         to=email,
         subject=subject,

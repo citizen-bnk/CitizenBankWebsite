@@ -311,7 +311,7 @@ async def create_welcome_message(user: AuthorizedUser):
                 await conn.execute(
                     """
                     INSERT INTO messages 
-                    (user_id, recipient_email, message_type, title, message, cta_text, cta_type, cta_data, status)
+                    (user_id, recipient_email, message_type, subject, content, cta_label, cta_action, cta_data, status)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
                     """,
                     user.sub,

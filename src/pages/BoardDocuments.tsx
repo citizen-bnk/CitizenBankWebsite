@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ const BoardDocuments = () => {
     try {
       setUploadingId(requirementId);
       
-      const response = await apiClient.upload_document({ requirement_id: requirementId }, { file });
+      const response = await checkedResponse(apiClient.upload_document({ requirement_id: requirementId }, { file }));
       
       if (response.ok) {
         toast.success("Document Uploaded Successfully", {

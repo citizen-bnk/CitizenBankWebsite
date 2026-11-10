@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import brain from 'brain';
 import { useUserGuardContext } from 'app/auth';
@@ -140,12 +141,12 @@ export default function BoardInvestment() {
     
     try {
       setInvesting(true);
-      const response = await brain.create_board_investment({
+      const response = await checkedResponse(brain.create_board_investment({
         num_shares: shares,
         share_class: selectedClass,
         payment_method: paymentMethod,
         installment_months: paymentMethod === 'installment' ? parseInt(installmentMonths) : undefined
-      });
+      }));
       
       const result = await response.json();
       

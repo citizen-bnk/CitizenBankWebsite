@@ -1,3 +1,4 @@
+import { checkedResponse } from "@/utils/formSubmission";
 import { useState } from "react";
 import { apiClient } from "app";
 import { auth } from "app/auth";
@@ -110,13 +111,13 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
 
     try {
       if (editingRequirement) {
-        await apiClient.update_requirement(
+        await checkedResponse(apiClient.update_requirement(
           { requirementId: editingRequirement.id! },
           requirementForm
-        );
+        ));
         showSuccessToast('Requirement updated successfully');
       } else {
-        await apiClient.create_requirement(requirementForm);
+        await checkedResponse(apiClient.create_requirement(requirementForm));
         showSuccessToast('Requirement created successfully');
       }
       setShowRequirementDialog(false);
@@ -134,7 +135,7 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
     }
 
     try {
-      await apiClient.deactivate_requirement({ requirementId });
+      await checkedResponse(apiClient.deactivate_requirement({ requirementId }));
       showSuccessToast('Requirement deactivated successfully');
       onRefresh();
     } catch (error: any) {
@@ -146,10 +147,10 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
   const handleUploadTemplate = async (requirementId: number, file: File) => {
     setUploadingTemplate(requirementId);
     try {
-      await apiClient.upload_template(
+      await checkedResponse(apiClient.upload_template(
         { requirementId },
         { file }
-      );
+      ));
       showSuccessToast('Template uploaded successfully');
       onRefresh();
     } catch (error: any) {
@@ -165,7 +166,7 @@ export function RequirementsManager({ requirements, loading, onRefresh }: Props)
       return;
     }
     try {
-      await apiClient.delete_template({ requirementId });
+      await checkedResponse(apiClient.delete_template({ requirementId }));
       showSuccessToast('Template deleted successfully');
       onRefresh();
     } catch (error: any) {

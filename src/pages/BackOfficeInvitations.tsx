@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import brain from 'brain';
 import { Button } from '@/components/ui/button';
@@ -137,14 +138,14 @@ export default function BackOfficeInvitations() {
     
     try {
       setSending(true);
-      const response = await brain.create_invitation_endpoint({
+      const response = await checkedResponse(brain.create_invitation_endpoint({
         full_name: fullName,
         email,
         role,
         position: role === 'board_member' ? position : undefined,
         expires_at: expiryDate,
         message: message || undefined
-      });
+      }));
       
       // Check HTTP status code
       if (response.ok) {
@@ -192,7 +193,7 @@ export default function BackOfficeInvitations() {
 
   const handleCancelInvitation = async (invitationId: number) => {
     try {
-      const response = await brain.cancel_invitation({ invitationId });
+      const response = await checkedResponse(brain.cancel_invitation({ invitationId }));
       const result = await response.json();
       
       if (result.success) {

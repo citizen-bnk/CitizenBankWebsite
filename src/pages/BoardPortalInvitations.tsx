@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { apiClient } from 'app';
 import { Button } from '@/components/ui/button';
@@ -128,14 +129,14 @@ export default function BoardPortalInvitations() {
     
     try {
       setSending(true);
-      const response = await apiClient.create_invitation_endpoint({
+      const response = await checkedResponse(apiClient.create_invitation_endpoint({
         full_name: fullName,
         email,
         role,
         position: role === 'board_member' ? position : undefined,
         expires_at: expiryDate,
         message: message || undefined
-      });
+      }));
       
       if (response.ok) {
         const result = await response.json();
@@ -164,7 +165,7 @@ export default function BoardPortalInvitations() {
 
   const handleCancelInvitation = async (invitationId: number) => {
     try {
-      const response = await apiClient.cancel_invitation({ invitationId });
+      const response = await checkedResponse(apiClient.cancel_invitation({ invitationId }));
       const result = await response.json();
       
       if (result.success) {

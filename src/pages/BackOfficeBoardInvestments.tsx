@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { apiClient } from "app";
 import { useUserGuardContext } from 'app/auth';
@@ -170,14 +171,14 @@ export default function BackOfficeBoardInvestments() {
     
     try {
       setActionLoading(true);
-      const response = await apiClient.create_investment_on_behalf({
+      const response = await checkedResponse(apiClient.create_investment_on_behalf({
         board_member_user_id: createForm.board_member_user_id,
         num_shares: parseInt(createForm.num_shares),
         share_class: createForm.share_class,
         payment_method: createForm.payment_method,
         payment_status: createForm.payment_status,
         installment_months: createForm.payment_method === 'installment' ? parseInt(createForm.installment_months) : null
-      });
+      }));
       
       const data = await response.json();
       toast.success(data.message || 'Subscription created successfully');
@@ -214,10 +215,10 @@ export default function BackOfficeBoardInvestments() {
     
     try {
       setActionLoading(true);
-      const response = await apiClient.update_board_investment(
+      const response = await checkedResponse(apiClient.update_board_investment(
         { subscriptionId: selectedSubscription.id },
         updates
-      );
+      ));
       
       const data = await response.json();
       toast.success(data.message || 'Subscription updated successfully');
@@ -241,13 +242,13 @@ export default function BackOfficeBoardInvestments() {
     
     try {
       setActionLoading(true);
-      const response = await apiClient.transfer_shares_between_classes(
+      const response = await checkedResponse(apiClient.transfer_shares_between_classes(
         { subscriptionId: selectedSubscription.id },
         {
           target_share_class: transferClassForm.target_share_class,
           num_shares: parseInt(transferClassForm.num_shares)
         }
-      );
+      ));
       
       const data = await response.json();
       toast.success(data.message || 'Shares transferred successfully');
@@ -271,13 +272,13 @@ export default function BackOfficeBoardInvestments() {
     
     try {
       setActionLoading(true);
-      const response = await apiClient.transfer_shares_between_members(
+      const response = await checkedResponse(apiClient.transfer_shares_between_members(
         { subscriptionId: selectedSubscription.id },
         {
           target_user_id: transferMemberForm.target_user_id,
           num_shares: parseInt(transferMemberForm.num_shares)
         }
-      );
+      ));
       
       const data = await response.json();
       toast.success(data.message || 'Shares transferred successfully');
@@ -298,9 +299,9 @@ export default function BackOfficeBoardInvestments() {
     
     try {
       setActionLoading(true);
-      const response = await apiClient.cancel_board_investment({
+      const response = await checkedResponse(apiClient.cancel_board_investment({
         subscriptionId: selectedSubscription.id
-      });
+      }));
       
       const data = await response.json();
       toast.success(data.message || 'Subscription cancelled successfully');
@@ -353,7 +354,7 @@ export default function BackOfficeBoardInvestments() {
       }
       formData.append('send_email', recordPaymentForm.send_email.toString());
 
-      const response = await fetch(
+      const response = await checkedResponse(fetch(
         `${API_URL}/back-office/board/investments/${selectedSubscription.id}/record-payment`,
         {
           method: 'POST',
@@ -363,7 +364,7 @@ export default function BackOfficeBoardInvestments() {
           body: formData,
           credentials: 'include'
         }
-      );
+      ));
 
       if (!response.ok) {
         const error = await response.json();

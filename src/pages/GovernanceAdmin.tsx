@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useEffect, useState } from 'react';
 import { useUserGuardContext } from 'app/auth';
 import { useNavigate } from 'react-router-dom';
@@ -222,7 +223,7 @@ export default function GovernanceAdmin() {
 
   const handleCancelEmail = async (emailId: number) => {
     try {
-      const response = await apiClient.cancel_queued_email({ emailId });
+      const response = await checkedResponse(apiClient.cancel_queued_email({ emailId }));
       if (response.ok) {
         toast.success('Email cancelled successfully');
         loadEmailQueue();
@@ -237,7 +238,7 @@ export default function GovernanceAdmin() {
 
   const handleCreateSession = async () => {
     try {
-      const response = await apiClient.create_session(sessionForm);
+      const response = await checkedResponse(apiClient.create_session(sessionForm));
 
       if (response.ok) {
         const data = await response.json();
@@ -282,13 +283,13 @@ export default function GovernanceAdmin() {
     if (!selectedSession) return;
 
     try {
-      const response = await apiClient.add_voting_items(selectedSession.id, {
+      const response = await checkedResponse(apiClient.add_voting_items(selectedSession.id, {
         items: [{
           question: itemForm.question,
           description: itemForm.description,
           options: itemForm.options,
         }],
-      });
+      }));
 
       if (response.ok) {
         toast({
@@ -330,13 +331,13 @@ export default function GovernanceAdmin() {
     }
 
     try {
-      const response = await apiClient.upload_governance_document({
+      const response = await checkedResponse(apiClient.upload_governance_document({
         session_id: documentForm.session_id,
         document_type: 'minutes',
         file_url: '', // Will be set after upload
         file_name: documentForm.file_name || documentForm.file.name,
         description: documentForm.description,
-      });
+      }));
 
       if (response.ok) {
         toast({
@@ -372,9 +373,9 @@ export default function GovernanceAdmin() {
 
   const handleUpdateSessionStatus = async (sessionId: number, status: string) => {
     try {
-      const response = await apiClient.update_session_status({ sessionId }, {
+      const response = await checkedResponse(apiClient.update_session_status({ sessionId }, {
         status: status as any,
-      });
+      }));
 
       if (response.ok) {
         toast({
@@ -429,7 +430,7 @@ export default function GovernanceAdmin() {
     if (!deleteDocumentId) return;
 
     try {
-      const response = await apiClient.delete_document({ documentId: deleteDocumentId });
+      const response = await checkedResponse(apiClient.delete_document({ documentId: deleteDocumentId }));
 
       if (response.ok) {
         toast({
@@ -460,7 +461,7 @@ export default function GovernanceAdmin() {
     if (!deleteSessionId) return;
 
     try {
-      const response = await apiClient.delete_session({ sessionId: deleteSessionId });
+      const response = await checkedResponse(apiClient.delete_session({ sessionId: deleteSessionId }));
 
       if (response.ok) {
         toast({
@@ -489,9 +490,9 @@ export default function GovernanceAdmin() {
 
   const handleDeactivateSession = async (sessionId: number) => {
     try {
-      const response = await apiClient.update_session_status({ sessionId }, {
+      const response = await checkedResponse(apiClient.update_session_status({ sessionId }, {
         status: 'draft',
-      });
+      }));
 
       if (response.ok) {
         toast({
@@ -594,7 +595,7 @@ export default function GovernanceAdmin() {
 
     try {
       // Update session details
-      const sessionResponse = await apiClient.update_governance_session(
+      const sessionResponse = await checkedResponse(apiClient.update_governance_session(
         { sessionId: editingSession.id },
         {
           title: editForm.title,
@@ -602,7 +603,7 @@ export default function GovernanceAdmin() {
           opens_at: editForm.opens_at,
           closes_at: editForm.closes_at,
         }
-      );
+      ));
 
       if (!sessionResponse.ok) {
         const error = await sessionResponse.json();
@@ -619,14 +620,14 @@ export default function GovernanceAdmin() {
         for (const item of editForm.voting_items) {
           if (item.id) {
             // Update existing item
-            const itemResponse = await apiClient.update_voting_item(
+            const itemResponse = await checkedResponse(apiClient.update_voting_item(
               { itemId: item.id },
               {
                 question: item.question,
                 description: item.description,
                 options: item.options,
               }
-            );
+            ));
 
             if (!itemResponse.ok) {
               const error = await itemResponse.json();
@@ -697,10 +698,10 @@ export default function GovernanceAdmin() {
     setSendingToMember(member.user_id);
     
     try {
-      await apiClient.send_governance_session_notification({
+      await checkedResponse(apiClient.send_governance_session_notification({
         sessionId: editingSession.id,
         memberIds: [member.user_id],
-      });
+      }));
       toast.success(`Notification sent to ${member.full_name}`);
     } catch (error) {
       console.error("Failed to send notification:", error);
@@ -1656,10 +1657,10 @@ export default function GovernanceAdmin() {
                     onClick={async () => {
                       if (!editingSession) return;
                       try {
-                        await apiClient.send_governance_session_notification({
+                        await checkedResponse(apiClient.send_governance_session_notification({
                           sessionId: editingSession.id,
                           memberIds: selectedRecipients,
-                        });
+                        }));
                         toast.success(`Notification sent to ${selectedRecipients.length} members`);
                       } catch (error) {
                         console.error("Failed to send notifications:", error);
@@ -1941,10 +1942,10 @@ export default function GovernanceAdmin() {
                         onClick={async () => {
                           if (!editingSession) return;
                           try {
-                            await apiClient.send_governance_session_notification({
+                            await checkedResponse(apiClient.send_governance_session_notification({
                               sessionId: editingSession.id,
                               memberIds: selectedRecipients,
-                            });
+                            }));
                             toast.success(`Notification sent to ${selectedRecipients.length} members`);
                           } catch (error) {
                             console.error("Failed to send notifications:", error);

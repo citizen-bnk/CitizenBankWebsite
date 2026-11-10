@@ -1,3 +1,4 @@
+import { checkedResponse } from "@/utils/formSubmission";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -148,7 +149,7 @@ export default function TypeformBoardOnboardingModal({ open, onClose, initialSte
     setHasPendingChanges(true);
     setSaving(true);
     try {
-      await apiClient.update_user_profile(merged);
+      await checkedResponse(apiClient.update_user_profile(merged));
       await logOnboardingEvent("autosave_success", steps[currentStep]?.key);
       // Clear pending on success
       setHasPendingChanges(false);
@@ -202,7 +203,7 @@ export default function TypeformBoardOnboardingModal({ open, onClose, initialSte
   const handleUpload = async (requirementId: number, file: File) => {
     setUploadingId(requirementId);
     try {
-      await apiClient.upload_document({ requirement_id: requirementId }, { file });
+      await checkedResponse(apiClient.upload_document({ requirement_id: requirementId }, { file }));
       toast.success("Document uploaded");
       await logOnboardingEvent("upload_success", "documents", { requirement_id: requirementId });
       // Refresh checklist/status

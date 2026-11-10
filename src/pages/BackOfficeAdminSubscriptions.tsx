@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from 'app';
@@ -183,14 +184,14 @@ export default function BackOfficeAdminSubscriptions() {
 
     setProcessing(true);
     try {
-      await apiClient.record_payment(
+      await checkedResponse(apiClient.record_payment(
         { subscriptionId: selectedSubscription.subscription_id },
         {
           amount: amount,
           payment_reference: paymentReference || undefined,
           notes: paymentNotes || undefined
         }
-      );
+      ));
       toast.success('Payment recorded successfully');
       setPaymentDialogOpen(false);
       resetPaymentForm();
@@ -211,10 +212,10 @@ export default function BackOfficeAdminSubscriptions() {
 
     setProcessing(true);
     try {
-      await apiClient.update_payment_status(
+      await checkedResponse(apiClient.update_payment_status(
         { subscriptionId: selectedSubscription.subscription_id },
         { status: newPaymentStatus }
-      );
+      ));
       toast.success('Payment status updated successfully');
       setPaymentStatusDialogOpen(false);
       setNewPaymentStatus('');
@@ -232,10 +233,10 @@ export default function BackOfficeAdminSubscriptions() {
 
     setProcessing(true);
     try {
-      await apiClient.add_payment_notes(
+      await checkedResponse(apiClient.add_payment_notes(
         { subscriptionId: selectedSubscription.subscription_id },
         { notes: paymentNotes }
-      );
+      ));
       toast.success('Notes added successfully');
       setNotesDialogOpen(false);
       setPaymentNotes('');

@@ -23,7 +23,7 @@ from app.libs.email_templates import (
     create_investor_invitation_email,
     create_verification_code_email
 )
-from app.libs.email_service import send_email
+from app.libs.queued_email import send_email
 from app.libs.email_config import get_sender
 from app.libs.url_helpers import get_frontend_path
 # Assuming send_email and get_sender are defined in another module; import if needed

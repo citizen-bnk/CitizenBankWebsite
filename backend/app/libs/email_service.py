@@ -25,7 +25,8 @@ async def send_email(
     from_email: str | None = None,
     from_name: str | None = None,
     sender_type: str = "noreply",
-    reply_to: str | None = None
+    reply_to: str | None = None,
+    idempotency_key: str | None = None
 ) -> Dict[str, Any]:
     """
     Send email using Resend API.
@@ -46,11 +47,12 @@ async def send_email(
     Raises:
         Exception if email sending fails
     """
-    if sender_type == 'invitations' and os.environ.get('CITIZEN_INVITATION_EMAIL_SECRET'):
+    if os.environ.get('CITIZEN_INVITATION_EMAIL_SECRET'):
         async with httpx.AsyncClient(timeout=16) as client:
             response = await client.post(
                 'https://ai.citizenbank.co.ls/api/internal/invitation-email',
-                headers={'Authorization': 'Bearer ' + os.environ['CITIZEN_INVITATION_EMAIL_SECRET']},
+                headers={'Authorization': 'Bearer ' + os.environ['CITIZEN_INVITATION_EMAIL_SECRET'],
+                         **({'x-citizen-email-key':idempotency_key} if idempotency_key else {})},
                 json={'to': to, 'subject': subject, 'html': content_html, 'text': content_text},
             )
             response.raise_for_status()
@@ -83,15 +85,19 @@ async def send_email(
         if reply_to:
             params["reply_to"] = [reply_to]
         
-        result = resend.Emails.send(params)
+        async with httpx.AsyncClient(timeout=16) as client:
+            response=await client.post('https://api.resend.com/emails',json=params,
+                headers={'Authorization':'Bearer '+os.environ.get('RESEND_API_KEY',''),
+                         **({'Idempotency-Key':idempotency_key} if idempotency_key else {})})
+            response.raise_for_status()
+            result=response.json()
         return {
             "success": True,
             "message_id": result.get("id"),
             "sender": sender
         }
     except Exception as e:
-        print(f"❌ Failed to send email to {to}: {str(e)}")
-        raise Exception(f"Email sending failed: {str(e)}")
+        raise RuntimeError("Email delivery is unavailable; retry from the saved record.") from None
 
 
 async def send_bulk_email(
@@ -127,7 +133,12 @@ async def send_bulk_email(
         if content_text:
             params["text"] = content_text
         
-        result = resend.Emails.send(params)
+        async with httpx.AsyncClient(timeout=16) as client:
+            response=await client.post('https://api.resend.com/emails',json=params,
+                headers={'Authorization':'Bearer '+os.environ.get('RESEND_API_KEY',''),
+                         **({'Idempotency-Key':idempotency_key} if idempotency_key else {})})
+            response.raise_for_status()
+            result=response.json()
         
         print(f"✅ Bulk email sent via Resend to {len(recipients)} recipients")
         return result

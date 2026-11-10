@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
+import hashlib
+import json
 from typing import Optional
 import asyncpg
 from datetime import datetime, timedelta
@@ -45,11 +47,13 @@ class CreateSubscriptionRequest(BaseModel):
     num_shares: int
     
     # Payment details
-    payment_method: str  # "bank_transfer" or "cryptocurrency"
+    payment_method: str = Field(pattern=r"^(bank_transfer|crypto|cryptocurrency|one-time|installment)$")
+    installment_plan: Optional[str] = None
     payment_proof_filename: Optional[str] = None
     
     # Admin notes (internal)
     admin_notes: Optional[str] = None
+    idempotency_key: Optional[str] = Field(default=None,min_length=16,max_length=128,pattern=r'^[a-zA-Z0-9_-]+$')
 
 
 class SubscriptionCreatedResponse(BaseModel):
@@ -172,6 +176,20 @@ async def create_subscription_on_behalf(
     try:
         await transaction.start()
         started = True
+        fingerprint=hashlib.sha256(json.dumps(body.model_dump(exclude={'idempotency_key'},mode='json'),sort_keys=True).encode()).hexdigest()
+        if body.idempotency_key:
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))",user.sub+':'+body.idempotency_key)
+            previous=await conn.fetchrow('SELECT * FROM share_subscriptions WHERE submission_actor=$1 AND idempotency_key=$2',user.sub,body.idempotency_key)
+            if previous:
+                if previous['request_fingerprint']!=fingerprint:
+                    raise HTTPException(409,'This submission key belongs to different details. Refresh before creating another subscription.')
+                await transaction.commit()
+                committed=True
+                return SubscriptionCreatedResponse(subscription_id=previous['subscription_id'],user_existed=bool(previous['user_id']),
+                    invitation_created=bool(previous['invitation_id']),invitation_id=previous['invitation_id'],status=previous['status'],
+                    message='Subscription already saved. Confirmation is queued.')
+        if body.payment_method == "installment" and body.installment_plan not in ("3-months", "6-months", "12-months"):
+            raise HTTPException(422,"Choose a 3, 6 or 12 month instalment plan.")
         # Fetch share class details from database
         share_class_data = await conn.fetchrow(
             """
@@ -248,7 +266,7 @@ async def create_subscription_on_behalf(
         # Map payment method from frontend values to database values
         # Frontend: 'bank_transfer', 'crypto', 'installment'
         # Database: 'one-time', 'installment'
-        db_payment_method = 'one-time' if body.payment_method in ['bank_transfer', 'crypto'] else 'installment'
+        db_payment_method = 'one-time' if body.payment_method in ['bank_transfer', 'crypto', 'cryptocurrency', 'one-time'] else 'installment'
         
         # Create subscription record
         subscription = await conn.fetchrow(
@@ -259,7 +277,7 @@ async def create_subscription_on_behalf(
                 payment_method, share_class, status,
                 subscriber_type, user_id, payment_status,
                 created_by_admin, admin_user_id, admin_notes,
-                invitation_id, price_per_share, promotion_id
+                invitation_id, price_per_share, promotion_id, idempotency_key, request_fingerprint, submission_actor, installment_plan
             )
             VALUES (
                 $1, $2, $3, $4, $5,
@@ -267,7 +285,7 @@ async def create_subscription_on_behalf(
                 $8, $9, 'pending',
                 'public', $10, 'pending',
                 true, $11, $12,
-                $13, $14, $15
+                $13, $14, $15, $16, $17, $18, $19
             )
             RETURNING id
             """,
@@ -275,7 +293,7 @@ async def create_subscription_on_behalf(
             body.num_shares, total_amount,
             db_payment_method, body.share_class, existing_user_id,
             user.sub, body.admin_notes,
-            invitation_id, share_price, promotion['id'] if promotion else None
+            invitation_id, share_price, promotion['id'] if promotion else None, body.idempotency_key, fingerprint, user.sub, body.installment_plan if body.payment_method == 'installment' else None
         )
         
         print(f"✅ Created subscription {subscription_id} (ID: {subscription['id']})")
@@ -291,42 +309,19 @@ async def create_subscription_on_behalf(
             f"Created subscription for {body.full_name} ({body.email}): {body.num_shares} x {body.share_class} = ZAR {total_amount:,.2f}"
         )
         
-        # Schedule profile completion reminder if user exists and profile may be incomplete
+        # Queue confirmation atomically with the record. Sending occurs after commit.
+        await send_subscription_created_email(conn=conn,email=body.email,full_name=body.full_name,
+            subscription_id=subscription_id,share_class=body.share_class,num_shares=body.num_shares,
+            total_amount=total_amount,is_new_user=invitation_created,created_by_admin_id=user.sub)
+        await transaction.commit()
+        committed=True
+        notification_queued=True
         if existing_user_id:
             try:
-                reminder_id = await schedule_profile_completion_reminder(
-                    conn=conn,
-                    user_id=existing_user_id,
-                    subscription_id=subscription_id,
-                    email=body.email,
-                    full_name=body.full_name,
-                    delay_hours=24
-                )
-                if reminder_id:
-                    print(f"📅 Profile completion reminder scheduled (ID: {reminder_id})")
-            except Exception as reminder_error:
-                print(f"⚠️ Failed to schedule profile completion reminder: {reminder_error}")
-        
-        await transaction.commit()
-        committed = True
-        # Notification follows the committed record, so a delivery failure cannot
-        # roll back a subscription that the investor already sees.
-        notification_queued = False
-        try:
-            await send_subscription_created_email(
-                conn=conn,
-                email=body.email,
-                full_name=body.full_name,
-                subscription_id=subscription_id,
-                share_class=body.share_class,
-                num_shares=body.num_shares,
-                total_amount=total_amount,
-                is_new_user=invitation_created,
-                created_by_admin_id=user.sub
-            )
-            notification_queued = True
-        except Exception as error:
-            print(f"Subscription {subscription_id} saved; notification pending: {error}")
+                await schedule_profile_completion_reminder(conn=conn,user_id=existing_user_id,
+                    subscription_id=subscription_id,email=body.email,full_name=body.full_name,delay_hours=24)
+            except Exception:
+                pass  # A later profile reminder cannot undo the committed subscription.
         return SubscriptionCreatedResponse(
             subscription_id=subscription_id,
             user_existed=user_existed,
@@ -395,28 +390,29 @@ async def upload_admin_payment_proof(
         # Store file
         runtime.storage.binary.put(storage_key, file_content)
         
-        # Update subscription record
-        await conn.execute(
-            """
-            UPDATE share_subscriptions
-            SET payment_proof_path = $1,
-                payment_proof_uploaded_at = NOW()
-            WHERE subscription_id = $2
-            """,
-            storage_key,
-            subscription_id
-        )
+        async with conn.transaction():
+            # Update subscription record
+            await conn.execute(
+                """
+                UPDATE share_subscriptions
+                SET payment_proof_path = $1,
+                    payment_proof_uploaded_at = NOW()
+                WHERE subscription_id = $2
+                """,
+                storage_key,
+                subscription_id
+            )
         
-        # Log audit trail
-        await conn.execute(
-            """
-            INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes)
-            VALUES ($1, 'upload_payment_proof', 'subscription', $2, $3)
-            """,
-            user.sub,
-            subscription_id,
-            f"Uploaded payment proof: {safe_filename}"
-        )
+            # Log audit trail
+            await conn.execute(
+                """
+                INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes)
+                VALUES ($1, 'upload_payment_proof', 'subscription', $2, $3)
+                """,
+                user.sub,
+                subscription_id,
+                f"Uploaded payment proof: {safe_filename}"
+            )
         
         return {
             "success": True,

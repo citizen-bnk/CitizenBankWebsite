@@ -39,57 +39,53 @@ async def schedule_profile_completion_reminder(
     Returns:
         Reminder ID if scheduled, None if profile already complete or duplicate
     """
-    try:
-        # Check if profile is already complete
-        profile = await conn.fetchrow(
-            "SELECT profile_completed FROM user_profiles WHERE user_id = $1",
-            user_id
-        )
-        
-        if not profile:
-            print(f"⚠️ No profile found for user {user_id}")
-            return None
-        
-        if await _applicable_profile_complete(conn, user_id):
-            print(f"✅ Profile already complete for {user_id}, skipping reminder")
-            return None
-        
-        # Check if reminder already exists for this subscription
-        existing = await conn.fetchval(
-            "SELECT id FROM profile_completion_reminders WHERE subscription_id = $1",
-            subscription_id
-        )
-        
-        if existing:
-            print(f"ℹ️ Reminder already scheduled for subscription {subscription_id}")
-            return existing
-        
-        # Calculate scheduled time
-        scheduled_for = datetime.utcnow() + timedelta(hours=delay_hours)
-        
-        # Create reminder
-        reminder_id = await conn.fetchval(
-            """
-            INSERT INTO profile_completion_reminders (
-                user_id, subscription_id, email, full_name, 
-                scheduled_for, status
-            )
-            VALUES ($1, $2, $3, $4, $5, 'pending')
-            RETURNING id
-            """,
-            user_id,
-            subscription_id,
-            email,
-            full_name,
-            scheduled_for
-        )
-        
-        print(f"📅 Scheduled profile completion reminder {reminder_id} for {email} at {scheduled_for}")
-        return reminder_id
-        
-    except Exception as e:
-        print(f"❌ Error scheduling reminder: {str(e)}")
+    # Check if profile is already complete
+    profile = await conn.fetchrow(
+        "SELECT profile_completed FROM user_profiles WHERE user_id = $1",
+        user_id
+    )
+
+    if not profile:
+        print(f"⚠️ No profile found for user {user_id}")
         return None
+
+    if await _applicable_profile_complete(conn, user_id):
+        print(f"✅ Profile already complete for {user_id}, skipping reminder")
+        return None
+
+    # Check if reminder already exists for this subscription
+    existing = await conn.fetchval(
+        "SELECT id FROM profile_completion_reminders WHERE subscription_id = $1",
+        subscription_id
+    )
+
+    if existing:
+        print(f"ℹ️ Reminder already scheduled for subscription {subscription_id}")
+        return existing
+
+    # Calculate scheduled time
+    scheduled_for = datetime.utcnow() + timedelta(hours=delay_hours)
+
+    # Create reminder
+    reminder_id = await conn.fetchval(
+        """
+        INSERT INTO profile_completion_reminders (
+            user_id, subscription_id, email, full_name,
+            scheduled_for, status
+        )
+        VALUES ($1, $2, $3, $4, $5, 'pending')
+        RETURNING id
+        """,
+        user_id,
+        subscription_id,
+        email,
+        full_name,
+        scheduled_for
+    )
+
+    print(f"📅 Scheduled profile completion reminder {reminder_id} for {email} at {scheduled_for}")
+    return reminder_id
+
 
 
 async def cancel_reminder(

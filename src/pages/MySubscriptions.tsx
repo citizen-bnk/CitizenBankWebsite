@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 
 
 
@@ -324,7 +325,7 @@ export default function MySubscriptions() {
   const handleCancelRequest = async (requestId: number) => {
     try {
       setCancellingRequest(requestId);
-      const response = await brain.cancel_request(requestId);
+      const response = await checkedResponse(brain.cancel_request(requestId));
       const data = await response.json();
       
       toast.success('Certificate request cancelled');
@@ -426,14 +427,14 @@ export default function MySubscriptions() {
     
     try {
       setTransferring(true);
-      const response = await brain.transfer_shares({
+      const response = await checkedResponse(brain.transfer_shares({
         subscription_id: transferSubscription.subscription_id,
         num_shares: transferForm.num_shares,
         recipient_name: transferForm.recipient_name,
         recipient_email: transferForm.recipient_email,
         recipient_phone: transferForm.recipient_phone,
         recipient_id_number: transferForm.recipient_id_number
-      });
+      }));
       
       const data = await response.json();
       
@@ -463,14 +464,14 @@ export default function MySubscriptions() {
     
     try {
       setTransferring(true);
-      const response = await brain.transfer_shares({
+      const response = await checkedResponse(brain.transfer_shares({
         subscription_id: transferSubscription.subscription_id,
         num_shares: transferForm.num_shares,
         recipient_name: transferForm.recipient_name,
         recipient_email: transferForm.recipient_email,
         recipient_phone: transferForm.recipient_phone,
         recipient_id_number: transferForm.recipient_id_number
-      });
+      }));
       
       const data = await response.json();
       

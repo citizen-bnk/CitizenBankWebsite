@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { useUser } from '@stackframe/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -227,10 +228,10 @@ export default function AdminBoardPositions() {
       
       if (editingPosition) {
         // Update existing position
-        const response = await brain.update_board_position(
+        const response = await checkedResponse(brain.update_board_position(
           { positionId: editingPosition.id },
           positionPayload(positionForm, false)
-        );
+        ));
         
         if (response.ok) {
           toast.success('Position updated successfully');
@@ -241,7 +242,7 @@ export default function AdminBoardPositions() {
         }
       } else {
         // Create new position
-        const response = await brain.create_board_position(positionPayload(positionForm, true));
+        const response = await checkedResponse(brain.create_board_position(positionPayload(positionForm, true)));
         
         if (response.ok) {
           toast.success('Position created successfully');
@@ -300,14 +301,14 @@ export default function AdminBoardPositions() {
     try {
       setSavingAssignment(true);
       
-      const response = await brain.appoint_board_member(
+      const response = await checkedResponse(brain.appoint_board_member(
         { memberId: parseInt(assignForm.member_id) },
         { 
           position_id: parseInt(assignForm.position_id),
           term_start_date: assignForm.term_start_date,
           term_end_date: assignForm.term_end_date || undefined,
         }
-      );
+      ));
       
       if (response.ok) {
         toast.success(editingAssignment ? 'Position reassigned successfully' : 'Position assigned successfully');

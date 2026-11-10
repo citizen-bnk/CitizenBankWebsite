@@ -410,83 +410,87 @@ async def appoint_board_member(
     """
     conn = await get_db_connection()
     try:
-        # Check if board member exists and get their details
-        board_member = await conn.fetchrow("""
-            SELECT id, user_id, full_name, email
-            FROM board_members
-            WHERE id = $1
-        """, member_id)
-        
-        if not board_member:
-            raise HTTPException(status_code=404, detail="Board member not found")
-        
-        board_member = dict(board_member)
-        
-        # Check if position exists and get requirements
-        position = await conn.fetchrow("""
-            SELECT id, position_name, minimum_investment_shares,
-                   COALESCE((to_jsonb(board_positions)->>'is_active')::boolean,true) AS is_active
-            FROM board_positions
-            WHERE id = $1
-        """, body.position_id)
-        
-        if not position:
-            raise HTTPException(status_code=404, detail="Position not found")
-        
-        position = dict(position)
-        if not position['is_active']:
-            raise HTTPException(400, 'This position is archived.')
-        
-        # End any current position assignment for this member
-        await conn.execute("""
-            UPDATE board_member_positions
-            SET is_current = FALSE, ended_at = CURRENT_TIMESTAMP
-            WHERE board_member_id = $1 AND is_current = TRUE
-        """, member_id)
-        
-        # Use provided dates or defaults
-        appointed_at_date = body.term_start_date or date.today()
-        term_end_date = body.term_end_date
-        
-        # Convert date to datetime for database insertion (appointed_at is timestamp column)
-        appointed_at = datetime.combine(appointed_at_date, datetime.min.time())
-        
-        # Create new position assignment
-        await conn.execute("""
-            INSERT INTO board_member_positions
-            (board_member_id, position_id, appointed_at, term_end_date, appointed_by, is_current, notes)
-            VALUES ($1, $2, $3, $4, $5, TRUE, $6)
-        """, member_id, body.position_id, appointed_at, term_end_date, user.sub, body.notes)
-        
-        print(f"👔 Board member {member_id} assigned to position {body.position_id} from {appointed_at_date}")
-        
-        # Check investment requirement
-        if (position['minimum_investment_shares'] or 0) > 0 and board_member['user_id']:
-            investment_status = await check_investment_requirement(
-                conn,
-                board_member['user_id'],
-                position['minimum_investment_shares']
-            )
-            
-            if not investment_status['meets_requirement']:
-                print(f"⚠️ Board member needs {investment_status['shares_needed']} more shares (M {investment_status['investment_needed']})")
-                # Send reminder email
-                await send_investment_reminder_email(
+        async with conn.transaction():
+            # Check if board member exists and get their details
+            board_member = await conn.fetchrow("""
+                SELECT id, user_id, full_name, email
+                FROM board_members
+                WHERE id = $1 FOR UPDATE
+            """, member_id)
+
+            if not board_member:
+                raise HTTPException(status_code=404, detail="Board member not found")
+
+            board_member = dict(board_member)
+
+            # Check if position exists and get requirements
+            position = await conn.fetchrow("""
+                SELECT id, position_name, minimum_investment_shares,
+                       COALESCE((to_jsonb(board_positions)->>'is_active')::boolean,true) AS is_active
+                FROM board_positions
+                WHERE id = $1
+            """, body.position_id)
+
+            if not position:
+                raise HTTPException(status_code=404, detail="Position not found")
+
+            position = dict(position)
+            if not position['is_active']:
+                raise HTTPException(400, 'This position is archived.')
+
+            if body.term_end_date and body.term_end_date < (body.term_start_date or date.today()):
+                raise HTTPException(422, "Term end must be after the start date.")
+
+            # End any current position assignment for this member
+            await conn.execute("""
+                UPDATE board_member_positions
+                SET is_current = FALSE, ended_at = CURRENT_TIMESTAMP
+                WHERE board_member_id = $1 AND is_current = TRUE
+            """, member_id)
+
+            # Use provided dates or defaults
+            appointed_at_date = body.term_start_date or date.today()
+            term_end_date = body.term_end_date
+
+            # Convert date to datetime for database insertion (appointed_at is timestamp column)
+            appointed_at = datetime.combine(appointed_at_date, datetime.min.time())
+
+            # Create new position assignment
+            await conn.execute("""
+                INSERT INTO board_member_positions
+                (board_member_id, position_id, appointed_at, term_end_date, appointed_by, is_current, notes)
+                VALUES ($1, $2, $3, $4, $5, TRUE, $6)
+            """, member_id, body.position_id, appointed_at, term_end_date, user.sub, body.notes)
+
+            print(f"👔 Board member {member_id} assigned to position {body.position_id} from {appointed_at_date}")
+
+            # Check investment requirement
+            if (position['minimum_investment_shares'] or 0) > 0 and board_member['user_id']:
+                investment_status = await check_investment_requirement(
                     conn,
-                    board_member,
-                    position,
-                    investment_status
+                    board_member['user_id'],
+                    position['minimum_investment_shares']
                 )
-            else:
-                print(f"✅ Board member meets investment requirement ({investment_status['total_shares']} shares)")
-        
-        return AssignPositionResponse(
-            success=True,
-            message="Position successfully assigned",
-            board_member_id=member_id,
-            position_id=body.position_id,
-            appointed_at=appointed_at
-        )
+
+                if not investment_status['meets_requirement']:
+                    print(f"⚠️ Board member needs {investment_status['shares_needed']} more shares (M {investment_status['investment_needed']})")
+                    # Send reminder email
+                    await send_investment_reminder_email(
+                        conn,
+                        board_member,
+                        position,
+                        investment_status
+                    )
+                else:
+                    print(f"✅ Board member meets investment requirement ({investment_status['total_shares']} shares)")
+
+            return AssignPositionResponse(
+                success=True,
+                message="Position successfully assigned",
+                board_member_id=member_id,
+                position_id=body.position_id,
+                appointed_at=appointed_at
+            )
     finally:
         await conn.close()
 

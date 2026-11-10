@@ -1,3 +1,4 @@
+import { checkedResponse,stableSubmissionKey,completeSubmission } from '@/utils/formSubmission';
 import { Header } from 'components/Header';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +19,7 @@ const CreateMeeting = () => {
   const navigate = useNavigate();
   const { user } = useUserGuardContext();
   const [loading, setLoading] = useState(false);
+  const [savedMeetingId,setSavedMeetingId]=useState<string|null>(null);
   const [boardMembers, setBoardMembers] = useState<BoardMemberOption[]>([]);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [sendInvitations, setSendInvitations] = useState(true);
@@ -58,59 +60,33 @@ const CreateMeeting = () => {
     try {
       setLoading(true);
       
-      // Create the meeting
-      const response = await brain.create_meeting({
-        title: formData.title,
-        meeting_type: formData.meeting_type,
-        meeting_date: formData.meeting_date,
-        meeting_time: formData.meeting_time,
-        location: formData.location || null,
-        virtual_link: formData.virtual_link || null,
-        description: formData.description || null,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Send invitations if members are selected
-        if (selectedMembers.length > 0) {
-          try {
-            const inviteResponse = await brain.invite_members(
-              { meetingId: data.id },
-              {
-                board_member_ids: selectedMembers,
-                send_email: sendInvitations,
-              }
-            );
-            
-            if (inviteResponse.ok) {
-              const inviteData = await inviteResponse.json();
-              toast.success(`Meeting scheduled! ${inviteData.invited_count} member(s) invited.`);
-            } else {
-              toast.warning('Meeting created but failed to send some invitations');
-            }
-          } catch (inviteError) {
-            console.error('Error sending invitations:', inviteError);
-            toast.warning('Meeting created but failed to send invitations');
-          }
-        } else {
-          toast.success('Meeting scheduled successfully!');
-        }
-        
-        navigate(`/meeting-details?id=${data.id}`);
-      } else {
-        toast.error('Failed to schedule meeting');
+      const payload={title:formData.title,meeting_type:formData.meeting_type,
+        meeting_date:formData.meeting_date,meeting_time:formData.meeting_time,
+        location:formData.location||null,virtual_link:formData.virtual_link||null,description:formData.description||null};
+      let meetingId=savedMeetingId;
+      if(!meetingId){
+        const idempotency_key=await stableSubmissionKey('board-meeting',payload);
+        const response=await checkedResponse(brain.create_meeting({...payload,idempotency_key} as typeof payload));
+        const data=await response.json();
+        if(!data.id)throw new Error('The meeting reference could not be confirmed. Retry without closing this form.');
+        meetingId=data.id;setSavedMeetingId(meetingId);
       }
+      if(selectedMembers.length){
+        await checkedResponse(brain.invite_members({meetingId:meetingId!},{board_member_ids:selectedMembers,send_email:sendInvitations}));
+      }
+      completeSubmission('board-meeting');
+      toast.success(selectedMembers.length&&sendInvitations?'Meeting saved. Invitations queued.':'Meeting saved.');
+      navigate(`/meeting-details?id=${meetingId}`);
     } catch (error) {
       console.error('Error creating meeting:', error);
-      toast.error('An error occurred while scheduling the meeting');
+      toast.error(error instanceof Error?error.message:'Meeting save could not be confirmed. Keep your entries and retry.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    if(!savedMeetingId)setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const toggleMemberSelection = (userId: string) => {
@@ -143,13 +119,14 @@ const CreateMeeting = () => {
             Back to Meetings
           </Button>
         </div>
+        {savedMeetingId&&<p role="status" className="mb-4 rounded border p-4">Meeting {savedMeetingId} is saved. Submit again to finish the selected invitations.</p>}
         <form onSubmit={handleSubmit}>
           <Card>
             <CardHeader>
               <CardTitle>Meeting Details</CardTitle>
               <CardDescription>Enter the details for the board meeting</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6"><fieldset disabled={!!savedMeetingId} className="space-y-6">
               {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Meeting Title *</Label>
@@ -252,7 +229,7 @@ const CreateMeeting = () => {
                   onChange={(e) => handleChange('description', e.target.value)}
                 />
               </div>
-            </CardContent>
+            </fieldset></CardContent>
           </Card>
 
           {/* Attendees Section */}

@@ -35,6 +35,11 @@ async def _governance_email_queue():
     return await process_email_queue()
 
 
+async def _communications_email_queue():
+    from app.libs.email_queue import process_email_queue
+    return await process_email_queue()
+
+
 async def _board_engagement():
     from app.apis.board_engagement_scheduler import SchedulerConfig, run_board_engagement_scheduler
     return await run_board_engagement_scheduler(config=SchedulerConfig(), authorization=_scheduler_auth())
@@ -47,6 +52,7 @@ async def _board_document_reminders():
 
 # (name, cron expression in UTC, job)
 JOBS = [
+    ("Process Communications Email Queue", "* * * * *", _communications_email_queue),
     ("AI Lead Health Monitor", "0 8 * * *", _lead_monitoring),
     ("AI Lead Follow-up Reminders", "0 9 * * *", _lead_follow_ups),
     ("Profile Completion Reminders", "0 9 * * *", _profile_completion_reminders),

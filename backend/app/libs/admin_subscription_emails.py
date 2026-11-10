@@ -77,7 +77,7 @@ async def send_subscription_created_email(
                 </tr>
                 <tr style="border-top: 2px solid {BRAND_PINK};">
                     <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 16px; color: {BRAND_PURPLE};">Total Investment:</td>
-                    <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 16px; color: {BRAND_PURPLE};">LSL {total_amount:,.2f}</td>
+                    <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 16px; color: {BRAND_PURPLE};">ZAR {total_amount:,.2f}</td>
                 </tr>
             </table>
         </div>
@@ -134,7 +134,7 @@ async def send_subscription_created_email(
                 </tr>
                 <tr style="border-top: 2px solid {BRAND_PINK};">
                     <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 16px; color: {BRAND_PURPLE};">Total Investment:</td>
-                    <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 16px; color: {BRAND_PURPLE};">LSL {total_amount:,.2f}</td>
+                    <td style="padding: 12px 0 0 0; font-weight: bold; font-size: 16px; color: {BRAND_PURPLE};">ZAR {total_amount:,.2f}</td>
                 </tr>
             </table>
         </div>
@@ -173,7 +173,7 @@ async def send_subscription_created_email(
         subject=subject,
         body_html=body_html,
         created_by=created_by_admin_id,
-        priority="high"
+        priority="high",conn=conn,dedupe_key=f"subscription:{subscription_id}:created"
     )
     
     print(f"✉️ Queued subscription created email to {email} (new_user={is_new_user})")

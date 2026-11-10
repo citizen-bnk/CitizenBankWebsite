@@ -11,8 +11,14 @@
 
 """Board meetings API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
+from app.libs.board_cursor import BoardConnection
+from app.libs.rbac import get_user_roles
+from app.libs.email_queue import enqueue_email
+import hashlib
+import json
+from html import escape
 from datetime import date, time, datetime, timedelta
 from typing import Optional
 from app import runtime
@@ -20,7 +26,13 @@ from app.auth import AuthorizedUser
 import os
 from app.libs.url_helpers import get_frontend_path
 
-router = APIRouter(prefix="/board-meetings")
+async def require_meeting_access(request: Request,user: AuthorizedUser):
+    roles=await get_user_roles(user.sub)
+    operations=bool(set(roles)&{'super_admin','admin','staff','back_office'})
+    if not operations and ('board_member' not in roles or (request.method not in ('GET','HEAD') and not request.url.path.endswith('/rsvp'))):
+        raise HTTPException(403,'Board or authorised staff access is required for this action.')
+
+router = APIRouter(prefix="/board-meetings",dependencies=[Depends(require_meeting_access)])
 
 
 # Request/Response Models
@@ -32,6 +44,7 @@ class CreateMeetingRequest(BaseModel):
     location: Optional[str] = None
     virtual_link: Optional[str] = None
     description: Optional[str] = None
+    idempotency_key: Optional[str] = Field(default=None,min_length=16,max_length=128,pattern=r"^[a-zA-Z0-9_-]+$")
 
 
 class UpdateMeetingRequest(BaseModel):
@@ -200,7 +213,9 @@ class BoardMemberOption(BaseModel):
 async def get_db_connection():
     """Get database connection."""
     from app.libs.database import get_db_connection as _connect
-    return await _connect()
+    connection=await _connect()
+    await connection.set_type_codec("jsonb",encoder=json.dumps,decoder=json.loads,schema="pg_catalog")
+    return BoardConnection(connection)
 
 
 # Endpoints
@@ -210,11 +225,18 @@ async def create_meeting(request: CreateMeetingRequest, user: AuthorizedUser) ->
     conn = await get_db_connection()
     try:
         async with conn.cursor() as cur:
+            fingerprint=hashlib.sha256(json.dumps(request.model_dump(exclude={"idempotency_key"},mode="json"),sort_keys=True).encode()).hexdigest()
+            if request.idempotency_key:
+                await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))",user.sub+request.idempotency_key)
+                previous=await conn.fetchrow("SELECT * FROM board_meetings WHERE created_by=$1 AND idempotency_key=$2",user.sub,request.idempotency_key)
+                if previous:
+                    if previous["request_fingerprint"]!=fingerprint:raise HTTPException(409,"This submission contains different meeting details.")
+                    return await get_meeting(str(previous["id"]),user)
             await cur.execute(
                 """
                 INSERT INTO board_meetings 
-                (title, meeting_type, meeting_date, meeting_time, location, virtual_link, description, created_by)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (title, meeting_type, meeting_date, meeting_time, location, virtual_link, description, created_by,idempotency_key,request_fingerprint)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8,$9,$10)
                 RETURNING id, title, meeting_type, meeting_date, meeting_time, location, virtual_link, 
                           description, status, created_by, created_at, updated_at
                 """,
@@ -225,7 +247,7 @@ async def create_meeting(request: CreateMeetingRequest, user: AuthorizedUser) ->
                 request.location,
                 request.virtual_link,
                 request.description,
-                user.sub
+                user.sub,request.idempotency_key,fingerprint
             )
             row = await cur.fetchone()
             
@@ -1017,8 +1039,8 @@ async def invite_members(meeting_id: str, request: InviteeMemberRequest, user: A
                 )
                 email_row = await cur.fetchone()
                 
-                if not email_row:
-                    continue  # Skip if no email found
+                if not email_row or not email_row[0]:
+                    raise HTTPException(422,'A selected board member has no email address. Update their profile, then retry invitations.')
                 
                 email = email_row[0]
                 
@@ -1047,7 +1069,7 @@ async def invite_members(meeting_id: str, request: InviteeMemberRequest, user: A
                         email=email,
                         meeting_id=meeting_id,
                         meeting_info=meeting_info,
-                        invitee_id=board_member_id
+                        invitee_id=board_member_id,conn=conn
                     )
                 
                 invited_count += 1
@@ -1196,7 +1218,7 @@ async def send_meeting_reminders(user: AuthorizedUser) -> dict:
                     await send_meeting_reminder_email(
                         email=invitee[1],
                         meeting_info=meeting_info,
-                        reminder_type=reminder_type
+                        reminder_type=reminder_type,conn=conn
                     )
                 
                 # Mark reminder as sent
@@ -1278,7 +1300,7 @@ async def resend_meeting_invitations(meeting_id: str, request: ResendInvitations
                         email=email,
                         meeting_id=meeting_id,
                         meeting_info=meeting_info,
-                        invitee_id=invitee_id
+                        invitee_id=invitee_id,conn=conn
                     )
                     resent_count += 1
                 except Exception as e:
@@ -1296,163 +1318,20 @@ async def resend_meeting_invitations(meeting_id: str, request: ResendInvitations
 
 
 # Helper functions for email notifications
-async def send_meeting_invitation_email(email: str, meeting_id: str, meeting_info: dict, invitee_id: str):
-    """Send meeting invitation email with calendar attachment."""
-    try:
-        meeting_datetime = datetime.combine(
-            meeting_info['meeting_date'],
-            meeting_info['meeting_time']
-        )
-        
-        # Generate iCal calendar invite
-        ical_content = generate_ical_invite(meeting_info, meeting_datetime)
-        
-        # Prepare email content
-        location_text = meeting_info['location'] or 'Virtual Meeting'
-        virtual_link = meeting_info['virtual_link']
-        
-        html_content = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #0066cc;">You're Invited to a Board Meeting</h2>
-                
-                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                    <h3 style="margin-top: 0;">{meeting_info['title']}</h3>
-                    <p><strong>📅 Date:</strong> {meeting_datetime.strftime('%A, %B %d, %Y')}</p>
-                    <p><strong>🕐 Time:</strong> {meeting_datetime.strftime('%I:%M %p')}</p>
-                    <p><strong>📍 Location:</strong> {location_text}</p>
-                    {f'<p><strong>💻 Virtual Link:</strong> <a href="{virtual_link}">{virtual_link}</a></p>' if virtual_link else ''}
-                </div>
-                
-                <p>Please confirm your attendance by clicking one of the buttons below:</p>
-                
-                <div style="margin: 30px 0;">
-                    <a href="{get_frontend_path(f'/board-meetings/{meeting_id}/rsvp?status=accepted')}" 
-                       style="background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px; display: inline-block;">✓ Accept</a>
-                    <a href="{get_frontend_path(f'/board-meetings/{meeting_id}/rsvp?status=tentative')}" 
-                       style="background-color: #ffc107; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin-right: 10px; display: inline-block;">? Tentative</a>
-                    <a href="{get_frontend_path(f'/board-meetings/{meeting_id}/rsvp?status=declined')}" 
-                       style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">✗ Decline</a>
-                </div>
-                
-                <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                    This invitation includes a calendar attachment. Add it to your calendar to receive reminders.
-                </p>
-                
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #999; font-size: 12px;">Citizen Bank Board Portal</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Send via Resend API
-        import requests
-        resend_api_key = os.environ.get("RESEND_API_KEY")
-        
-        response = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {resend_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "from": "Board Portal <noreply@citizenhub.co.za>",
-                "to": [email],
-                "subject": f"Meeting Invitation: {meeting_info['title']}",
-                "html": html_content,
-                "attachments": [
-                    {
-                        "filename": "meeting.ics",
-                        "content": ical_content
-                    }
-                ]
-            }
-        )
-        
-        print(f"Invitation email sent to {email}: {response.status_code}")
-        
-    except Exception as e:
-        print(f"Error sending invitation email: {e}")
+async def send_meeting_invitation_email(email: str, meeting_id: str, meeting_info: dict, invitee_id: str,conn=None):
+    moment=datetime.combine(meeting_info['meeting_date'],meeting_info['meeting_time'])
+    url=get_frontend_path(f'/meeting-details?id={meeting_id}')
+    title=escape(meeting_info['title'])
+    body=f'<h2>{title}</h2><p>{moment:%d %B %Y, %H:%M}</p><p>{escape(meeting_info.get("location") or "Virtual meeting")}</p><p><a href="{url}">Open meeting and respond</a></p>'
+    return await enqueue_email(recipient_email=email,recipient_name=email,subject=f'Meeting invitation: {meeting_info["title"]}',
+        body_html=body,created_by='system',priority='high',conn=conn,
+        dedupe_key=f'meeting:{meeting_id}:invite:{invitee_id}')
 
-
-async def send_meeting_reminder_email(email: str, meeting_info: dict, reminder_type: str):
-    """Send meeting reminder email."""
-    try:
-        meeting_datetime = datetime.combine(
-            meeting_info['meeting_date'],
-            meeting_info['meeting_time']
-        )
-        
-        reminder_messages = {
-            '24h': '24 hours',
-            '1h': '1 hour',
-            'meeting_update': 'updated',
-            'meeting_cancelled': 'cancelled'
-        }
-        
-        reminder_text = reminder_messages.get(reminder_type, 'soon')
-        
-        if reminder_type == 'meeting_cancelled':
-            subject = f"Meeting Cancelled: {meeting_info['title']}"
-            message = "This meeting has been cancelled."
-        elif reminder_type == 'meeting_update':
-            subject = f"Meeting Updated: {meeting_info['title']}"
-            message = "The meeting details have been updated. Please review the new information."
-        else:
-            subject = f"Reminder: Meeting in {reminder_text}"
-            message = f"This is a reminder that your meeting is coming up in {reminder_text}."
-        
-        location_text = meeting_info['location'] or 'Virtual Meeting'
-        virtual_link = meeting_info['virtual_link']
-        
-        html_content = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #0066cc;">{subject}</h2>
-                
-                <p>{message}</p>
-                
-                <div style="background-color: #f5f5f5; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                    <h3 style="margin-top: 0;">{meeting_info['title']}</h3>
-                    <p><strong>📅 Date:</strong> {meeting_datetime.strftime('%A, %B %d, %Y')}</p>
-                    <p><strong>🕐 Time:</strong> {meeting_datetime.strftime('%I:%M %p')}</p>
-                    <p><strong>📍 Location:</strong> {location_text}</p>
-                    {f'<p><strong>💻 Join:</strong> <a href="{virtual_link}" style="color: #0066cc;">{virtual_link}</a></p>' if virtual_link else ''}
-                </div>
-                
-                {f'<a href="{virtual_link}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px;">Join Virtual Meeting</a>' if virtual_link else ''}
-                
-                <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
-                <p style="color: #999; font-size: 12px;">Citizen Bank Board Portal</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        import requests
-        resend_api_key = os.environ.get("RESEND_API_KEY")
-        
-        response = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {resend_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "from": "Board Portal <noreply@citizenhub.co.za>",
-                "to": [email],
-                "subject": subject,
-                "html": html_content
-            }
-        )
-        
-        print(f"Reminder email sent to {email}: {response.status_code}")
-        
-    except Exception as e:
-        print(f"Error sending reminder email: {e}")
+async def send_meeting_reminder_email(email: str, meeting_info: dict, reminder_type: str,conn=None):
+    url=get_frontend_path(f'/meeting-details?id={meeting_info["id"]}')
+    return await enqueue_email(recipient_email=email,recipient_name=email,subject=f'Meeting reminder: {meeting_info["title"]}',
+        body_html=f'<p>{escape(meeting_info["title"])}</p><p><a href="{url}">Open meeting</a></p>',created_by='system',conn=conn,
+        dedupe_key=f'meeting:{meeting_info["id"]}:reminder:{reminder_type}:{email}')
 
 
 def generate_ical_invite(meeting_info: dict, meeting_datetime: datetime) -> str:

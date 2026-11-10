@@ -66,7 +66,8 @@ async def assign_role_to_user(
     assigned_by: Optional[str] = None,
     trigger_type: Optional[str] = None,
     trigger_id: Optional[str] = None,
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = None,
+    conn=None
 ) -> bool:
     """
     Assign a role to a user with optional metadata tracking.
@@ -82,7 +83,8 @@ async def assign_role_to_user(
     Returns:
         True if role was assigned, False if user already had the role
     """
-    conn = await get_db_connection()
+    owns_connection = conn is None
+    if owns_connection:conn = await get_db_connection()
     try:
         # Get role ID
         role = await conn.fetchrow(
@@ -93,60 +95,65 @@ async def assign_role_to_user(
         if not role:
             raise ValueError(f"Role '{role_name}' not found")
         
+        # Existing roles require no mutation.
+        if await conn.fetchval("SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1 AND role_id=$2)",user_id,role['id']):
+            return False
         # Try to insert the role assignment
         try:
-            await conn.execute("""
-                INSERT INTO user_roles (user_id, role_id, assigned_by)
-                VALUES ($1, $2, $3)
-            """, user_id, role['id'], assigned_by)
+            async with conn.transaction():
+                await conn.execute("""
+                    INSERT INTO user_roles (user_id, role_id, assigned_by)
+                    VALUES ($1, $2, $3)
+                """, user_id, role['id'], assigned_by)
             
-            print(f"✅ Role '{role_name}' assigned to user {user_id}")
+                print(f"✅ Role '{role_name}' assigned to user {user_id}")
             
-            # Log role assignment to history
-            if assigned_by:
-                admin_profile = await conn.fetchrow(
-                    "SELECT full_name FROM user_profiles WHERE user_id = $1",
-                    assigned_by
-                )
-                admin_name = admin_profile['full_name'] if admin_profile else 'System'
-            else:
-                admin_name = 'System'
+                # Log role assignment to history
+                if assigned_by:
+                    admin_profile = await conn.fetchrow(
+                        "SELECT full_name FROM user_profiles WHERE user_id = $1",
+                        assigned_by
+                    )
+                    admin_name = admin_profile['full_name'] if admin_profile else 'System'
+                else:
+                    admin_name = 'System'
             
-            await conn.execute("""
-                INSERT INTO user_role_history 
-                (user_id, role_name, action, performed_by_user_id, performed_by_name, reason)
-                VALUES ($1, $2, 'assign', $3, $4, $5)
-            """, user_id, role_name, assigned_by, admin_name, f"Trigger: {trigger_type}" if trigger_type else None)
+                await conn.execute("""
+                    INSERT INTO user_role_history
+                    (user_id, role_name, action, performed_by_user_id, performed_by_name, reason)
+                    VALUES ($1, $2, 'assign', $3, $4, $5)
+                """, user_id, role_name, assigned_by, admin_name, f"Trigger: {trigger_type}" if trigger_type else None)
             
-            # Store metadata if provided
-            if trigger_type or metadata:
-                await _store_role_metadata(
-                    conn, 
-                    user_id, 
-                    role_name, 
-                    assigned_by,
-                    trigger_type, 
-                    trigger_id, 
-                    metadata or {}
-                )
+                # Store metadata if provided
+                if trigger_type or metadata:
+                    await _store_role_metadata(
+                        conn,
+                        user_id,
+                        role_name,
+                        assigned_by,
+                        trigger_type,
+                        trigger_id,
+                        metadata or {}
+                    )
             
-            # Create related records based on role type
-            if role_name == "board_member":
-                await _create_board_member_record(conn, user_id, assigned_by)
-            elif role_name == "investor":
-                await _ensure_investor_profile(conn, user_id)
+                # Create related records based on role type
+                if role_name == "board_member":
+                    await _create_board_member_record(conn, user_id, assigned_by)
+                elif role_name == "investor":
+                    await _ensure_investor_profile(conn, user_id)
             
-            # Trigger onboarding workflow (async, non-blocking)
-            await _trigger_role_onboarding(user_id, role_name, trigger_type, metadata or {})
+                # Trigger onboarding workflow (async, non-blocking)
+                if owns_connection:
+                    await _trigger_role_onboarding(user_id, role_name, trigger_type, metadata or {})
             
-            return True
+                return True
             
         except asyncpg.UniqueViolationError:
             # User already has this role
             return False
             
     finally:
-        await conn.close()
+        if owns_connection:await conn.close()
 
 
 async def _store_role_metadata(

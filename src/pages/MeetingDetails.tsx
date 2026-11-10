@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from 'app';
@@ -116,10 +117,10 @@ const MeetingDetails = () => {
     }
 
     try {
-      const response = await apiClient.record_minutes(
+      const response = await checkedResponse(apiClient.record_minutes(
         { meeting_id: meetingId },
         { content: minutesContent }
-      );
+      ));
 
       if (response.ok) {
         const data = await response.json();
@@ -138,7 +139,7 @@ const MeetingDetails = () => {
     if (!meetingId) return;
 
     try {
-      const response = await apiClient.approve_minutes({ meeting_id: meetingId });
+      const response = await checkedResponse(apiClient.approve_minutes({ meeting_id: meetingId }));
       
       if (response.ok) {
         const data = await response.json();
@@ -160,7 +161,7 @@ const MeetingDetails = () => {
     }
 
     try {
-      const response = await apiClient.create_action_item(
+      const response = await checkedResponse(apiClient.create_action_item(
         { meeting_id: meetingId },
         {
           title: newActionItem.title,
@@ -169,7 +170,7 @@ const MeetingDetails = () => {
           due_date: newActionItem.due_date || null,
           priority: newActionItem.priority,
         }
-      );
+      ));
 
       if (response.ok) {
         const data = await response.json();
@@ -193,10 +194,10 @@ const MeetingDetails = () => {
 
   const handleUpdateActionItem = async (itemId: string, status: string) => {
     try {
-      const response = await apiClient.update_action_item(
+      const response = await checkedResponse(apiClient.update_action_item(
         { action_item_id: itemId },
         { status }
-      );
+      ));
 
       if (response.ok) {
         const data = await response.json();

@@ -1,3 +1,5 @@
+import { checkedResponse,stableSubmissionKey,completeSubmission } from '@/utils/formSubmission';
+import { auth } from 'app';
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "components/Header";
@@ -55,6 +57,7 @@ export default function BackOfficeSubscribeOnBehalf() {
   const [adminNotes, setAdminNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [savedSubscriptionId,setSavedSubscriptionId]=useState<string|null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Fetch complete user profile when userId is provided
@@ -193,17 +196,6 @@ export default function BackOfficeSubscribeOnBehalf() {
     try {
       setSubmitting(true);
 
-      // Upload payment proof if provided
-      let paymentProofUrl = null;
-      if (paymentProofFile) {
-        const formData = new FormData();
-        formData.append("file", paymentProofFile);
-        // Assuming there's an upload endpoint
-        // const uploadResponse = await apiClient.upload_payment_proof(formData);
-        // const uploadData = await uploadResponse.json();
-        // paymentProofUrl = uploadData.url;
-      }
-
       const subscriptionData = {
         email,
         full_name: name || "",
@@ -214,18 +206,29 @@ export default function BackOfficeSubscribeOnBehalf() {
         payment_method: paymentMethod,
         installment_plan: installmentPlan,
         crypto_wallet_id: cryptoWalletId,
-        payment_proof_filename: paymentProofUrl,
+        payment_proof_filename: null,
         admin_notes: adminNotes,
       };
 
-      const response = await apiClient.create_subscription_on_behalf(subscriptionData);
-      const result = await response.json();
-
-      toast.success("Subscription created successfully!");
+      let subscriptionId=savedSubscriptionId;
+      if(!subscriptionId){
+        const idempotency_key=await stableSubmissionKey('admin-subscribe',subscriptionData);
+        const response=await checkedResponse(apiClient.create_subscription_on_behalf({...subscriptionData,idempotency_key} as typeof subscriptionData));
+        const result=await response.json();
+        if(!result.subscription_id)throw new Error('No saved subscription reference was returned. Retry without closing this page.');
+        subscriptionId=result.subscription_id;setSavedSubscriptionId(subscriptionId);
+      }
+      if(paymentProofFile){
+        const upload=new FormData();upload.append('file',paymentProofFile);
+        await checkedResponse(fetch(`/api/upload-admin-payment-proof/${encodeURIComponent(subscriptionId!)}`,{
+          method:'POST',headers:{Authorization:await auth.getAuthHeaderValue()},body:upload}));
+      }
+      completeSubmission('admin-subscribe');
+      toast.success(paymentProofFile ? 'Subscription saved. Payment proof uploaded and confirmation queued.' : 'Subscription saved. Confirmation queued.');
       navigate("/back-office-subscriptions");
     } catch (error: any) {
       console.error("Failed to create subscription:", error);
-      toast.error(error.message || "Failed to create subscription");
+      toast.error(error.message || "The save could not be confirmed. Keep your entries and retry.");
     } finally {
       setSubmitting(false);
     }
@@ -332,6 +335,8 @@ export default function BackOfficeSubscribeOnBehalf() {
           </Card>
 
           {/* Step Content */}
+          {savedSubscriptionId&&<Card className="mb-5 p-5 space-y-4"><p>Subscription {savedSubscriptionId} is saved. Finish uploading your selected document.</p><div className="flex flex-wrap gap-3"><Button disabled={submitting} onClick={()=>void handleSubmit()}>Retry document upload</Button><Button variant="outline" onClick={()=>navigate('/back-office-subscriptions')}>Open saved subscriptions</Button></div></Card>}
+          <fieldset disabled={!!savedSubscriptionId}>
           {currentStep === "subscriber" && (
             <SubscriberInfoStep
               email={email}
@@ -406,6 +411,7 @@ export default function BackOfficeSubscribeOnBehalf() {
               onSubmit={handleSubmit}
             />
           )}
+          </fieldset>
         </div>
       </main>
       <Footer />

@@ -18,6 +18,7 @@ router = APIRouter(prefix="/cron")
 
 # URL name -> the job name in app/libs/scheduler.py
 JOB_SLUGS = {
+    "communications-email-queue": "Process Communications Email Queue",
     "lead-monitoring": "AI Lead Health Monitor",
     "lead-follow-ups": "AI Lead Follow-up Reminders",
     "profile-completion-reminders": "Profile Completion Reminders",

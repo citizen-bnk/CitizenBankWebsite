@@ -1,3 +1,4 @@
+import { checkedResponse, stableSubmissionKey, completeSubmission } from '@/utils/formSubmission';
 
 
 
@@ -19,7 +20,7 @@
 
 
 
-import { useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiClient } from 'app';
@@ -99,10 +100,10 @@ export default function ShareSubscription() {
     setAcceptingInvitation(true);
     setInvitationError(null);
     try {
-      const response = await fetch('/api/user/invitations/accept', {
+      const response = await checkedResponse(fetch('/api/user/invitations/accept', {
         method:'POST', headers:{Authorization:await auth.getAuthHeaderValue(),'Content-Type':'application/json'},
         body:JSON.stringify({token:invitation.token}), cache:'no-store', signal:AbortSignal.timeout(20000),
-      });
+      }));
       const result = await response.json();
       if (!response.ok || result.success !== true) throw new Error(typeof result.detail === 'string' ? result.detail : 'Invitation confirmation could not be completed. Retry to check its status.');
       setInvitation({...invitation,status:'accepted'});
@@ -204,7 +205,7 @@ export default function ShareSubscription() {
       const response = await apiClient.get_user_profile();
       if (response.ok) {
         const profile = await response.json();
-        console.log('📋 Loaded user profile:', profile);
+
         
         // Pre-fill identity form data with existing profile
         setIdentityFormData({
@@ -271,7 +272,7 @@ export default function ShareSubscription() {
 
   // Load share availability on mount
   useEffect(() => {
-    console.log('Mount: calling loadShareAvailability');
+
     loadShareAvailability();
   }, [trackingToken]);
 
@@ -305,7 +306,7 @@ export default function ShareSubscription() {
         throw new Error('SHARE_OFFER_UNAVAILABLE');
       }
       setAvailability(data);
-      console.log('📊 Share availability loaded:', data);
+
     } catch (error) {
       console.error('Failed to load availability:', error);
       setError(`Share information could not be loaded: ${error instanceof Error ? error.message : 'CONNECTION_FAILED'}`);
@@ -354,7 +355,7 @@ export default function ShareSubscription() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await apiClient.upload_payment_proof({ subscriptionId }, formData);
+      const response = await checkedResponse(apiClient.upload_payment_proof({ subscriptionId }, formData));
       
       if (response.ok) {
         toast.success('Payment proof uploaded successfully!');
@@ -472,7 +473,7 @@ export default function ShareSubscription() {
         const response = await apiClient.get_user_profile_by_id({ userId: selectedUser.user_id });
         if (response.ok) {
           const profile = await response.json();
-          console.log('📋 Loaded selected user profile:', profile);
+
           
           // Pre-fill with existing user data
           setIdentityFormData({
@@ -547,38 +548,36 @@ export default function ShareSubscription() {
   // Add debugging effect to track checkbox state changes
   useEffect(() => {
     if (step === 4) {
-      console.log('🔍 Step 4 State Check:', {
-        terms_accepted: formData.terms_accepted,
-        privacy_accepted: formData.privacy_accepted,
-        canProceed: canProceed(),
-        loading
-      });
+
     }
   }, [formData.terms_accepted, formData.privacy_accepted, step, loading]);
 
+  const submittingRef = useRef(false);
   const handleSubmit = useCallback(async () => {
-    console.log('🔵 handleSubmit called');
-    console.log('canProceed():', canProceed());
-    console.log('availability:', availability);
-    console.log('formData:', formData);
-    console.log('identityFormData:', identityFormData);
-    console.log('numShares:', numShares);
     
-    if (!canProceed() || !availability) {
-      console.log('❌ Submission blocked - canProceed or availability check failed');
+
+
+
+
+
+
+    if (submittingRef.current || !canProceed() || !availability) {
+
       return;
     }
 
+    submittingRef.current=true;
     setLoading(true);
     setSubmitError(null);
-    console.log('✅ Starting subscription...');
 
-    const executeSubscription = async (attempt = 1) => {
+
+    const executeSubscription = async () => {
+      const attempt=1;
       try {
         // Step 1: Update user profile first (only for self subscriptions)
         if (beneficiaryType === 'self') {
-          console.log('💾 [Attempt ' + attempt + '] Updating user profile with identity data...');
-          await apiClient.update_user_profile({
+
+          await checkedResponse(apiClient.update_user_profile({
             ...identityFormData,
             // Ensure these base fields are included, even if empty initially
             full_name: identityFormData.full_name || '',
@@ -596,8 +595,8 @@ export default function ShareSubscription() {
             source_of_funds: identityFormData.source_of_funds || null,
             investor_type: identityFormData.investor_type || null,
             investment_purpose: identityFormData.investment_purpose || null,
-          });
-          console.log('✅ [Attempt ' + attempt + '] Profile updated successfully.');
+          }));
+
         }
 
         // Step 2: Create the subscription
@@ -606,8 +605,8 @@ export default function ShareSubscription() {
         
         if (beneficiaryType === 'other' && isAdmin) {
           // Admin creating on behalf of someone else
-          console.log('👤 [Attempt ' + attempt + '] Creating subscription on behalf of user...');
-          const adminRequestData: CreateSubscriptionRequest = {
+
+          const adminRequestData: CreateSubscriptionRequest & {idempotency_key?:string} = {
             full_name: identityFormData.full_name,
             email: identityFormData.email,
             phone: identityFormData.phone,
@@ -621,13 +620,14 @@ export default function ShareSubscription() {
               : 'Created on behalf of new user',
           };
 
-          console.log('📤 [Attempt ' + attempt + '] Sending admin on-behalf request:', adminRequestData);
-          response = await apiClient.create_subscription_on_behalf(adminRequestData);
+
+          adminRequestData.idempotency_key=await stableSubmissionKey('share-subscription',adminRequestData);
+          response = await checkedResponse(apiClient.create_subscription_on_behalf(adminRequestData));
         } else {
           // Regular user creating for themselves
-          console.log('👤 [Attempt ' + attempt + '] Creating self-subscription...');
+
           const backendPaymentMethod = formData.payment_method === 'installment' ? 'installment' : 'one-time';
-          const requestData: SubscriptionRequest = {
+          const requestData: SubscriptionRequest & {idempotency_key?:string} = {
             full_name: identityFormData.full_name,
             email: identityFormData.email,
             phone: identityFormData.phone,
@@ -639,11 +639,12 @@ export default function ShareSubscription() {
             ...(backendPaymentMethod === 'installment' && formData.installment_plan ? { installment_plan: formData.installment_plan } : {}),
           };
 
-          console.log('📤 [Attempt ' + attempt + '] Sending subscription request:', requestData);
-          response = await apiClient.core_create_subscription(requestData);
+
+          requestData.idempotency_key=await stableSubmissionKey('share-subscription',requestData);
+          response = await checkedResponse(apiClient.core_create_subscription(requestData));
         }
         
-        console.log('📥 [Attempt ' + attempt + '] Subscription response received:', response.status);
+
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -652,8 +653,10 @@ export default function ShareSubscription() {
         }
 
         data = await response.json();
-        console.log('📊 [Attempt ' + attempt + '] Subscription response data:', data);
 
+
+        if(!data.subscription_id) throw new Error('No saved subscription reference was returned. Keep this window open and retry.');
+        completeSubmission('share-subscription');
         setSubscriptionId(data.subscription_id);
         setStep(5);
         
@@ -661,36 +664,24 @@ export default function ShareSubscription() {
           ? `Subscription created successfully for ${identityFormData.full_name}!`
           : 'Subscription created successfully!';
         toast.success(successMessage);
-        console.log('✅ [Attempt ' + attempt + '] Subscription created:', data);
+
         setLoading(false);
 
       } catch (error: any) {
         console.error(`❌ [Attempt ${attempt}] Subscription process failed:`, error);
 
-        if (attempt < 3) {
-          const delay = 500 * Math.pow(2, attempt - 1);
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(res => setTimeout(res, delay));
-          await executeSubscription(attempt + 1);
-        } else {
-          let errorMessage = 'Failed to create subscription after multiple attempts.';
-          try {
-            const parsedError = JSON.parse(error.message);
-            errorMessage = parsedError.detail || 'An unknown validation error occurred.';
-          } catch {
-            if (error.message) {
-              errorMessage = error.message;
-            }
-          }
-          setSubmitError(errorMessage);
-          toast.error(errorMessage);
-          setLoading(false);
-        }
+        const message=error instanceof Error?error.message:'The subscription could not be saved. Keep your entries and retry.';
+        setSubmitError(message);
+        toast.error(message);
+      } finally {
+        submittingRef.current=false;
+        setLoading(false);
       }
+
     };
 
     await executeSubscription();
-    console.log('🔵 handleSubmit complete');
+
   }, [
     availability,
     identityFormData,
@@ -706,8 +697,8 @@ export default function ShareSubscription() {
   ]);
 
   const handleConfirmClick = () => {
-    console.log('🟢 Confirm button clicked!');
-    console.log('Button state - canProceed:', canProceed(), 'loading:', loading);
+
+
     handleSubmit();
   };
 

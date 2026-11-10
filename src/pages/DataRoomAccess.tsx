@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserGuardContext } from "app/auth";
@@ -87,16 +88,16 @@ const DataRoomAccess = () => {
     setSubmitting(true);
     try {
       // Step 1: Sign NCNDA
-      await brain.sign_ncnda({
+      await checkedResponse(brain.sign_ncnda({
         agreement_version: "1.0",
         digital_signature: digitalSignature
-      });
+      }));
 
       // Step 2: Sign Terms
-      await brain.sign_terms({
+      await checkedResponse(brain.sign_terms({
         agreement_version: "1.0",
         digital_signature: digitalSignature
-      });
+      }));
 
       // Step 3: Agree to LOI with investment details
       await brain.agree_to_loi({

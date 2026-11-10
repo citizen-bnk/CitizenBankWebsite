@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useEffect, useState } from 'react';
 import { useUserGuardContext } from 'app/auth';
 import brain from 'brain';
@@ -142,13 +143,13 @@ export default function Governance() {
     notes?: string
   ) => {
     try {
-      const response = await brain.create_proxy_assignment({
+      const response = await checkedResponse(brain.create_proxy_assignment({
         proxy_id: proxyId,
         scope_type: scopeType,
         session_id: sessionId,
         valid_until: validUntil,
         notes: notes,
-      });
+      }));
 
       if (response.ok) {
         toast({
@@ -208,12 +209,12 @@ export default function Governance() {
     comments?: string
   ) => {
     try {
-      const response = await brain.approve_item({
+      const response = await checkedResponse(brain.approve_item({
         item_id: documentId,
         approval_type: 'document_approval',
         status: status,
         comments: comments,
-      });
+      }));
 
       if (response.ok) {
         toast({

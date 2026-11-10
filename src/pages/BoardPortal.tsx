@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiClient } from 'app';
@@ -182,11 +183,11 @@ function BoardPortalContent() {
 
     try {
       setProcessingApproval(true);
-      const response = await apiClient.approve_board_member({
+      const response = await checkedResponse(apiClient.approve_board_member({
         boardMemberId: approvalDialog.member.id,
         approved: approvalDialog.approved,
         notes: approvalNotes || undefined,
-      });
+      }));
 
       if (response.ok) {
         toast.success(
@@ -215,14 +216,14 @@ function BoardPortalContent() {
 
     try {
       setSending(true);
-      const response = await apiClient.create_invitation_endpoint({
+      const response = await checkedResponse(apiClient.create_invitation_endpoint({
         full_name: inviteForm.full_name,
         email: inviteForm.email,
         role: 'board_member',
         position: inviteForm.position,
         message: inviteForm.message || '',
         expires_at: inviteForm.expires_at || undefined,
-      });
+      }));
 
       if (response.ok) {
         toast.success('Invitation sent successfully');

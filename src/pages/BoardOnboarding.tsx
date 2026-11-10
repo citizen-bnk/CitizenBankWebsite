@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserGuardContext } from 'app/auth';
@@ -125,7 +126,7 @@ export default function BoardOnboarding() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      await brain.update_user_profile(profileDraft);
+      await checkedResponse(brain.update_user_profile(profileDraft));
       await logOnboardingEvent('save_success', STEPS[currentStep]?.key);
       toast.success('Progress saved');
       return true;

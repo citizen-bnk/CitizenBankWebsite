@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from decimal import Decimal
 from datetime import datetime
 import uuid
+import hashlib
+import json
 from app.auth import AuthorizedUser
 from app.libs.database import db_connection, db_transaction
 from app.libs.subscription_models import (
@@ -132,14 +134,19 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
     Validates availability and creates subscription record.
     Stores currency used and exchange rate at time of purchase.
     """
-    print(f"📝 Subscription request from user {user.sub}:")
-    print(f"   Full name: {request.full_name}")
-    print(f"   Email: {request.email}")
-    print(f"   Num shares: {request.num_shares}")
-    print(f"   Payment method: {request.payment_method}")
-    print(f"   Purchase currency: {getattr(request, 'purchase_currency', 'LSL')}")
-    
     async with db_transaction() as conn:
+        fingerprint=hashlib.sha256(json.dumps(request.model_dump(exclude={'idempotency_key','tracking_token'},mode='json'),sort_keys=True).encode()).hexdigest()
+        if request.idempotency_key:
+            await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))",user.sub+':'+request.idempotency_key)
+            previous=await conn.fetchrow('SELECT * FROM share_subscriptions WHERE submission_actor=$1 AND idempotency_key=$2',user.sub,request.idempotency_key)
+            if previous:
+                if previous['request_fingerprint']!=fingerprint:
+                    raise HTTPException(409,'This submission key belongs to different details. Refresh before creating another subscription.')
+                months=int(previous['installment_plan'].split('-')[0]) if previous['installment_plan'] else None
+                return SubscriptionResponse(subscription_id=previous['subscription_id'],full_name=previous['full_name'],
+                    num_shares=previous['num_shares'],total_amount=previous['total_amount'],payment_method=previous['payment_method'],
+                    installment_plan=previous['installment_plan'],monthly_payment=previous['total_amount']/months if months else None,
+                    status=previous['status'],created_at=previous['created_at'])
         if not await may_access_investments(conn, user, request.tracking_token):
             raise HTTPException(status_code=403, detail="Investment access requires an invitation.")
         # Lock the offer row so simultaneous subscriptions cannot reserve the same units.
@@ -205,93 +212,44 @@ async def core_create_subscription(request: SubscriptionRequest, user: Authorize
         if purchase_currency != 'ZAR':
             raise HTTPException(status_code=422, detail='Class B subscriptions are currently priced and payable in ZAR.')
         
-        # Get exchange rate for the purchase currency
-        purchase_exchange_rate = None
-        amount_in_purchase_currency = None
-        
-        if purchase_currency != 'LSL':
-            try:
-                rate_row = await conn.fetchrow("""
-                    SELECT rate, date 
-                    FROM exchange_rates 
-                    WHERE base_currency = 'LSL' AND target_currency = $1 
-                    ORDER BY date DESC 
-                    LIMIT 1
-                """, purchase_currency)
-                
-                if rate_row:
-                    purchase_exchange_rate = float(rate_row['rate'])
-                    amount_in_purchase_currency = float(total_amount_lsl) * purchase_exchange_rate
-                    print(f"💱 Currency conversion: {total_amount_lsl} LSL = {amount_in_purchase_currency:.2f} {purchase_currency} @ rate {purchase_exchange_rate}")
-                else:
-                    print(f"⚠️ No exchange rate found for {purchase_currency}, defaulting to LSL")
-                    purchase_currency = 'LSL'
-            except Exception as e:
-                print(f"⚠️ Error fetching exchange rate: {e}, defaulting to LSL")
-                purchase_currency = 'LSL'
-        
+        # The approved offer and payment are ZAR. No FX lookup or fallback.
+        purchase_exchange_rate = Decimal('1')
+        amount_in_purchase_currency = total_amount_lsl
+
         # Insert subscription with user_id and currency tracking
         await conn.execute("""
             INSERT INTO share_subscriptions (
                 subscription_id, user_id, full_name, email, phone, id_number,
                 num_shares, share_class, total_amount, payment_method, installment_plan, status,
                 purchase_currency, purchase_exchange_rate, amount_in_purchase_currency,
-                price_per_share, promotion_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                price_per_share, promotion_id, idempotency_key, request_fingerprint, submission_actor
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
         """, subscription_id, user.sub, request.full_name, request.email, request.phone,
             request.id_number, request.num_shares, offer_class['class_name'], float(total_amount_lsl),
             request.payment_method, request.installment_plan, 'pending',
             purchase_currency, purchase_exchange_rate, amount_in_purchase_currency,
-            effective_share_price, promotion['id'] if promotion else None)
+            effective_share_price, promotion['id'] if promotion else None, request.idempotency_key, fingerprint, user.sub)
         
         print(f"✅ New subscription created: {subscription_id} - {request.full_name} - {request.num_shares:,} shares - {purchase_currency}")
         
-        # Schedule profile completion reminder (24 hours if profile incomplete)
+        # Commit the message with the subscription; a durable worker sends it later.
+        email_html = await create_payment_instructions_email(
+            recipient_name=request.full_name,subscription_id=subscription_id,num_shares=request.num_shares,
+            total_amount=float(total_amount_lsl),currency='ZAR',payment_method=request.payment_method,
+            installment_plan=request.installment_plan,monthly_payment=float(monthly_payment) if monthly_payment else None)
+        await enqueue_email(recipient_email=request.email,recipient_name=request.full_name,
+            subject=f'Subscription confirmation - {subscription_id}',body_html=email_html,
+            recipient_id=user.sub,created_by=user.sub,priority='high',conn=conn,
+            dedupe_key=f'subscription:{subscription_id}:created')
+
+        # Optional reminders use a savepoint so missing optional infrastructure
+        # cannot poison the financial transaction.
         try:
-            reminder_id = await schedule_profile_completion_reminder(
-                conn=conn,
-                user_id=user.sub,
-                subscription_id=subscription_id,
-                email=request.email,
-                full_name=request.full_name,
-                delay_hours=24
-            )
-            if reminder_id:
-                print(f"📅 Profile completion reminder scheduled (ID: {reminder_id})")
-        except Exception as reminder_error:
-            print(f"⚠️ Failed to schedule profile completion reminder: {reminder_error}")
-        
-        # Send payment instructions email
-        try:
-            email_amount = float(amount_in_purchase_currency) if amount_in_purchase_currency else float(total_amount_lsl)
-            email_currency = purchase_currency
-            email_monthly_payment = float(monthly_payment) if monthly_payment else None
-            
-            email_html = create_payment_instructions_email(
-                recipient_name=request.full_name,
-                subscription_id=subscription_id,
-                num_shares=request.num_shares,
-                total_amount=email_amount,
-                currency=email_currency,
-                payment_method=request.payment_method,
-                installment_plan=request.installment_plan,
-                monthly_payment=email_monthly_payment
-            )
-            
-            await enqueue_email(
-                recipient_email=request.email,
-                recipient_name=request.full_name,
-                subject=f"Payment Instructions - Subscription {subscription_id}",
-                body_html=email_html,
-                recipient_id=user.sub,
-                created_by='system',
-                priority='high'
-            )
-            
-            print(f"📧 Payment instructions email queued for {request.email}")
-        except Exception as email_error:
-            print(f"⚠️ Failed to send payment instructions email: {email_error}")
-        
+            async with conn.transaction():
+                await schedule_profile_completion_reminder(conn,user.sub,subscription_id,request.email,request.full_name,24)
+        except Exception:
+            pass
+
         display_amount = Decimal(str(amount_in_purchase_currency)) if amount_in_purchase_currency else total_amount_lsl
         
         return SubscriptionResponse(

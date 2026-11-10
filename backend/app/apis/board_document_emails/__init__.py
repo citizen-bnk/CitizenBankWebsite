@@ -185,7 +185,7 @@ def create_document_request_email(
     
     <div style="margin: 20px 0; padding: 15px; background-color: #f0f0f0; border-radius: 4px;">
         <p style="margin: 0; font-size: 13px; color: #666;">
-            <strong>Need help?</strong> Contact our support team at <a href="mailto:compliance@citizenbank.co.za" style="color: {BRAND_PINK};">compliance@citizenbank.co.za</a> or call us at +266 2231 2345
+            <strong>Need help?</strong> Contact our support team at <a href="mailto:admin@citizenbank.co.ls" style="color: {BRAND_PINK};">admin@citizenbank.co.ls</a> or call us at +266 2231 2345
         </p>
     </div>
     '''
@@ -768,7 +768,7 @@ def create_consolidated_reminder_email(
     
     <div style="margin: 20px 0; padding: 15px; background-color: #f0f0f0; border-radius: 4px;">
         <p style="margin: 0; font-size: 13px; color: #666;">
-            <strong>Need help?</strong> Contact our compliance team at <a href="mailto:compliance@citizenbank.co.za" style="color: {BRAND_PINK};">compliance@citizenbank.co.za</a> or call +266 2231 2345
+            <strong>Need help?</strong> Contact our compliance team at <a href="mailto:admin@citizenbank.co.ls" style="color: {BRAND_PINK};">admin@citizenbank.co.ls</a> or call +266 2231 2345
         </p>
     </div>
     
@@ -842,9 +842,10 @@ async def send_document_request_email(
         await conn.close()
 
 
-async def send_document_approved_email(document_id: int, reviewed_by_name: str = None):
+async def send_document_approved_email(document_id: int, reviewed_by_name: str = None, conn=None):
     """Send approval notification to board member."""
-    conn = await get_db_connection()
+    owns_connection = conn is None
+    if owns_connection:conn = await get_db_connection()
     try:
         row = await conn.fetchrow("""
             SELECT 
@@ -866,6 +867,7 @@ async def send_document_approved_email(document_id: int, reviewed_by_name: str =
         )
         
         await enqueue_email(
+            conn=conn,
             recipient_email=row['email'],
             recipient_name=row['full_name'],
             subject=subject,
@@ -877,12 +879,13 @@ async def send_document_approved_email(document_id: int, reviewed_by_name: str =
         print(f"✅ Approval email queued for {row['email']}")
         
     finally:
-        await conn.close()
+        if owns_connection:await conn.close()
 
 
-async def send_document_rejected_email(document_id: int, rejection_reason: str, reviewed_by_name: str = None):
+async def send_document_rejected_email(document_id: int, rejection_reason: str, reviewed_by_name: str = None, conn=None):
     """Send rejection notification to board member."""
-    conn = await get_db_connection()
+    owns_connection = conn is None
+    if owns_connection:conn = await get_db_connection()
     try:
         row = await conn.fetchrow("""
             SELECT 
@@ -905,6 +908,7 @@ async def send_document_rejected_email(document_id: int, rejection_reason: str, 
         )
         
         await enqueue_email(
+            conn=conn,
             recipient_email=row['email'],
             recipient_name=row['full_name'],
             subject=subject,
@@ -916,12 +920,13 @@ async def send_document_rejected_email(document_id: int, rejection_reason: str, 
         print(f"✅ Rejection email queued for {row['email']}")
         
     finally:
-        await conn.close()
+        if owns_connection:await conn.close()
 
 
-async def send_welcome_checklist_email(board_member_id: int):
+async def send_welcome_checklist_email(board_member_id: int,conn=None):
     """Send welcome email with document checklist to new board member."""
-    conn = await get_db_connection()
+    owns_connection=conn is None
+    if owns_connection:conn=await get_db_connection()
     try:
         # Get board member details and required documents
         member = await conn.fetchrow("""
@@ -948,6 +953,7 @@ async def send_welcome_checklist_email(board_member_id: int):
         )
         
         await enqueue_email(
+            conn=conn,
             recipient_email=member['email'],
             recipient_name=member['full_name'],
             subject=subject,
@@ -959,7 +965,7 @@ async def send_welcome_checklist_email(board_member_id: int):
         print(f"✅ Welcome checklist email queued for {member['email']}")
         
     finally:
-        await conn.close()
+        if owns_connection:await conn.close()
 
 
 async def send_reminder_email(

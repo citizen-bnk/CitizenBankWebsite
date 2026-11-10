@@ -89,7 +89,9 @@ async def test_topup_creates_separate_unpaid_record_with_actual_share_class(monk
     monkeypatch.setattr(subscriptions_core, "get_share_availability_data", availability)
     monkeypatch.setattr(subscriptions_core, "schedule_profile_completion_reminder", no_reminder)
     monkeypatch.setattr(subscriptions_core, "enqueue_email", no_email)
-    monkeypatch.setattr(subscriptions_core, "create_payment_instructions_email", lambda **_: "email")
+    async def payment_email(**_):
+        return "email"
+    monkeypatch.setattr(subscriptions_core, "create_payment_instructions_email", payment_email)
     request = SubscriptionRequest(
         full_name="Test Investor", email="investor@example.com", phone="12345678",
         id_number="TEST-ID", num_shares=100, payment_method="one-time",

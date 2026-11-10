@@ -1,3 +1,4 @@
+import { checkedResponse } from '@/utils/formSubmission';
 import { useState, useEffect } from 'react';
 import { apiClient } from "app";
 import { useUserGuardContext } from 'app/auth';
@@ -142,12 +143,12 @@ export default function BackOfficeBoardMembers() {
 
     try {
       setSubmitting(true);
-      const response = await apiClient.appoint_board_member_endpoint({
+      const response = await checkedResponse(apiClient.appoint_board_member_endpoint({
         user_id: appointForm.appointmentMethod === 'user' ? appointForm.user_id : null,
         invitation_id: appointForm.appointmentMethod === 'invitation' ? parseInt(appointForm.invitation_id) : null,
         position: appointForm.position,
         term_years: parseInt(appointForm.term_years)
-      });
+      }));
 
       if (response.ok) {
         toast.success('Board member appointed successfully');
@@ -199,10 +200,10 @@ export default function BackOfficeBoardMembers() {
         payload.status = editForm.status;
       }
       
-      const response = await apiClient.update_board_member_endpoint(
+      const response = await checkedResponse(apiClient.update_board_member_endpoint(
         { memberUserId: selectedMember.user_id },
         payload
-      );
+      ));
       
       if (response.ok) {
         toast.success('Board member updated successfully');
@@ -233,9 +234,9 @@ export default function BackOfficeBoardMembers() {
     
     try {
       setSubmitting(true);
-      const response = await apiClient.remove_board_member_endpoint({ 
+      const response = await checkedResponse(apiClient.remove_board_member_endpoint({
         memberUserId: selectedMember.user_id
-      });
+      }));
       
       if (response.ok) {
         toast.success('Board member removed successfully');

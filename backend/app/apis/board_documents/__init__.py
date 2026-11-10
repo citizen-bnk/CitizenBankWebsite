@@ -429,13 +429,7 @@ async def delete_template(
         if not requirement:
             raise HTTPException(status_code=404, detail="Requirement not found")
         
-        # Delete from storage if exists
-        if requirement["template_file_url"]:
-            try:
-                runtime.storage.binary.delete(requirement["template_file_url"])
-            except Exception as e:
-                print(f"⚠️ Could not delete template file: {e}")
-        
+        # Preserve the stored version; detach only after a successful database update.
         # Update requirement
         await conn.execute(
             """
@@ -914,7 +908,7 @@ async def upload_document(
             
             # Create standardized filename: FirstName_RequirementName_DateTime_vVersion.ext
             from datetime import datetime
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
             standardized_filename = f"{first_name_camel}_{requirement_name_camel}_{timestamp}_v{version}.{ext}"
             print(f"📝 Standardized filename: {standardized_filename}")
             
@@ -989,7 +983,7 @@ async def upload_document(
         print(f"❌ Upload error: {type(e).__name__}: {str(e)}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="The document could not be saved. Your previous document is unchanged. Retry the upload. Issue: BOARD_DOCUMENT_SAVE_FAILED")
 
 
 @router.put("/{document_id}/resubmit")
@@ -1073,62 +1067,52 @@ async def review_document(
     
     conn = await get_db_connection()
     try:
-        # Check document exists and is in reviewable state
-        existing = await conn.fetchrow(
-            "SELECT * FROM board_member_documents WHERE id = $1",
-            document_id
-        )
-        if not existing:
-            raise HTTPException(status_code=404, detail="Document not found")
+        async with conn.transaction():
+            # Check document exists and is in reviewable state
+            existing = await conn.fetchrow(
+                "SELECT * FROM board_member_documents WHERE id = $1",
+                document_id
+            )
+            if not existing:
+                raise HTTPException(status_code=404, detail="Document not found")
         
-        if existing["status"] not in ("submitted", "under_review"):
-            raise HTTPException(status_code=400, detail=f"Document status is {existing['status']}, cannot review")
+            if existing["status"] not in ("submitted", "under_review"):
+                raise HTTPException(status_code=400, detail=f"Document status is {existing['status']}, cannot review")
         
-        # Update document status
-        new_status = "approved" if body.action == "approve" else "rejected"
+            # Update document status
+            new_status = "approved" if body.action == "approve" else "rejected"
         
-        row = await conn.fetchrow(
-            """
-            UPDATE board_member_documents
-            SET status = $1,
-                reviewed_at = NOW(),
-                reviewed_by = $2,
-                rejection_reason = $3,
-                review_notes = $4,
-                updated_at = NOW()
-            WHERE id = $5
-            RETURNING *
-            """,
-            new_status,
-            user.email or user.sub,
-            body.rejection_reason,
-            body.review_notes,
-            document_id
-        )
+            row = await conn.fetchrow(
+                """
+                UPDATE board_member_documents
+                SET status = $1,
+                    reviewed_at = NOW(),
+                    reviewed_by = $2,
+                    rejection_reason = $3,
+                    review_notes = $4,
+                    updated_at = NOW()
+                WHERE id = $5
+                RETURNING *
+                """,
+                new_status,
+                user.email or user.sub,
+                body.rejection_reason,
+                body.review_notes,
+                document_id
+            )
         
-        print(f"✅ Document {document_id} {new_status} by {user.email}")
+            print(f"✅ Document {document_id} {new_status} by {user.email}")
         
-        # Send email notification
-        try:
             reviewer_name = user.email or "Admin"
             if body.action == "approve":
-                await send_document_approved_email(
-                    document_id=document_id,
-                    reviewed_by_name=reviewer_name
-                )
+                await send_document_approved_email(document_id=document_id,reviewed_by_name=reviewer_name,conn=conn)
             else:
-                await send_document_rejected_email(
-                    document_id=document_id,
-                    rejection_reason=body.rejection_reason or "No reason provided",
-                    reviewed_by_name=reviewer_name
-                )
-        except Exception as email_error:
-            print(f"⚠️ Failed to send review notification email: {email_error}")
-        
-        return ReviewDocumentResponse(
-            success=True,
-            document=BoardMemberDocument(**dict(row))
-        )
+                await send_document_rejected_email(document_id=document_id,rejection_reason=body.rejection_reason or "No reason provided",reviewed_by_name=reviewer_name,conn=conn)
+
+            return ReviewDocumentResponse(
+                success=True,
+                document=BoardMemberDocument(**dict(row))
+            )
     finally:
         await conn.close()
 

@@ -211,134 +211,117 @@ async def appoint_board_member(
     full_name: str,
     position: str,
     term_years: int,
-    appointed_by: str
+    appointed_by: str,
+    conn=None
 ) -> Dict[str, Any]:
     """Manually appoint a board member and auto-generate document requests."""
-    conn = await get_db_connection()
+    owns_connection=conn is None
+    if owns_connection:conn=await get_db_connection()
     try:
-        resolved_position = await resolve_position(conn, position)
-        position = resolved_position.get('position_code') or resolved_position['position_name']
-        term_end_date = datetime.now(timezone.utc).date() + timedelta(days=term_years * 365)
+        async with conn.transaction():
+            resolved_position = await resolve_position(conn, position)
+            position = resolved_position.get('position_code') or resolved_position['position_name']
+            term_end_date = datetime.now(timezone.utc).date() + timedelta(days=term_years * 365)
         
-        board_member = await conn.fetchrow(
-            """
-            INSERT INTO board_members (
-                user_id, email, full_name, position, term_years, 
-                term_end_date, appointed_by
+            board_member = await conn.fetchrow(
+                """
+                INSERT INTO board_members (
+                    user_id, email, full_name, position, term_years,
+                    term_end_date, appointed_by
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (user_id) DO UPDATE
+                SET position = EXCLUDED.position,
+                    term_years = EXCLUDED.term_years,
+                    term_end_date = EXCLUDED.term_end_date,
+                    status = 'active',
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING *
+                """,
+                user_id, email, full_name, position, term_years, term_end_date, appointed_by
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (user_id) DO UPDATE
-            SET position = EXCLUDED.position,
-                term_years = EXCLUDED.term_years,
-                term_end_date = EXCLUDED.term_end_date,
-                status = 'active',
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING *
-            """,
-            user_id, email, full_name, position, term_years, term_end_date, appointed_by
-        )
         
-        board_member_id = board_member['id']
-        appointed_at = board_member['appointed_date']
+            board_member_id = board_member['id']
+            appointed_at = board_member['appointed_date']
         
-        position_id = resolved_position['id']
+            position_id = resolved_position['id']
 
-        # End any current position assignment for this board member
-        await conn.execute("""
-            UPDATE board_member_positions
-            SET is_current = FALSE, ended_at = CURRENT_TIMESTAMP
-            WHERE board_member_id = $1 AND is_current = TRUE
-        """, board_member_id)
+            # End any current position assignment for this board member
+            await conn.execute("""
+                UPDATE board_member_positions
+                SET is_current = FALSE, ended_at = CURRENT_TIMESTAMP
+                WHERE board_member_id = $1 AND is_current = TRUE
+            """, board_member_id)
         
-        # Create new position assignment
-        await conn.execute("""
-            INSERT INTO board_member_positions 
-            (board_member_id, position_id, appointed_at, appointed_by, is_current, notes)
-            VALUES ($1, $2, $3, $4, TRUE, $5)
-        """, board_member_id, position_id, appointed_at, appointed_by, f'Auto-assigned during board member appointment')
+            # Create new position assignment
+            await conn.execute("""
+                INSERT INTO board_member_positions
+                (board_member_id, position_id, appointed_at, appointed_by, is_current, notes)
+                VALUES ($1, $2, $3, $4, TRUE, $5)
+            """, board_member_id, position_id, datetime.combine(appointed_at,datetime.min.time()), appointed_by, f'Auto-assigned during board member appointment')
         
-        print(f"✅ Created position assignment: board_member_id={board_member_id}, position_id={position_id}")
+            print(f"✅ Created position assignment: board_member_id={board_member_id}, position_id={position_id}")
         
-        # Send welcome email with document checklist
-        try:
-            await send_welcome_checklist_email(board_member_id)
-            print(f"✅ Welcome email sent to new board member: {email}")
-        except Exception as email_error:
-            print(f"⚠️ Failed to send welcome email to {email}: {email_error}")
+            await send_welcome_checklist_email(board_member_id,conn=conn)
+
+            # Auto-generate document requests for all required documents
+            doc_types = await conn.fetch(
+                "SELECT id, name FROM board_document_requirements WHERE is_required = true AND is_active=true AND ('global'=ANY(jurisdictions) OR 'lesotho'=ANY(jurisdictions)) ORDER BY display_order"
+            )
         
-        # Auto-generate document requests for all required documents
-        doc_types = await conn.fetch(
-            "SELECT id, name FROM board_document_requirements WHERE is_required = true AND is_active=true AND ('global'=ANY(jurisdictions) OR 'lesotho'=ANY(jurisdictions)) ORDER BY display_order"
-        )
-        
-        if doc_types:
-            # Get request count for numbering
-            count = await conn.fetchval("SELECT COUNT(*) FROM document_requests")
-            
-            for idx, doc_type in enumerate(doc_types):
-                request_number = f"DR-{count + idx + 1:05d}"
+            if doc_types:
+                for doc_type in doc_types:
+                    request_number = f"DR-{uuid.uuid4().hex[:16].upper()}"
                 
-                # Create document request
-                request = await conn.fetchrow(
-                    """
-                    INSERT INTO document_requests (
-                        request_number, board_member_id, document_type, 
-                        reason, is_urgent, requested_by, status
+                    # Create document request
+                    request = await conn.fetchrow(
+                        """
+                        INSERT INTO document_requests (
+                            request_number, board_member_id, document_type,
+                            reason, is_urgent, requested_by, status
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+                        RETURNING id
+                        """,
+                        request_number,
+                        user_id,
+                        doc_type['name'],
+                        f"Required for banking license compliance. Please upload your {doc_type['name']} as soon as possible.",
+                        False,
+                        appointed_by
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, 'pending')
-                    RETURNING id
-                    """,
-                    request_number,
-                    user_id,
-                    doc_type['name'],
-                    f"Required for banking license compliance. Please upload your {doc_type['name']} as soon as possible.",
-                    False,
-                    appointed_by
-                )
                 
-                # Create notification
-                await conn.execute(
-                    """
-                    INSERT INTO notifications (
-                        recipient_email, user_id, email_subject, email_content, 
-                        email_type, metadata
+                    # Create notification
+                    await conn.execute(
+                        """
+                        INSERT INTO notifications (
+                            recipient_email, user_id, email_subject, email_content,
+                            email_type, metadata
+                        )
+                        VALUES ($1, $2, $3, $4, $5, $6)
+                        """,
+                        email,
+                        user_id,
+                        f"Document Required: {doc_type['name']}",
+                        f"Please upload your {doc_type['name']} for banking license compliance.",
+                        "document_request",
+                        json.dumps({"request_id": request['id'], "document_type": doc_type['name']})
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    """,
-                    email,
-                    user_id,
-                    f"Document Required: {doc_type['name']}",
-                    f"Please upload your {doc_type['name']} for banking license compliance.",
-                    "document_request",
-                    {"request_id": request['id'], "document_type": doc_type['name']}
-                )
                 
-                # Create message in messages system
-                await conn.execute(
-                    """
-                    INSERT INTO messages (
-                        recipient_email, user_id, message_title, message_body,
-                        message_type, priority, status, cta_text, cta_link, metadata
+                    await conn.execute(
+                        """INSERT INTO messages
+                        (recipient_email,user_id,message_type,subject,content,cta_label,cta_action,cta_data)
+                        VALUES ($1,$2,'document_request',$3,$4,'Upload Document','navigate',$5)""",
+                        email,user_id,f"Upload required: {doc_type['name']}",
+                        f"Please upload your {doc_type['name']} in Board Documents.",
+                        json.dumps({'url':'/board-documents','request_id':request['id']}),
                     )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                    """,
-                    email,
-                    user_id,
-                    f"📄 Upload Required: {doc_type['name']}",
-                    f"Welcome to the board! To complete your license compliance requirements, please upload your {doc_type['name']}. This document is required for the Central Bank of Lesotho banking license application.",
-                    "document_request",
-                    "normal",
-                    "pending",
-                    "Upload Document",
-                    "/board-documents",
-                    {"request_id": request['id'], "document_type": doc_type['name'], "request_number": request_number}
-                )
-            
-            print(f"✅ Auto-generated {len(doc_types)} document requests for {full_name}")
+
+                print(f"✅ Auto-generated {len(doc_types)} document requests for {full_name}")
         
-        return dict(board_member)
+            return dict(board_member)
     finally:
-        await conn.close()
+        if owns_connection:await conn.close()
 
 
 async def get_board_member_by_user_id(user_id: str) -> Optional[Dict[str, Any]]:

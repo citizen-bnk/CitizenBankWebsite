@@ -1,3 +1,4 @@
+import { checkedResponse } from "@/utils/formSubmission";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ export const BoardMemberProfileSection = ({ bio, profilePictureUrl, onUpdate }: 
   const handleGenerateBio = async () => {
     setIsGenerating(true);
     try {
-      const response = await apiClient.generate_bio_for_user();
+      const response = await checkedResponse(apiClient.generate_bio_for_user());
       const data = await response.json();
       
       if (data.success) {
@@ -52,9 +53,9 @@ export const BoardMemberProfileSection = ({ bio, profilePictureUrl, onUpdate }: 
   const handleSaveBio = async () => {
     setIsSaving(true);
     try {
-      const response = await apiClient.update_user_profile({
+      const response = await checkedResponse(apiClient.update_user_profile({
         bio: editedBio || null,
-      });
+      }));
 
       if (response.ok) {
         toast.success("Bio updated successfully!");

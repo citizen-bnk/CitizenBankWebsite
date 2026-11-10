@@ -2,7 +2,7 @@
 Governance API - Unified endpoints for AGM voting, board resolutions, meetings, and approvals.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 from datetime import datetime, timedelta
@@ -15,11 +15,39 @@ from app.libs.governance_models import (
     DocumentType, DocumentStatus, ApprovalType, ApprovalStatus,
     RSVPResponse, ProxyScope, ProxyStatus
 )
-from app.libs.rbac import check_user_has_role, check_user_has_any_role
+from app.libs.rbac import check_user_has_role, check_user_has_any_role, get_user_roles
 import os
 import asyncpg
 
-router = APIRouter(prefix="/governance")
+async def require_governance_access(request: Request,user: AuthorizedUser):
+    roles=set(await get_user_roles(user.sub))
+    operations=bool(roles&{'super_admin','admin','staff','back_office'})
+    board='board_member' in roles
+    if operations:return
+    if not board and not roles&{'investor','shareholder'}:
+        raise HTTPException(403,'An investor, board or staff role is required.')
+    self_service=any(request.url.path.endswith(path) for path in ['/vote','/approve','/proxy/assign','/proxy/revoke'])
+    if request.method not in ('GET','HEAD') and not self_service:
+        raise HTTPException(403,'Authorised staff access is required to manage governance records.')
+    session_id=request.path_params.get('session_id')
+    document_id=request.path_params.get('document_id')
+    if not board:
+        if '/documents/' in request.url.path and not document_id:
+            raise HTTPException(403,'Board access is required for these documents.')
+        if request.method=='POST':
+            body=await request.json()
+            session_id=body.get('session_id',session_id)
+            if request.url.path.endswith('/approve'):
+                if body.get('approval_type')=='meeting_rsvp':session_id=body.get('item_id')
+                else:document_id=body.get('item_id')
+        if session_id or document_id:
+            conn=await get_db_connection()
+            try:
+                kind=await conn.fetchval('SELECT session_type FROM governance_sessions WHERE id=$1',int(session_id)) if session_id else await conn.fetchval('SELECT s.session_type FROM governance_documents d JOIN governance_sessions s ON s.id=d.session_id WHERE d.id=$1',int(document_id))
+                if kind and kind!='agm_vote':raise HTTPException(403,'Board access is required for this record.')
+            finally:await conn.close()
+
+router = APIRouter(prefix="/governance",dependencies=[Depends(require_governance_access)])
 
 async def require_communications_operator(user):
     if not user or not await check_user_has_any_role(user.sub, ['super_admin','admin','back_office','staff']):
@@ -227,7 +255,9 @@ async def get_db_connection():
     else:
         db_url = os.environ.get("DATABASE_URL_DEV")
     
-    return await asyncpg.connect(db_url)
+    conn=await asyncpg.connect(db_url)
+    await conn.set_type_codec("jsonb",schema="pg_catalog",encoder=lambda v:v if isinstance(v,str) else json.dumps(v),decoder=json.loads)
+    return conn
 
 
 async def get_user_voting_power(user_id: str, voter_type: str) -> int:
@@ -333,28 +363,29 @@ async def add_voting_items(session_id: int, request: CreateVotingItemRequest, us
     """Add voting items to an AGM session"""
     conn = await get_db_connection()
     try:
-        # Verify session exists and user owns it
-        session = await conn.fetchrow(
-            "SELECT * FROM governance_sessions WHERE id = $1 AND created_by = $2",
-            session_id, user.sub
-        )
-        
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found or unauthorized")
-        
-        # Insert voting items
-        for idx, item in enumerate(request.items):
-            await conn.execute(
-                """
-                INSERT INTO governance_items (session_id, item_order, question, description, item_type, options, metadata)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """,
-                session_id, idx, item.get('question'), item.get('description'),
-                item.get('item_type', 'vote'), item.get('options', ["for", "against", "abstain"]),
-                item.get('metadata', {})
+        async with conn.transaction():
+            # Verify session exists and user owns it
+            session = await conn.fetchrow(
+                "SELECT * FROM governance_sessions WHERE id = $1 AND created_by = $2",
+                session_id, user.sub
             )
         
-        return {"message": f"{len(request.items)} voting items added"}
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found or unauthorized")
+        
+            # Insert voting items
+            for idx, item in enumerate(request.items):
+                await conn.execute(
+                    """
+                    INSERT INTO governance_items (session_id, item_order, question, description, item_type, options, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    session_id, idx, item.get('question'), item.get('description'),
+                    item.get('item_type', 'vote'), item.get('options', ["for", "against", "abstain"]),
+                    item.get('metadata', {})
+                )
+        
+            return {"message": f"{len(request.items)} voting items added"}
     finally:
         await conn.close()
 
@@ -364,7 +395,9 @@ async def list_sessions(user: AuthorizedUser, status: Optional[str] = None, sess
     """List governance sessions with filtering"""
     conn = await get_db_connection()
     try:
-        query = "SELECT * FROM governance_sessions WHERE 1=1"
+        roles=set(await get_user_roles(user.sub))
+        board_access=bool(roles & {"board_member","super_admin","admin","staff","back_office"})
+        query = "SELECT * FROM governance_sessions WHERE 1=1"+ ("" if board_access else " AND session_type='agm_vote'")
         params = []
         
         if status:
@@ -709,46 +742,47 @@ async def update_voting_items(session_id: int, request: UpdateVotingItemsRequest
     """Update voting items for a session (only allowed when session is in draft status)"""
     conn = await get_db_connection()
     try:
-        # Check if session exists and get current status
-        session = await conn.fetchrow(
-            "SELECT * FROM governance_sessions WHERE id = $1",
-            session_id
-        )
-        
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        # Only allow editing in draft status
-        if session['status'] != SessionStatus.DRAFT.value:
-            raise HTTPException(status_code=400, detail="Voting items can only be edited when session is in draft status")
-        
-        # Verify user owns session or is super_admin or staff
-        is_creator = session['created_by'] == user.sub
-        is_admin = await check_user_has_role(user.sub, "super_admin")
-        is_staff = await check_user_has_role(user.sub, "staff")
-        
-        if not is_creator and not is_admin and not is_staff:
-            raise HTTPException(status_code=403, detail="Only the creator, staff, or admin can update voting items")
-        
-        # Delete all existing items for this session
-        await conn.execute(
-            "DELETE FROM governance_items WHERE session_id = $1",
-            session_id
-        )
-        
-        # Insert updated voting items
-        for idx, item in enumerate(request.items):
-            await conn.execute(
-                """
-                INSERT INTO governance_items (session_id, item_order, question, description, item_type, options, metadata)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """,
-                session_id, idx, item.get('question'), item.get('description'),
-                item.get('item_type', 'vote'), item.get('options', ["for", "against", "abstain"]),
-                item.get('metadata', {})
+        async with conn.transaction():
+            # Check if session exists and get current status
+            session = await conn.fetchrow(
+                "SELECT * FROM governance_sessions WHERE id = $1",
+                session_id
             )
         
-        return {"message": f"{len(request.items)} voting items updated successfully"}
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
+        
+            # Only allow editing in draft status
+            if session['status'] != SessionStatus.DRAFT.value:
+                raise HTTPException(status_code=400, detail="Voting items can only be edited when session is in draft status")
+        
+            # Verify user owns session or is super_admin or staff
+            is_creator = session['created_by'] == user.sub
+            is_admin = await check_user_has_role(user.sub, "super_admin")
+            is_staff = await check_user_has_role(user.sub, "staff")
+        
+            if not is_creator and not is_admin and not is_staff:
+                raise HTTPException(status_code=403, detail="Only the creator, staff, or admin can update voting items")
+        
+            # Delete all existing items for this session
+            await conn.execute(
+                "DELETE FROM governance_items WHERE session_id = $1",
+                session_id
+            )
+        
+            # Insert updated voting items
+            for idx, item in enumerate(request.items):
+                await conn.execute(
+                    """
+                    INSERT INTO governance_items (session_id, item_order, question, description, item_type, options, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    session_id, idx, item.get('question'), item.get('description'),
+                    item.get('item_type', 'vote'), item.get('options', ["for", "against", "abstain"]),
+                    item.get('metadata', {})
+                )
+
+            return {"message": f"{len(request.items)} voting items updated successfully"}
     finally:
         await conn.close()
 
@@ -796,38 +830,39 @@ async def approve_item(request: ApproveItemRequest, user: AuthorizedUser):
     """Approve minutes, RSVP to meeting, or approve resolution"""
     conn = await get_db_connection()
     try:
-        # Insert or update approval
-        await conn.execute(
-            """
-            INSERT INTO governance_approvals (approval_type, item_id, approver_id, status, response_value, comments, approved_at)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
-            ON CONFLICT (approval_type, item_id, approver_id)
-            DO UPDATE SET status = $4, response_value = $5, comments = $6, approved_at = NOW()
-            """,
-            request.approval_type.value, request.item_id, user.sub,
-            request.status.value, request.response_value, request.comments
-        )
-        
-        # Check if all approvals are in for minutes
-        if request.approval_type == ApprovalType.MINUTES and request.status == ApprovalStatus.APPROVED:
-            total_approvers = await conn.fetchval(
-                "SELECT COUNT(*) FROM governance_approvals WHERE approval_type = $1 AND item_id = $2",
-                ApprovalType.MINUTES.value, request.item_id
+        async with conn.transaction():
+            # Insert or update approval
+            await conn.execute(
+                """
+                INSERT INTO governance_approvals (approval_type, item_id, approver_id, status, response_value, comments, approved_at)
+                VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                ON CONFLICT (approval_type, item_id, approver_id)
+                DO UPDATE SET status = $4, response_value = $5, comments = $6, approved_at = NOW()
+                """,
+                request.approval_type.value, request.item_id, user.sub,
+                request.status.value, request.response_value, request.comments
             )
-            
-            approved_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM governance_approvals WHERE approval_type = $1 AND item_id = $2 AND status = $3",
-                ApprovalType.MINUTES.value, request.item_id, ApprovalStatus.APPROVED.value
-            )
-            
-            # If all approved, mark document as approved
-            if total_approvers == approved_count:
-                await conn.execute(
-                    "UPDATE governance_documents SET status = $1 WHERE id = $2",
-                    DocumentStatus.APPROVED.value, request.item_id
+
+            # Check if all approvals are in for minutes
+            if request.approval_type == ApprovalType.MINUTES and request.status == ApprovalStatus.APPROVED:
+                total_approvers = await conn.fetchval(
+                    "SELECT COUNT(*) FROM governance_approvals WHERE approval_type = $1 AND item_id = $2",
+                    ApprovalType.MINUTES.value, request.item_id
                 )
-        
-        return {"message": "Approval recorded successfully"}
+            
+                approved_count = await conn.fetchval(
+                    "SELECT COUNT(*) FROM governance_approvals WHERE approval_type = $1 AND item_id = $2 AND status = $3",
+                    ApprovalType.MINUTES.value, request.item_id, ApprovalStatus.APPROVED.value
+                )
+
+                # If all approved, mark document as approved
+                if total_approvers == approved_count:
+                    await conn.execute(
+                        "UPDATE governance_documents SET status = $1 WHERE id = $2",
+                        DocumentStatus.APPROVED.value, request.item_id
+                    )
+
+            return {"message": "Approval recorded successfully"}
     finally:
         await conn.close()
 
@@ -885,9 +920,9 @@ async def get_my_proxy_assignments(user: AuthorizedUser):
         # Proxies user has assigned to others
         proxies_given = await conn.fetch(
             """
-            SELECT p.*, u.email as proxy_email, u.name as proxy_name
+            SELECT p.*, u.email as proxy_email, u.full_name as proxy_name
             FROM proxy_assignments p
-            LEFT JOIN neon_auth.users_sync u ON u.id = p.proxy_id
+            LEFT JOIN user_profiles u ON u.user_id = p.proxy_id
             WHERE p.assignor_id = $1 AND p.status = 'active'
             """,
             user.sub
@@ -896,9 +931,9 @@ async def get_my_proxy_assignments(user: AuthorizedUser):
         # Proxies user has received from others
         proxies_received = await conn.fetch(
             """
-            SELECT p.*, u.email as assignor_email, u.name as assignor_name
+            SELECT p.*, u.email as assignor_email, u.full_name as assignor_name
             FROM proxy_assignments p
-            LEFT JOIN neon_auth.users_sync u ON u.id = p.assignor_id
+            LEFT JOIN user_profiles u ON u.user_id = p.assignor_id
             WHERE p.proxy_id = $1 AND p.status = 'active'
             """,
             user.sub
@@ -907,20 +942,20 @@ async def get_my_proxy_assignments(user: AuthorizedUser):
         # Get available users who can receive proxy (shareholders and board members, excluding self)
         available_users = await conn.fetch(
             """
-            SELECT DISTINCT u.id, u.name, u.email
-            FROM neon_auth.users_sync u
-            WHERE u.id != $1
+            SELECT DISTINCT u.user_id as id, u.full_name as name, u.email
+            FROM user_profiles u
+            WHERE u.user_id != $1
               AND (
                 EXISTS (
                   SELECT 1 FROM share_subscriptions ss
-                  WHERE ss.user_id = u.id AND ss.payment_status = 'completed'
+                  WHERE ss.user_id = u.user_id AND ss.status = 'completed'
                 )
                 OR EXISTS (
                   SELECT 1 FROM board_members bm
-                  WHERE bm.user_id = u.id AND bm.status = 'active'
+                  WHERE bm.user_id = u.user_id AND bm.status = 'active'
                 )
               )
-            ORDER BY u.name, u.email
+            ORDER BY name, u.email
             """,
             user.sub
         )
@@ -1074,35 +1109,36 @@ async def link_document_to_session(request: LinkDocumentRequest, user: Authorize
     """
     conn = await get_db_connection()
     try:
-        # Verify document exists
-        document = await conn.fetchrow(
-            "SELECT * FROM governance_documents WHERE id = $1",
-            request.document_id
-        )
+        async with conn.transaction():
+            # Verify document exists
+            document = await conn.fetchrow(
+                "SELECT * FROM governance_documents WHERE id = $1",
+                request.document_id
+            )
         
-        if not document:
-            raise HTTPException(status_code=404, detail="Document not found")
+            if not document:
+                raise HTTPException(status_code=404, detail="Document not found")
         
-        # Verify target session exists
-        session = await conn.fetchrow(
-            "SELECT * FROM governance_sessions WHERE id = $1",
-            request.target_session_id
-        )
+            # Verify target session exists
+            session = await conn.fetchrow(
+                "SELECT * FROM governance_sessions WHERE id = $1",
+                request.target_session_id
+            )
         
-        if not session:
-            raise HTTPException(status_code=404, detail="Target session not found")
+            if not session:
+                raise HTTPException(status_code=404, detail="Target session not found")
         
-        # Update document's session
-        await conn.execute(
-            "UPDATE governance_documents SET session_id = $1 WHERE id = $2",
-            request.target_session_id, request.document_id
-        )
+            # Update document's session
+            await conn.execute(
+                "UPDATE governance_documents SET session_id = $1 WHERE id = $2",
+                request.target_session_id, request.document_id
+            )
         
-        return {
-            "message": "Document linked successfully",
-            "document_id": request.document_id,
-            "new_session_id": request.target_session_id
-        }
+            return {
+                "message": "Document linked successfully",
+                "document_id": request.document_id,
+                "new_session_id": request.target_session_id
+            }
     finally:
         await conn.close()
 
@@ -1194,56 +1230,57 @@ async def delete_session(session_id: int, user: AuthorizedUser):
     """
     conn = await get_db_connection()
     try:
-        # Check if session exists
-        session = await conn.fetchrow(
-            "SELECT * FROM governance_sessions WHERE id = $1",
-            session_id
-        )
+        async with conn.transaction():
+            # Check if session exists
+            session = await conn.fetchrow(
+                "SELECT * FROM governance_sessions WHERE id = $1",
+                session_id
+            )
         
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
         
-        # Check authorization - user must be creator or super_admin
-        is_creator = session['created_by'] == user.sub
-        is_admin = await check_user_has_role(user.sub, "super_admin")
+            # Check authorization - user must be creator or super_admin
+            is_creator = session['created_by'] == user.sub
+            is_admin = await check_user_has_role(user.sub, "super_admin")
         
-        if not is_creator and not is_admin:
-            raise HTTPException(status_code=403, detail="Only the creator or admin can delete this session")
+            if not is_creator and not is_admin:
+                raise HTTPException(status_code=403, detail="Only the creator or admin can delete this session")
         
-        # Cascade delete all related data
-        # Delete votes first
-        await conn.execute(
-            "DELETE FROM governance_votes WHERE session_id = $1",
-            session_id
-        )
+            # Cascade delete all related data
+            # Delete votes first
+            await conn.execute(
+                "DELETE FROM governance_votes WHERE session_id = $1",
+                session_id
+            )
         
-        # Delete document approvals
-        await conn.execute(
-            """DELETE FROM governance_approvals 
-               WHERE approval_type = 'minutes' 
-               AND item_id IN (SELECT id FROM governance_documents WHERE session_id = $1)""",
-            session_id
-        )
+            # Delete document approvals
+            await conn.execute(
+                """DELETE FROM governance_approvals
+                   WHERE approval_type = 'minutes'
+                   AND item_id IN (SELECT id FROM governance_documents WHERE session_id = $1)""",
+                session_id
+            )
         
-        # Delete documents
-        await conn.execute(
-            "DELETE FROM governance_documents WHERE session_id = $1",
-            session_id
-        )
+            # Delete documents
+            await conn.execute(
+                "DELETE FROM governance_documents WHERE session_id = $1",
+                session_id
+            )
         
-        # Delete voting items
-        await conn.execute(
-            "DELETE FROM governance_items WHERE session_id = $1",
-            session_id
-        )
+            # Delete voting items
+            await conn.execute(
+                "DELETE FROM governance_items WHERE session_id = $1",
+                session_id
+            )
         
-        # Delete the session
-        await conn.execute(
-            "DELETE FROM governance_sessions WHERE id = $1",
-            session_id
-        )
+            # Delete the session
+            await conn.execute(
+                "DELETE FROM governance_sessions WHERE id = $1",
+                session_id
+            )
         
-        return {"message": "Session and all related data deleted successfully"}
+            return {"message": "Session and all related data deleted successfully"}
     finally:
         await conn.close()
 

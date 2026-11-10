@@ -1,7 +1,7 @@
 
 
 """Data models for share subscription system"""
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 from typing import Optional, Literal
 from datetime import datetime, date
 from decimal import Decimal
@@ -18,6 +18,13 @@ class SubscriptionRequest(BaseModel):
     installment_plan: Optional[Literal["3-months", "6-months", "12-months"]] = None
     purchase_currency: Optional[str] = "ZAR"  # The live Class B offer is priced in rand.
     tracking_token: Optional[str] = None  # Token from investor invitation for lead tracking
+    idempotency_key: Optional[str] = Field(default=None,min_length=16,max_length=128,pattern=r'^[a-zA-Z0-9_-]+$')
+
+    @model_validator(mode='after')
+    def require_schedule(self):
+        if self.payment_method=='installment' and not self.installment_plan:
+            raise ValueError('Choose an instalment schedule.')
+        return self
     
     @field_validator('num_shares')
     @classmethod
@@ -49,6 +56,8 @@ class SubscriptionResponse(BaseModel):
     monthly_payment: Optional[Decimal]
     status: str
     created_at: datetime
+    email_status: str = 'queued'
+    documents_status: str = 'pending_payment'
 
 
 class SubscriptionStatus(BaseModel):
