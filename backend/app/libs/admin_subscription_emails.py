@@ -1,5 +1,8 @@
 """Email utilities for admin-created subscriptions."""
 
+from html import escape
+from urllib.parse import urlencode
+
 import asyncpg
 from datetime import datetime
 from app.libs.email_queue import enqueue_email
@@ -15,7 +18,8 @@ async def send_subscription_created_email(
     num_shares: int,
     total_amount: float,
     is_new_user: bool,
-    created_by_admin_id: str
+    created_by_admin_id: str,
+    tracking_token: str | None = None
 ) -> None:
     """
     Send email when admin creates a subscription on behalf of an investor.
@@ -34,6 +38,8 @@ async def send_subscription_created_email(
     from app.libs.email_templates import build_email_template, BRAND_PURPLE, BRAND_PINK
     
     app_url = get_frontend_base_url()
+    full_name = escape(full_name)
+    share_class = escape(share_class)
     
     # Build email subject
     subject = "Share Subscription Created - Citizen Bank"
@@ -95,10 +101,14 @@ async def send_subscription_created_email(
         <p style="margin-top: 25px; font-size: 15px; color: #666; line-height: 1.7;">Once you complete your registration, you'll have full access to track your investment, view documents, and manage your shareholding.</p>
         """
         
+        if tracking_token:
+            invitation_url = f'{app_url}/share-subscription?' + urlencode({'invite': tracking_token})
+            main_content += f'<p><a href="{escape(invitation_url)}">View your investor invitation</a></p>'
+
         cta_section = {
             'title': 'Start Your Investment Journey',
             'button_text': '✓ Complete Registration',
-            'button_url': app_url
+            'button_url': f'{app_url}/auth/sign-up?' + urlencode({'next':'/my-subscriptions'})
         }
         
         body_html = build_email_template(
@@ -166,7 +176,7 @@ async def send_subscription_created_email(
             footer_extra='Questions? <a href="' + app_url + '/support" style="color: white; text-decoration: underline;">Contact our support team</a>'
         )
     
-    # Queue email for sending
+    # The recipient signs in with the same address used on the subscription.
     await enqueue_email(
         recipient_email=email,
         recipient_name=full_name,

@@ -106,42 +106,21 @@ async def create_investor_invitation(
     num_shares: int,
     total_amount: float,
     invited_by: str
-) -> int:
-    """Create an investor invitation for a new user with subscription context."""
-    # Generate verification code
-    verification_code = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-    
-    # Calculate expiry (30 days from now)
-    expires_at = datetime.now() + timedelta(days=30)
-    
-    # Use email as name if no name provided
-    display_name = full_name or email.split('@')[0]
-    
-    # Create custom message mentioning share allocation
-    personalized_message = f"""
-Your share allocation has been reserved:
-- Share Class: {share_class}
-- Number of Shares: {num_shares:,}
-- Total Investment: LSL {total_amount:,.2f}
-
-Please complete your registration to activate your investment.
-    """.strip()
-    
-    # Insert invitation
+) -> tuple[int, str]:
+    """Create the invitation in the same register used by the investment portal."""
+    tracking_token = secrets.token_urlsafe(32)
     invitation = await conn.fetchrow(
-        """
-        INSERT INTO board_member_invitations (
-            email, full_name, role, invited_by,
-            verification_code, expires_at, message
-        )
-        VALUES ($1, $2, 'investor', $3, $4, $5, $6)
-        RETURNING id
-        """,
-        email, display_name, invited_by,
-        verification_code, expires_at, personalized_message
+        """INSERT INTO invitations
+           (email,full_name,role,invitation_type,token,tracking_token,status,invited_by,
+            invited_by_name,share_class_offered,minimum_investment,expires_at,message)
+           VALUES($1,$2,'investor','investor',gen_random_uuid(),$3,'pending',$4,
+                  'Investment Team',$5,$6,now()+interval '30 days',$7)
+           RETURNING id""",
+        email, full_name or email.split('@')[0], tracking_token, invited_by,
+        share_class, total_amount,
+        f"An administrator created an unpaid subscription for {num_shares:,} shares.",
     )
-    
-    return invitation['id']
+    return invitation['id'], tracking_token
 
 
 def sanitize_storage_key(key: str) -> str:
@@ -245,10 +224,11 @@ async def create_subscription_on_behalf(
         user_existed = existing_user_id is not None
         invitation_created = False
         invitation_id = None
+        tracking_token = None
         
         # If user doesn't exist, create invitation first
         if not existing_user_id:
-            invitation_id = await create_investor_invitation(
+            invitation_id, tracking_token = await create_investor_invitation(
                 conn,
                 body.email,
                 body.full_name,
@@ -312,7 +292,8 @@ async def create_subscription_on_behalf(
         # Queue confirmation atomically with the record. Sending occurs after commit.
         await send_subscription_created_email(conn=conn,email=body.email,full_name=body.full_name,
             subscription_id=subscription_id,share_class=body.share_class,num_shares=body.num_shares,
-            total_amount=total_amount,is_new_user=invitation_created,created_by_admin_id=user.sub)
+            total_amount=total_amount,is_new_user=invitation_created,created_by_admin_id=user.sub,
+            tracking_token=tracking_token)
         await transaction.commit()
         committed=True
         notification_queued=True

@@ -96,6 +96,25 @@ async def test_admin_subscription_replay_and_real_upload(workflow_db, monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_admin_subscription_for_unregistered_investor_uses_live_invitation_register(workflow_db,monkeypatch):
+    from app.apis import admin_subscriptions as api
+    conn=workflow_db
+    async def connect(): return conn
+    monkeypatch.setattr(api,'get_db_connection',connect)
+    monkeypatch.setattr(api,'check_admin_access',AsyncMock(return_value=True))
+    body=api.CreateSubscriptionRequest(full_name='Unregistered Test',email='unregistered-workflow@example.com',
+        phone='12345678',id_number='WORKFLOW-NEW',share_class='Class B',num_shares=1000,
+        payment_method='bank_transfer',idempotency_key='admin-new-investor-regression')
+    saved=await api.create_subscription_on_behalf(body,user())
+    assert saved.invitation_created and not saved.user_existed
+    invite=await conn.fetchrow('SELECT invitation_type,tracking_token FROM invitations WHERE id=$1',saved.invitation_id)
+    assert invite['invitation_type']=='investor'
+    email=await conn.fetchval('SELECT body_html FROM email_queue WHERE dedupe_key=$1',f'subscription:{saved.subscription_id}:created')
+    assert invite['tracking_token'] in email
+    assert '/my-subscriptions' in email or '%2Fmy-subscriptions' in email
+
+
+@pytest.mark.asyncio
 async def test_board_cursor_meeting_save_and_email_replay(workflow_db, monkeypatch):
     from app.apis import board_meetings as api
     from app.libs.board_cursor import BoardConnection
