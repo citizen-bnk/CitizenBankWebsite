@@ -25,7 +25,8 @@ class ReceiptGenerator:
         payment_date: datetime,
         num_shares: int,
         total_subscription: Decimal,
-        amount_paid_to_date: Decimal
+        amount_paid_to_date: Decimal,
+        currency: str = "LSL"
     ) -> bytes:
         """
         Generate a payment receipt PDF
@@ -111,7 +112,7 @@ class ReceiptGenerator:
         
         c.setFont('Helvetica-Bold', 24)
         c.setFillColor(colors.HexColor('#059669'))
-        c.drawString(80, y_position - 55, f'M {payment_amount:,.2f}')
+        c.drawString(80, y_position - 55, f'{currency} {payment_amount:,.2f}')
         
         # Payment details
         c.setFont('Helvetica', 10)
@@ -134,18 +135,18 @@ class ReceiptGenerator:
         
         # Summary table
         c.drawString(80, y_position, 'Total Subscription Amount:')
-        c.drawRightString(self.width - 80, y_position, f'M {total_subscription:,.2f}')
+        c.drawRightString(self.width - 80, y_position, f'{currency} {total_subscription:,.2f}')
         
         y_position -= 20
         c.drawString(80, y_position, 'Amount Paid to Date:')
-        c.drawRightString(self.width - 80, y_position, f'M {amount_paid_to_date:,.2f}')
+        c.drawRightString(self.width - 80, y_position, f'{currency} {amount_paid_to_date:,.2f}')
         
         y_position -= 20
         c.setFont('Helvetica-Bold', 10)
         remaining = total_subscription - amount_paid_to_date
         c.drawString(80, y_position, 'Outstanding Balance:')
         c.setFillColor(colors.HexColor('#dc2626') if remaining > 0 else colors.HexColor('#059669'))
-        c.drawRightString(self.width - 80, y_position, f'M {remaining:,.2f}')
+        c.drawRightString(self.width - 80, y_position, f'{currency} {remaining:,.2f}')
         
         # Payment status
         y_position -= 30
@@ -189,7 +190,8 @@ def generate_receipt(
     payment_date: datetime,
     num_shares: int,
     total_subscription: Decimal,
-    amount_paid_to_date: Decimal
+    amount_paid_to_date: Decimal,
+    currency: str = "LSL"
 ) -> bytes:
     """
     Convenience function to generate a payment receipt
@@ -218,5 +220,6 @@ def generate_receipt(
         payment_date=payment_date,
         num_shares=num_shares,
         total_subscription=total_subscription,
-        amount_paid_to_date=amount_paid_to_date
+        amount_paid_to_date=amount_paid_to_date,
+        currency=currency
     )

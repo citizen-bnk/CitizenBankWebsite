@@ -350,7 +350,8 @@ def create_payment_receipt_email(
     payment_amount: float,
     payment_method: str,
     payment_date: str,
-    subscription_details: str
+    subscription_details: str,
+    currency: str = "LSL"
 ) -> str:
     """Create payment receipt email."""
     
@@ -365,7 +366,7 @@ def create_payment_receipt_email(
         </tr>
         <tr>
             <td>Amount Paid:</td>
-            <td>M {payment_amount:,.2f}</td>
+            <td>{currency} {payment_amount:,.2f}</td>
         </tr>
         <tr>
             <td>Payment Method:</td>

@@ -37,6 +37,12 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
             detail="Only super admins and back office staff can record payments",
         )
 
+    return await record_confirmed_payment(payment, user)
+
+
+async def record_confirmed_payment(payment: PaymentRecord, user: AuthorizedUser, *,
+                                   admin_created_only: bool = False, notes: str | None = None) -> PaymentResponse:
+    """Persist a confirmed payment after the calling route has authorised the operator."""
     if payment.amount <= 0:
         raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
 
@@ -46,7 +52,7 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
         async with conn.transaction():
             subscription = await conn.fetchrow("""
                 SELECT id, subscription_id, user_id, full_name, email, num_shares,
-                       total_amount, amount_paid, status
+                       total_amount, amount_paid, status, created_by_admin, share_class, purchase_currency
                 FROM share_subscriptions
                 WHERE subscription_id = $1
                 FOR UPDATE
@@ -54,6 +60,9 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
 
             if not subscription:
                 raise HTTPException(status_code=404, detail="Subscription not found")
+
+            if admin_created_only and not subscription['created_by_admin']:
+                raise HTTPException(400, 'This action is only for subscriptions created by an administrator.')
 
             if subscription['status'] == 'completed':
                 raise HTTPException(status_code=400, detail="Subscription already completed")
@@ -82,7 +91,9 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
                     detail=f"Payment exceeds the outstanding balance of {total_amount - current_paid}",
                 )
 
-            payment_date = payment.payment_date or datetime.now()
+            payment_date = payment.payment_date or datetime.now(timezone.utc)
+            if payment_date.tzinfo:
+                payment_date = payment_date.astimezone(timezone.utc).replace(tzinfo=None)
             payment_row = await conn.fetchrow("""
                 INSERT INTO subscription_payments (
                     subscription_id, payment_reference, amount, payment_method,
@@ -121,12 +132,14 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
                     "payment_reference": payment.payment_reference,
                     "amount_paid": str(new_total_paid),
                     "status": new_status,
+                    **({"notes": notes} if notes else {}),
                 }), user.sub)
 
         print(f"💰 Payment recorded: {payment.subscription_id} - M{payment.amount} - Status: {new_status}")
         
         # Generate receipt number
         receipt_number = f"RCP-{datetime.now().strftime('%Y%m%d')}-{payment_row['id']:06d}"
+        currency = "ZAR" if subscription.get("share_class") == "Class B" else (subscription.get("purchase_currency") or "LSL")
         documents_generated: list[str] = []
         document_issues: list[str] = []
         
@@ -139,10 +152,11 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
                 shareholder_name=subscription['full_name'],
                 payment_amount=payment.amount,
                 payment_reference=payment.payment_reference,
-                payment_date=payment_date.strftime('%d %B %Y'),
+                payment_date=payment_date,
                 num_shares=subscription['num_shares'],
                 total_subscription=total_amount,
-                amount_paid_to_date=new_total_paid
+                amount_paid_to_date=new_total_paid,
+                currency=currency,
             )
             
             # Store receipt in storage
@@ -171,7 +185,8 @@ async def payments_record_payment(payment: PaymentRecord, user: AuthorizedUser) 
                         payment_amount=float(payment.amount),
                         payment_method=payment.payment_method.upper() if hasattr(payment, 'payment_method') else 'BANK TRANSFER',
                         payment_date=payment_date.strftime('%d %B %Y'),
-                        subscription_details=f"{subscription['num_shares']} shares"
+                        subscription_details=f"{subscription['num_shares']} shares",
+                        currency=currency
                     ),
                     recipient_id=subscription['user_id'],
                     created_by='system',

@@ -15,7 +15,6 @@ from app.libs.rbac import check_user_has_role
 from app.env import Mode, mode
 from app.libs.admin_subscription_emails import (
     send_subscription_created_email,
-    send_payment_confirmed_email,
 )
 from app.libs.profile_completion_reminders import schedule_profile_completion_reminder
 from app.libs.share_promotions import active_promotion, effective_price
@@ -257,7 +256,7 @@ async def create_subscription_on_behalf(
                 payment_method, share_class, status,
                 subscriber_type, user_id, payment_status,
                 created_by_admin, admin_user_id, admin_notes,
-                invitation_id, price_per_share, promotion_id, idempotency_key, request_fingerprint, submission_actor, installment_plan
+                invitation_id, price_per_share, promotion_id, idempotency_key, request_fingerprint, submission_actor, installment_plan, purchase_currency, purchase_exchange_rate, amount_in_purchase_currency
             )
             VALUES (
                 $1, $2, $3, $4, $5,
@@ -265,7 +264,7 @@ async def create_subscription_on_behalf(
                 $8, $9, 'pending',
                 'public', $10, 'pending',
                 true, $11, $12,
-                $13, $14, $15, $16, $17, $18, $19
+                $13, $14, $15, $16, $17, $18, $19, 'ZAR', 1, $7
             )
             RETURNING id
             """,
@@ -494,55 +493,56 @@ async def update_payment_status(
     
     conn = await get_db_connection()
     try:
-        # Verify subscription exists and was created by admin
-        subscription = await conn.fetchrow(
-            "SELECT id, created_by_admin, payment_status FROM share_subscriptions WHERE subscription_id = $1",
-            subscription_id
-        )
-        
-        if not subscription:
-            raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        if not subscription['created_by_admin']:
-            raise HTTPException(
-                status_code=400,
-                detail="This endpoint is only for admin-created subscriptions"
+        async with conn.transaction():
+            # Verify subscription exists and was created by admin
+            subscription = await conn.fetchrow(
+                "SELECT id, created_by_admin, payment_status FROM share_subscriptions WHERE subscription_id = $1 FOR UPDATE",
+                subscription_id
             )
-        
-        # Update payment status
-        await conn.execute(
-            """
-            UPDATE share_subscriptions
-            SET payment_status = $1,
-                updated_at = NOW()
-            WHERE subscription_id = $2
-            """,
-            body.payment_status,
-            subscription_id
-        )
-        
-        # Log audit trail
-        changes = {"from": subscription['payment_status'], "to": body.payment_status}
-        if body.notes:
-            changes["notes"] = body.notes
-        
-        await conn.execute(
-            """
-            INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes)
-            VALUES ($1, 'update_payment_status', 'subscription', $2, $3)
-            """,
-            user.sub,
-            subscription_id,
-            f"Payment status updated: {subscription['payment_status']} → {body.payment_status}" + (f" ({body.notes})" if body.notes else "")
-        )
-        
-        return {
-            "success": True,
-            "message": f"Payment status updated to {body.payment_status}",
-            "subscription_id": subscription_id,
-            "payment_status": body.payment_status
-        }
-        
+
+            if not subscription:
+                raise HTTPException(status_code=404, detail="Subscription not found")
+
+            if not subscription['created_by_admin']:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This endpoint is only for admin-created subscriptions"
+                )
+
+            # Update payment status
+            await conn.execute(
+                """
+                UPDATE share_subscriptions
+                SET payment_status = $1,
+                    updated_at = NOW()
+                WHERE subscription_id = $2
+                """,
+                body.payment_status,
+                subscription_id
+            )
+
+            # Log audit trail
+            changes = {"from": subscription['payment_status'], "to": body.payment_status}
+            if body.notes:
+                changes["notes"] = body.notes
+
+            await conn.execute(
+                """
+                INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes)
+                VALUES ($1, 'update_payment_status', 'subscription', $2, $3)
+                """,
+                user.sub,
+                subscription_id,
+                f"Payment status updated: {subscription['payment_status']} → {body.payment_status}" + (f" ({body.notes})" if body.notes else "")
+            )
+
+            return {
+                "success": True,
+                "message": f"Payment status updated to {body.payment_status}",
+                "subscription_id": subscription_id,
+                "payment_status": body.payment_status
+            }
+
     finally:
         await conn.close()
 
@@ -553,151 +553,36 @@ async def record_payment(
     body: RecordPaymentRequest,
     user: AuthorizedUser
 ):
-    """
-    Record a payment made by admin on behalf of a subscriber.
-    Updates amount_paid and creates payment history entry.
-    
-    Requires: super_admin or admin role
-    """
-    # Log the request for debugging
-    print(f"🔍 record_payment called for subscription: {subscription_id}")
-    print(f"📦 Request body: amount={body.amount}, payment_reference={body.payment_reference!r}, payment_date={body.payment_date!r}, notes={body.notes!r}")
-    
-    # Check admin access
+    """Record a confirmed payment and use the shared receipt and certificate workflow."""
     if not await check_admin_access(user.sub):
-        raise HTTPException(
-            status_code=403,
-            detail="Only super admins and admins can record payments"
-        )
-    
-    if body.amount <= 0:
-        raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
-    
-    conn = await get_db_connection()
+        raise HTTPException(403, "Only super admins and admins can record payments.")
+    reference = (body.payment_reference or '').strip()
+    if not reference:
+        raise HTTPException(422, "Enter the bank or payment reference before saving.")
     try:
-        print("✅ Database connection established")
-        
-        # Get subscription
-        subscription = await conn.fetchrow(
-            """
-            SELECT id, created_by_admin, amount_paid, total_amount, email, full_name, share_class, num_shares
-            FROM share_subscriptions
-            WHERE subscription_id = $1
-            """,
-            subscription_id
-        )
-        print(f"📋 Subscription query result: {subscription}")
-        
-        if not subscription:
-            print("❌ Subscription not found")
-            raise HTTPException(status_code=404, detail="Subscription not found")
-        
-        print(f"✅ Subscription found: id={subscription['id']}, created_by_admin={subscription['created_by_admin']}")
-        
-        if not subscription['created_by_admin']:
-            print("❌ Not an admin-created subscription")
-            raise HTTPException(
-                status_code=400,
-                detail="This endpoint is only for admin-created subscriptions"
-            )
-        
-        # Calculate new amount paid
-        current_paid = float(subscription['amount_paid'])
-        new_paid = current_paid + body.amount
-        total_amount = float(subscription['total_amount'])
-        outstanding = total_amount - current_paid
-        
-        print(f"💰 Payment calculation: current={current_paid}, new={new_paid}, total={total_amount}, outstanding={outstanding}")
-        
-        # Validate against overpayment
-        if body.amount > outstanding:
-            print(f"❌ Overpayment detected: {body.amount} > {outstanding}")
-            raise HTTPException(
-                status_code=400,
-                detail=f"Payment amount (LSL {body.amount:,.2f}) exceeds outstanding balance (LSL {outstanding:,.2f}). Outstanding: LSL {outstanding:,.2f}"
-            )
-        
-        print("✅ Validation passed, updating subscription...")
-        
-        # Determine new payment status
-        if new_paid >= total_amount:
-            new_status = "paid"
-        else:
-            new_status = "verified"  # Partial payment is marked as verified
-        
-        # Update subscription
-        await conn.execute(
-            """
-            UPDATE share_subscriptions
-            SET amount_paid = $1,
-                payment_status = $2,
-                updated_at = NOW()
-            WHERE subscription_id = $3
-            """,
-            new_paid,
-            new_status,
-            subscription_id
-        )
-        
-        # Create payment history record (if table exists)
-        try:
-            payment_date = datetime.fromisoformat(body.payment_date) if body.payment_date else datetime.now()
-            
-            await conn.execute(
-                """
-                INSERT INTO subscription_payments (
-                    subscription_id, payment_reference, amount,
-                    payment_method, payment_date, status,
-                    verified_by, verified_at, notes
-                )
-                VALUES ($1, $2, $3, 'admin_payment', $4, 'verified', $5, NOW(), $6)
-                """,
-                subscription['id'],
-                body.payment_reference or f"ADMIN-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                body.amount,
-                payment_date,
-                user.sub,
-                body.notes
-            )
-        except Exception as e:
-            print(f"⚠️ Could not create payment history: {e}")
-        
-        # Log audit trail
-        await conn.execute(
-            """
-            INSERT INTO audit_logs (user_id, action, entity_type, entity_id, changes)
-            VALUES ($1, 'record_payment', 'subscription', $2, $3)
-            """,
-            user.sub,
-            subscription_id,
-            f"Payment recorded: LSL {body.amount:,.2f} (Total paid: LSL {new_paid:,.2f} / LSL {total_amount:,.2f})" + (f" - {body.notes}" if body.notes else "")
-        )
-        
-        # Send payment confirmation email if payment is completed
-        if new_status == "paid":
-            await send_payment_confirmed_email(
-                conn=conn,
-                email=subscription['email'],
-                full_name=subscription['full_name'],
-                subscription_id=subscription_id,
-                share_class=subscription['share_class'],
-                num_shares=subscription['num_shares'],
-                amount_paid=new_paid,
-                created_by_admin_id=user.sub
-            )
-        
-        return {
-            "success": True,
-            "message": "Payment recorded successfully",
-            "subscription_id": subscription_id,
-            "amount_paid": new_paid,
-            "total_amount": total_amount,
-            "remaining": max(0, total_amount - new_paid),
-            "payment_status": new_status
-        }
-        
-    finally:
-        await conn.close()
+        paid_at = datetime.fromisoformat(body.payment_date) if body.payment_date else None
+    except ValueError:
+        raise HTTPException(422, "Enter a valid payment date.") from None
+
+    from app.apis.subscriptions_payments import record_confirmed_payment
+    from app.libs.subscription_models import PaymentRecord
+
+    result = await record_confirmed_payment(
+        PaymentRecord(subscription_id=subscription_id, amount=body.amount,
+                      payment_reference=reference, payment_date=paid_at),
+        user, admin_created_only=True, notes=body.notes,
+    )
+    return {
+        "success": True,
+        "message": "Payment recorded.",
+        "subscription_id": result.subscription_id,
+        "amount_paid": result.total_paid,
+        "total_amount": result.total_paid + result.amount_remaining,
+        "remaining": result.amount_remaining,
+        "payment_status": "paid" if result.status == "completed" else result.status,
+        "documents_generated": result.documents_generated,
+        "document_issues": result.document_issues,
+    }
 
 
 @router.post("/add-payment-notes/{subscription_id}")

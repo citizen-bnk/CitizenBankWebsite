@@ -184,7 +184,7 @@ export default function BackOfficeAdminSubscriptions() {
 
     setProcessing(true);
     try {
-      await checkedResponse(apiClient.record_payment(
+      const response = await checkedResponse(apiClient.record_payment(
         { subscriptionId: selectedSubscription.subscription_id },
         {
           amount: amount,
@@ -192,7 +192,12 @@ export default function BackOfficeAdminSubscriptions() {
           notes: paymentNotes || undefined
         }
       ));
-      toast.success('Payment recorded successfully');
+      const result = await response.json();
+      if (result.document_issues?.length) {
+        toast.warning('Payment saved. Some documents or emails are pending. Open the saved subscription to review.');
+      } else {
+        toast.success('Payment recorded successfully');
+      }
       setPaymentDialogOpen(false);
       resetPaymentForm();
       await loadSubscriptions();
@@ -214,7 +219,7 @@ export default function BackOfficeAdminSubscriptions() {
     try {
       await checkedResponse(apiClient.update_payment_status(
         { subscriptionId: selectedSubscription.subscription_id },
-        { status: newPaymentStatus }
+        { payment_status: newPaymentStatus }
       ));
       toast.success('Payment status updated successfully');
       setPaymentStatusDialogOpen(false);
@@ -729,7 +734,7 @@ export default function BackOfficeAdminSubscriptions() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="payment-ref">Payment Reference</Label>
+                    <Label htmlFor="payment-ref">Payment Reference *</Label>
                     <Input
                       id="payment-ref"
                       placeholder="Transaction ID, check number, etc."

@@ -94,6 +94,25 @@ async def test_admin_subscription_replay_and_real_upload(workflow_db, monkeypatc
     assert stored[0][1] == b'%PDF-1.7 test'
     assert await conn.fetchval('SELECT payment_proof_path FROM share_subscriptions WHERE subscription_id=$1',first.subscription_id) == stored[0][0]
 
+    from app.apis import subscriptions_payments as payments
+    @asynccontextmanager
+    async def payment_database():
+        yield conn
+    monkeypatch.setattr(payments,'db_connection',payment_database)
+    from app.libs.email_queue import enqueue_email
+    async def queue_on_rehearsal_connection(**kwargs):
+        return await enqueue_email(**kwargs,conn=conn)
+    monkeypatch.setattr(payments,'enqueue_email',queue_on_rehearsal_connection)
+    payment=api.RecordPaymentRequest(amount=100,payment_reference='BANK-TEST-001',notes='Verified in rehearsal')
+    recorded=await api.record_payment(first.subscription_id,payment,user())
+    assert recorded['success'] and recorded['documents_generated']==['receipt']
+    assert stored[-1][1].startswith(b'%PDF-')
+    receipt=await conn.fetchval('SELECT receipt_url FROM subscription_payments WHERE payment_reference=$1','BANK-TEST-001')
+    assert receipt==stored[-1][0]
+    with pytest.raises(HTTPException) as duplicate:
+        await api.record_payment(first.subscription_id,payment,user())
+    assert duplicate.value.status_code==409
+
 
 @pytest.mark.asyncio
 async def test_admin_subscription_for_unregistered_investor_uses_live_invitation_register(workflow_db,monkeypatch):
