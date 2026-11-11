@@ -46,14 +46,14 @@ export default function InviteAcceptance() {
   const [message,setMessage]=useState('');
   const [next,setNext]=useState('');
   const [visible,setVisible]=useState(false);
-  const [profile,setProfile]=useState({full_name:'',phone:'',country:''});
+  const [profile,setProfile]=useState({full_name:'',phone:''});
 
   async function load() {
     setError('');setBusy(true);
     try {
       if(setup) {
         const data=await onboardingRequest({action:'setup_details',code:setup});
-        setProfile({full_name:data.profile.full_name||'',phone:data.profile.phone||'',country:data.profile.country||''});
+        setProfile({full_name:data.profile.full_name||'',phone:data.profile.phone||''});
       } else if(token) {
         setInvitation(await onboardingRequest({action:'inspect',token}));
       } else {throw new Error('Open the complete invitation or setup link from your email.');}
@@ -89,7 +89,7 @@ export default function InviteAcceptance() {
             finally{setBusy(false);}
           }}>
             <p className="text-sm text-gray-600">Your basic profile</p>
-            {(['full_name','phone','country'] as const).map(field=><div className="space-y-2" key={field}><Label htmlFor={field}>{field==='full_name'?'Full name':field==='phone'?'Mobile number':'Country'}</Label><Input id={field} required value={profile[field]} onChange={e=>setProfile(current=>({...current,[field]:e.target.value}))} placeholder={field==='full_name'?'Thabo Mokoena':field==='phone'?'+266 5000 0000':'Lesotho'} autoComplete={field==='full_name'?'name':field==='phone'?'tel':'country-name'}/></div>)}
+            {(['full_name','phone'] as const).map(field=><div className="space-y-2" key={field}><Label htmlFor={field}>{field==='full_name'?'Full name':'Mobile number'}</Label><Input id={field} required value={profile[field]} onChange={e=>setProfile(current=>({...current,[field]:e.target.value}))} placeholder={field==='full_name'?'Thabo Mokoena':'+266 5000 0000'} autoComplete={field==='full_name'?'name':'tel'}/></div>)}
             <div className="space-y-2"><Label htmlFor="setup-password">Password</Label><div className="flex gap-3"><Input id="setup-password" name="password" required minLength={12} maxLength={128} type={visible?'text':'password'} autoComplete="new-password" placeholder="At least 12 characters"/><Button type="button" variant="outline" aria-label={visible?'Hide password':'Show password'} onClick={()=>setVisible(!visible)}>{visible?<EyeOff/>:<Eye/>}</Button></div></div>
             <Button disabled={busy}>{busy?'Saving…':'Save password and basic profile'}</Button>
           </form>:

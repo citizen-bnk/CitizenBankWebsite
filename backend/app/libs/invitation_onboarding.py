@@ -26,7 +26,6 @@ class AccountSetup(BaseModel):
     password: str = Field(min_length=12,max_length=128)
     full_name: str = Field(min_length=2,max_length=150)
     phone: str = Field(min_length=5,max_length=30)
-    country: str = Field(min_length=2,max_length=100)
 
 
 def identity_headers():
@@ -88,11 +87,27 @@ async def queue_setup(invitation):
             created_by='invitation_onboarding',conn=conn,dedupe_key='invitation-setup:'+str(ticket),priority='high')
 
 
+async def grant_invited_role(conn,row,subject,name,position):
+    await conn.execute('''INSERT INTO user_roles(user_id,role_id,assigned_by)
+        SELECT $1,id,$2 FROM roles WHERE role_name=$3 ON CONFLICT DO NOTHING''',subject,row['invited_by'],row['role'])
+    if position:
+        code=position['position_code'] or position['position_name']
+        member=await conn.fetchrow("""INSERT INTO board_members(user_id,email,full_name,position,status,
+            appointed_date,term_end_date,term_years,appointed_by)
+            VALUES($1,$2,$3,$4,'active',CURRENT_DATE,(CURRENT_DATE+interval '3 years')::date,3,$5)
+            ON CONFLICT(user_id) DO UPDATE SET full_name=EXCLUDED.full_name RETURNING id""",
+            subject,row['email'],name,code,row['invited_by'])
+        exists=await conn.fetchval('SELECT EXISTS(SELECT 1 FROM board_member_positions WHERE board_member_id=$1 AND is_current)',member['id'])
+        if not exists:
+            await conn.execute("""INSERT INTO board_member_positions(board_member_id,position_id,appointed_at,appointed_by,is_current)
+                VALUES($1,$2,now(),$3,true)""",member['id'],position['id'],row['invited_by'])
+
+
 async def complete_account(data):
     try:
         form=AccountSetup.model_validate(data)
     except ValidationError:
-        raise HTTPException(422,'Enter your name, phone, country and a password of at least 12 characters.') from None
+        raise HTTPException(422,'Enter your name, mobile number and a password of at least 12 characters.') from None
     digest=hashlib.sha256(form.code.encode()).hexdigest()
     async with db_transaction() as conn:
         row=await conn.fetchrow("""SELECT s.*,i.email,i.full_name,i.role,i.status,i.invited_by,i.position,i.accepted_by
@@ -118,24 +133,12 @@ async def complete_account(data):
             if not response.is_success:
                 raise HTTPException(503,'The password update could not be confirmed. Try signing in first, or request a new setup link.')
         await ensure_basic_profile(conn,subject,row['email'],form.full_name)
-        await conn.execute("""UPDATE user_profiles SET full_name=$1,phone=$2,country=$3,email_verified=true,
-            version=version+1,updated_at=now() WHERE user_id=$4""",form.full_name.strip(),form.phone.strip(),form.country.strip(),subject)
+        await conn.execute("""UPDATE user_profiles SET full_name=$1,phone=$2,email_verified=true,
+            version=version+1,updated_at=now() WHERE user_id=$3""",form.full_name.strip(),form.phone.strip(),subject)
         await conn.execute("""UPDATE investor_profiles SET contact_phone=$1,version=version+1,updated_at=now()
             WHERE provider_subject=$2""",form.phone.strip(),subject)
         if first_setup:
-            await conn.execute("""INSERT INTO user_roles(user_id,role_id,assigned_by)
-                SELECT $1,id,$2 FROM roles WHERE role_name=$3 ON CONFLICT DO NOTHING""",subject,row['invited_by'],row['role'])
-        if position:
-            code=position['position_code'] or position['position_name']
-            member=await conn.fetchrow("""INSERT INTO board_members(user_id,email,full_name,position,status,
-                appointed_date,term_end_date,term_years,appointed_by)
-                VALUES($1,$2,$3,$4,'active',CURRENT_DATE,(CURRENT_DATE+interval '3 years')::date,3,$5)
-                ON CONFLICT(user_id) DO UPDATE SET full_name=EXCLUDED.full_name RETURNING id""",
-                subject,row['email'],form.full_name.strip(),code,row['invited_by'])
-            exists=await conn.fetchval('SELECT EXISTS(SELECT 1 FROM board_member_positions WHERE board_member_id=$1 AND is_current)',member['id'])
-            if not exists:
-                await conn.execute("""INSERT INTO board_member_positions(board_member_id,position_id,appointed_at,appointed_by,is_current)
-                    VALUES($1,$2,now(),$3,true)""",member['id'],position['id'],row['invited_by'])
+            await grant_invited_role(conn,row,subject,form.full_name.strip(),position)
         from app.libs.platform_people import ensure_person
         person=await ensure_person(conn,subject)
         await conn.execute("""UPDATE platform.identity_mapping SET status='verified'
@@ -149,6 +152,28 @@ async def complete_account(data):
     return {'saved':True,'message':'Password and basic profile saved. Sign in to open your portal.',
             'next':'/auth/sign-in?next='+('/board-portal' if row['role']=='board_member' else '/my-subscriptions')}
 
+
+async def activate_verified_invitations(user,conn):
+    """Existing verified users can keep their password after accepting an invitation."""
+    if not user.email_verified or not user.email:
+        return
+    rows=await conn.fetch("""SELECT i.* FROM invitations i WHERE lower(trim(i.email))=$1
+        AND i.status='accepted' AND i.accepted_by IS NULL AND i.role IN ('investor','board_member')
+        AND EXISTS(SELECT 1 FROM platform.audit_log a WHERE a.action='invitation.accepted_before_signin'
+            AND a.target_type='invitation' AND a.target_id=i.id::text) FOR UPDATE OF i""",user.email.strip().lower())
+    for row in rows:
+        try:
+            position=await resolve_position(conn,row['position'] or 'member') if row['role']=='board_member' else None
+            if not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM roles WHERE role_name=$1)',row['role']):
+                continue
+        except HTTPException:
+            # Reference problems must not prevent ordinary banking sign-in.
+            continue
+        await ensure_basic_profile(conn,user.sub,user.email,user.name)
+        await grant_invited_role(conn,row,user.sub,user.name or row['full_name'] or user.email,position)
+        await conn.execute('UPDATE invitations SET accepted_by=$1 WHERE id=$2',user.sub,row['id'])
+        await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+            VALUES($1,'invitation.activated_by_verified_signin','invitation',$2,'{}'::jsonb)""",user.sub,str(row['id']))
 
 async def onboarding(request):
     origin=request.headers.get('origin','')
@@ -173,7 +198,7 @@ async def onboarding(request):
         code=str(data.get('code',''))
         if not 40<=len(code)<=90:raise HTTPException(422,'Invalid setup link.')
         async with db_connection() as conn:
-            row=await conn.fetchrow("""SELECT p.full_name,p.phone,p.country FROM invitation_account_setup s
+            row=await conn.fetchrow("""SELECT p.full_name,p.phone FROM invitation_account_setup s
                 JOIN invitations i ON i.id=s.invitation_id JOIN user_profiles p ON p.user_id=s.provider_subject
                 WHERE s.token_hash=$1 AND s.completed_at IS NULL AND s.expires_at>now() AND i.status='accepted'
                 AND s.recipient_email=lower(trim(i.email))""",

@@ -315,8 +315,28 @@ async def test_pending_invitation_recovery_and_email_binding(workflow_db,monkeyp
     await conn.execute("""INSERT INTO invitation_account_setup(invitation_id,token_hash,provider_subject,recipient_email,expires_at)
         VALUES($1,$2,$3,$4,now()+interval '1 hour')""",invite,hashlib.sha256(code.encode()).hexdigest(),subject,email)
     with pytest.raises(HTTPException) as changed:
-        await request({'action':'set_password','code':code,'password':'Long-test-password123','full_name':'Pending Test','phone':'12345678','country':'Lesotho'})
+        await request({'action':'set_password','code':code,'password':'Long-test-password123','full_name':'Pending Test','phone':'12345678'})
     assert changed.value.status_code==422
+
+
+@pytest.mark.asyncio
+async def test_verified_existing_user_accepts_without_changing_password(workflow_db):
+    from app.libs.invitation_onboarding import activate_verified_invitations
+    import uuid
+    conn=workflow_db
+    token=str(uuid.uuid4())
+    invite=await conn.fetchval("""INSERT INTO invitations(email,full_name,role,token,status,accepted_at,expires_at,invited_by)
+        VALUES($1,$2,'investor',$3,'accepted',now(),now()+interval '7 days',$4) RETURNING id""",user().email,user().name,token,user().sub)
+    await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+        VALUES('invitation_link','invitation.accepted_before_signin','invitation',$1,'{}'::jsonb)""",str(invite))
+    await activate_verified_invitations(SimpleNamespace(sub=user().sub,email=user().email,name=user().name,email_verified=False),conn)
+    assert not await conn.fetchval('SELECT accepted_by FROM invitations WHERE id=$1',invite)
+    await activate_verified_invitations(user(),conn)
+    assert await conn.fetchval('SELECT accepted_by FROM invitations WHERE id=$1',invite)==user().sub
+    assert await conn.fetchval("SELECT EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE user_id=$1 AND role_name='investor')",user().sub)
+    await conn.execute('DELETE FROM user_roles WHERE user_id=$1',user().sub)
+    await activate_verified_invitations(user(),conn)
+    assert not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1)',user().sub)
 
 
 
@@ -372,7 +392,7 @@ async def test_public_board_invitation_and_email_setup(workflow_db,monkeypatch):
         async def get(self,*_,**kwargs):return Result()
         async def patch(self,*_,**kwargs):patched.append(kwargs['json']);return Result()
     monkeypatch.setattr(api.httpx,'AsyncClient',lambda **_:Client())
-    form={'action':'set_password','code':code,'password':'A-long-test-password-123','full_name':'Invited Board Test','phone':'+266 5000 0000','country':'Lesotho'}
+    form={'action':'set_password','code':code,'password':'A-long-test-password-123','full_name':'Invited Board Test','phone':'+266 5000 0000'}
     assert (await request(form))['next'].endswith('/board-portal')
     assert patched[0]['primary_email_verified'] is True
     assert await conn.fetchval("SELECT EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE user_id=$1 AND role_name='board_member')",subject)

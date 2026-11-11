@@ -20,6 +20,8 @@ async def activate_imported_investor(user):
     if not user.email_verified or not user.email:
         return
     async with db_transaction() as conn:
+        from app.libs.invitation_onboarding import activate_verified_invitations
+        await activate_verified_invitations(user,conn)
         imported = await conn.fetchrow("""SELECT i.person_id,i.contact_email FROM investor_profiles i
             WHERE i.provider_subject=$1 AND i.contact_status='unique_email'
             AND i.activation_status='provisioned' FOR UPDATE""", user.sub)

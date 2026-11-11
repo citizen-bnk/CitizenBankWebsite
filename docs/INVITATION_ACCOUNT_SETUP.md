@@ -1,6 +1,6 @@
 # Invitation-first account setup
 
-Board and investor invitations can be reviewed and accepted without signing in. Acceptance alone grants no access. A private, one-use setup link is queued through the existing Core email service and expires after one hour. The recipient sets a password and completes only the basic profile: name, mobile number and country. Mailbox ownership must be established before new invited access is activated.
+Board and investor invitations can be reviewed and accepted without signing in. Acceptance alone grants no access. A private, one-use setup link is queued through the existing Core email service and expires after one hour. The recipient sets a password and completes only the basic profile: name and mobile number (email is already confirmed by the link). Mailbox ownership must be established before new invited access is activated. An existing verified account can sign in with its current password after accepting; a password change is optional.
 
 Recovery checks invitations: pending invitations receive an acceptance link; accepted invitations receive a setup link. Ordinary accounts retain identity-provider recovery. Recovery does not restore revoked roles. Expired, consumed, cancelled or recipient-changed links cannot alter credentials. The website and Hub recovery interfaces use this flow.
 
