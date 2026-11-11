@@ -40,6 +40,12 @@ async def hub_operations(request: Request):
     return await dispatch(request)
 
 
+@router.post("/invitation-onboarding")
+async def platform_invitation_onboarding(request: Request):
+    from app.libs.invitation_onboarding import onboarding
+    return await onboarding(request)
+
+
 # service id -> (display name, env var holding its base URL, audience for handoff, roles that may enter)
 SERVICES: dict[str, dict] = {
     "hub": {

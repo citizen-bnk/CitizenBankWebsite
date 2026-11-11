@@ -27,14 +27,27 @@ class InvestorUpdate(BaseModel):
 async def investor_update(data, actor):
     update = InvestorUpdate.model_validate(data)
     async with db_transaction() as conn:
-        result = await conn.fetchval("""UPDATE user_profiles p
-            SET phone=nullif($1,''),investment_purpose=nullif($2,''),version=version+1,updated_at=now()
-            WHERE p.user_id=$3 AND p.version=$4 AND EXISTS (
-                SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-                WHERE ur.user_id=p.user_id AND r.role_name IN ('investor','shareholder'))
-            RETURNING version""", update.phone.strip(), update.investment_purpose.strip(), update.user_id, update.version)
-        if not result:
-            raise HTTPException(409, 'The investor record changed or is no longer available. Reload before saving.')
+        imported = await conn.fetchrow("""SELECT * FROM investor_profiles
+            WHERE provider_subject=$1 OR person_id::text=$1 FOR UPDATE""", update.user_id)
+        if imported:
+            if imported['version'] != update.version:
+                raise HTTPException(409,'The investor profile changed. Reload before saving.')
+            await conn.execute("""UPDATE investor_profiles SET contact_phone=$1,investment_purpose=$2,
+                version=version+1,updated_at=now() WHERE person_id=$3""",
+                update.phone.strip(),update.investment_purpose.strip(),imported['person_id'])
+            if imported['provider_subject']:
+                await conn.execute("""UPDATE user_profiles SET phone=$1,investment_purpose=$2,
+                    version=version+1,updated_at=now() WHERE user_id=$3""",
+                    update.phone.strip(),update.investment_purpose.strip(),imported['provider_subject'])
+        else:
+            result = await conn.fetchval("""UPDATE user_profiles p
+                SET phone=nullif($1,''),investment_purpose=nullif($2,''),version=version+1,updated_at=now()
+                WHERE p.user_id=$3 AND p.version=$4 AND EXISTS (
+                    SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+                    WHERE ur.user_id=p.user_id AND r.role_name IN ('investor','shareholder'))
+                RETURNING version""", update.phone.strip(), update.investment_purpose.strip(), update.user_id, update.version)
+            if not result:
+                raise HTTPException(409, 'The investor record changed. Reload before saving.')
         await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
             VALUES($1,'investor.profile_updated','user',$2,'{"fields":["phone","investment_purpose"]}'::jsonb)""",
             actor.sub, update.user_id)
@@ -111,17 +124,22 @@ async def dispatch(request):
         actor = User(sub=subject,email=person['primary_email'],name=person['display_name'],email_verified=True)
 
         if operation == 'investment.list':
+            from app.libs.investor_portfolio import include_registered_investors
+            await include_registered_investors(conn)
             subscriptions = await conn.fetch('''SELECT subscription_id,full_name,email,num_shares,share_class,
                 total_amount,amount_paid,status,payment_status,created_by_admin
                 FROM share_subscriptions ORDER BY created_at DESC LIMIT 500''')
-            profiles = await conn.fetch('''SELECT DISTINCT p.user_id,p.full_name,p.email,p.phone,p.investment_purpose,p.version
-                FROM user_profiles p JOIN user_roles u ON u.user_id=p.user_id JOIN roles r ON r.id=u.role_id
-                WHERE r.role_name IN ('investor','shareholder') ORDER BY p.full_name LIMIT 500''')
+            profiles = await conn.fetch("""SELECT i.person_id::text,coalesce(i.provider_subject,i.person_id::text) AS user_id,
+                p.display_name AS full_name,i.contact_email AS email,i.contact_phone AS phone,i.investment_purpose,i.version,
+                i.contact_status,i.activation_status,i.entity_type
+                FROM investor_profiles i JOIN platform.person p ON p.id=i.person_id
+                ORDER BY p.display_name LIMIT 500""")
             offer = await conn.fetchrow('''SELECT price_per_share,min_shares,currency FROM share_classes
                 WHERE class_name='Class B' AND is_active LIMIT 1''')
             return {'subscriptions':[dict(row) for row in subscriptions],'investors':[dict(row) for row in profiles],'offer':dict(offer) if offer else None}
         if operation == 'cap_table.list':
-            records = await conn.fetch('''SELECT source_row,kind,holder,reference,quantity,source_status,
+            records = await conn.fetch('''SELECT source_id,source_sheet,source_row,kind,holder,reference,quantity,source_status,
+                review_note,units_under_review,
                 reconciliation_status,source_date FROM cap_table_working_records
                 ORDER BY kind,source_row''')
             return {'records':[dict(row) for row in records]}
@@ -146,6 +164,14 @@ async def dispatch(request):
             return {'candidates':[dict(row) for row in candidates]}
 
     try:
+        if operation == 'investment.provision':
+            from app.libs.investor_accounts import provision_investor
+            return await provision_investor(str(data.get('person_id','')),actor.sub)
+        if operation in ('investment.portfolio','investment.certificate'):
+            from app.libs.investor_portfolio import investor_portfolio, certificate_response
+            if operation.endswith('certificate'):
+                return await certificate_response(data,actor)
+            return await investor_portfolio(str(data.get('person_id','')))
         if operation == 'investment.subscribe':
             from app.apis.admin_subscriptions import CreateSubscriptionRequest,create_subscription_on_behalf
             return await create_subscription_on_behalf(CreateSubscriptionRequest.model_validate(data),actor)

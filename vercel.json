@@ -48,6 +48,10 @@
     {
       "path": "/api/cron/communications-email-queue",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/investor-account-provisioning",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

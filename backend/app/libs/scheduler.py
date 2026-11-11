@@ -50,8 +50,14 @@ async def _board_document_reminders():
     return await process_reminders()
 
 
+async def _provision_investor_accounts():
+    from app.libs.investor_accounts import provision_pending_investors
+    return await provision_pending_investors()
+
+
 # (name, cron expression in UTC, job)
 JOBS = [
+    ("Provision Imported Investor Accounts", "*/5 * * * *", _provision_investor_accounts),
     ("Process Communications Email Queue", "* * * * *", _communications_email_queue),
     ("AI Lead Health Monitor", "0 8 * * *", _lead_monitoring),
     ("AI Lead Follow-up Reminders", "0 9 * * *", _lead_follow_ups),

@@ -1,3 +1,4 @@
+import { AccountRecovery } from "@/pages/InviteAcceptance";
 import { Link } from "react-router-dom";
 import "./access.css";
 import { APP_BASE_PATH } from "@/constants";
@@ -21,11 +22,11 @@ export const StackHandlerRoutes = () => {
 
   return (
     <main className="citizen-access"><section className="citizen-access-brand"><img src="/brand/logo.png" alt="Citizen Bank"/><h1>One Citizen account</h1><p>Your banking, investments and board services.</p></section><section className="citizen-access-form"><StackTheme>
-      <StackHandler
+      {location.pathname.endsWith("/forgot-password") ? <AccountRecovery/> : <StackHandler
         app={stackClientApp}
         location={joinPaths(APP_BASE_PATH, location.pathname)}
         fullPage={false}
-      />
+      />}
     </StackTheme><div className="citizen-access-actions"><Link to="/">Back to website</Link><Link to="/investor-invitation-help">Resend investor invitation</Link></div></section></main>
   );
 };

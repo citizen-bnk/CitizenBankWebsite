@@ -209,7 +209,8 @@ def create_app() -> FastAPI:
         if not db_url:
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DATABASE_NOT_CONFIGURED"})
         workflow_tables = {"crypto_wallets", "email_queue", "email_history", "board_meetings",
-                           "governance_sessions", "document_requests", "messages", "user_role_history"}
+                           "governance_sessions", "document_requests", "messages", "user_role_history",
+                           "investor_profiles", "investor_documents", "invitation_account_setup", "invitation_onboarding_attempts"}
         try:
             conn = await asyncpg.connect(db_url, timeout=4, statement_cache_size=0)
             try:

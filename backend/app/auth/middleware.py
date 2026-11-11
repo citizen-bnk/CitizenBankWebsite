@@ -62,6 +62,8 @@ async def get_authorized_user(
             await enforce_account_status(user.sub)
             if isinstance(request, Request):
                 user = await hydrate_stack_identity(user, request)
+                from app.libs.investor_accounts import activate_imported_investor
+                await activate_imported_investor(user)
             return user
         print("Request authentication returned no user")
     except HTTPException:
@@ -236,7 +238,7 @@ async def hydrate_stack_identity(user: User, request: Request) -> User:
     config = get_stack_auth_config() or {}
     if user.iss != 'https://api.stack-auth.com/api/v1/projects/' + config.get('projectId', ''):
         raise HTTPException(401, 'Citizen identity project does not match this sign-in.')
-    if user.email and user.name:
+    if user.email and user.name and user.email_verified:
         return user
     token = request.headers.get('authorization', '').removeprefix('Bearer ')
     try:

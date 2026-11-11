@@ -19,7 +19,7 @@ async def workflow_db(monkeypatch):
         pytest.skip('Isolated workflow database required')
     assert 'ep-polished-sun-b1nwomy3' in url, 'Tests must never write to production'
     conn = await asyncpg.connect(url)
-    for name in ['007_workflow_delivery.sql', '008_board_workflows.sql']:
+    for name in ['007_workflow_delivery.sql', '008_board_workflows.sql','011_investor_profiles.sql','012_invitation_account_setup.sql']:
         await conn.execute((Path(__file__).parents[1] / 'migrations/investment' / name).read_text(encoding='utf-8'))
     transaction = conn.transaction()
     await transaction.start()
@@ -236,3 +236,153 @@ async def test_complete_board_appointment_queues_welcome_and_links_requirements(
     assert await conn.fetchval('SELECT count(*) FROM document_requests WHERE board_member_id=$1',user().sub)==1
     assert await conn.fetchval('SELECT count(*) FROM email_queue WHERE recipient_id=$1',user().sub)==1
     assert await conn.fetchval('SELECT count(*) FROM user_roles WHERE user_id=$1',user().sub)>=1
+
+
+@pytest.mark.asyncio
+async def test_imported_account_requires_email_verification_before_investor_access(workflow_db,monkeypatch):
+    from app.libs import investor_accounts as accounts
+    import main
+    import uuid
+    conn=workflow_db
+    person_id=uuid.uuid4()
+    subject=str(uuid.uuid4())
+    await conn.execute("INSERT INTO platform.person(id,display_name,primary_email) VALUES($1,'Imported Test','imported-test@example.com')",person_id)
+    await conn.execute("""INSERT INTO investor_profiles(person_id,source_key,entity_type,contact_email,contact_status,relationship,source_date)
+        VALUES($1,'regression-import','person','imported-test@example.com','unique_email','Test investor','2026-10-15')""",person_id)
+
+    @asynccontextmanager
+    async def connection():
+        async with conn.transaction():
+            yield conn
+    monkeypatch.setattr(accounts,'db_connection',connection)
+    monkeypatch.setattr(accounts,'db_transaction',connection)
+    monkeypatch.setattr(main,'get_stack_auth_config',lambda:{'projectId':'test-project'})
+    monkeypatch.setenv('STACK_SECRET_SERVER_KEY','test-server-key')
+    class Result:
+        is_success=True
+        def __init__(self,value): self.value=value
+        def json(self): return self.value
+    class Client:
+        async def __aenter__(self): return self
+        async def __aexit__(self,*_): pass
+        async def get(self,*_,**kwargs): return Result({'items':[]})
+        async def post(self,*_,**kwargs):
+            assert kwargs['json']['primary_email_verified'] is False
+            assert len(kwargs['json']['password'])>=32
+            return Result({'id':subject,'primary_email':'imported-test@example.com','primary_email_verified':False})
+    monkeypatch.setattr(accounts.httpx,'AsyncClient',lambda **_:Client())
+    saved=await accounts.provision_investor(str(person_id),'test-admin')
+    assert saved['status']=='provisioned'
+    assert not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1)',subject)
+    await accounts.activate_imported_investor(SimpleNamespace(sub=subject,email='imported-test@example.com',email_verified=False))
+    assert not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1)',subject)
+    await accounts.activate_imported_investor(SimpleNamespace(sub=subject,email='imported-test@example.com',email_verified=True))
+    assert await conn.fetchval('SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1)',subject)
+    assert await conn.fetchval('SELECT activation_status FROM investor_profiles WHERE person_id=$1',person_id)=='linked'
+
+
+@pytest.mark.asyncio
+async def test_pending_invitation_recovery_and_email_binding(workflow_db,monkeypatch):
+    from app.libs import invitation_onboarding as api,email_queue
+    from starlette.requests import Request
+    import uuid,json,hashlib
+    conn=workflow_db;subject=str(uuid.uuid4());email='pending-invite@example.com'
+    @asynccontextmanager
+    async def connection():
+        async with conn.transaction():yield conn
+    monkeypatch.setattr(api,'db_connection',connection)
+    monkeypatch.setattr(api,'db_transaction',connection)
+    monkeypatch.setattr(api,'get_frontend_base_url',lambda:'https://citizenbank.co.ls')
+    original=email_queue.enqueue_email
+    async def enqueue(**kwargs):return await original(**kwargs,conn=conn)
+    monkeypatch.setattr(email_queue,'enqueue_email',enqueue)
+    identity=AsyncMock(return_value=subject);monkeypatch.setattr(api,'invited_identity',identity)
+    token=str(uuid.uuid4())
+    invite=await conn.fetchval("""INSERT INTO invitations(email,full_name,role,token,status,expires_at,invited_by)
+        VALUES($1,'Pending Invite','investor',$2,'pending',now()+interval '7 days',$3) RETURNING id""",email,token,user().sub)
+    async def request(data):
+        async def receive():return {'type':'http.request','body':json.dumps(data).encode(),'more_body':False}
+        return await api.onboarding(Request({'type':'http','method':'POST','path':'/','headers':[(b'origin',b'https://citizenbank.co.ls')]},receive))
+    assert (await request({'action':'recover','email':email}))['message']==api.GENERIC
+    assert identity.await_count==0
+    assert await conn.fetchval('SELECT count(*) FROM invitation_account_setup WHERE invitation_id=$1',invite)==0
+    assert 'invite-acceptance?token=' in await conn.fetchval('SELECT body_html FROM email_queue WHERE recipient_email=$1',email)
+    await conn.execute("UPDATE invitations SET expires_at=now()-interval '1 day' WHERE id=$1",invite)
+    with pytest.raises(HTTPException) as expired:await request({'action':'accept','token':token})
+    assert expired.value.status_code==422
+    await conn.execute("UPDATE invitations SET status='accepted',email='changed@example.com' WHERE id=$1",invite)
+    code='x'*50
+    await conn.execute("""INSERT INTO invitation_account_setup(invitation_id,token_hash,provider_subject,recipient_email,expires_at)
+        VALUES($1,$2,$3,$4,now()+interval '1 hour')""",invite,hashlib.sha256(code.encode()).hexdigest(),subject,email)
+    with pytest.raises(HTTPException) as changed:
+        await request({'action':'set_password','code':code,'password':'Long-test-password123','full_name':'Pending Test','phone':'12345678','country':'Lesotho'})
+    assert changed.value.status_code==422
+
+
+
+def test_certificate_preview_retains_pending_status_and_no_signature_fields():
+    from io import BytesIO
+    from pypdf import PdfReader
+    from app.libs.investor_certificate_preview import preview_certificate
+    pdf=PdfReader(BytesIO(preview_certificate('Test Investor',200,'CB36-01','2026-10-15',True)))
+    assert not pdf.get_fields()
+    assert 'SAFE CONVERSION PENDING' in pdf.pages[0].extract_text()
+    assert 'UNSIGNED PREVIEW - NOT ISSUED' in pdf.pages[0].extract_text()
+
+
+@pytest.mark.asyncio
+async def test_public_board_invitation_and_email_setup(workflow_db,monkeypatch):
+    from app.libs import invitation_onboarding as api
+    from starlette.requests import Request
+    import uuid,json,re
+    conn=workflow_db;subject=str(uuid.uuid4());email='invited-workflow@example.com'
+    @asynccontextmanager
+    async def connection():
+        async with conn.transaction():yield conn
+    monkeypatch.setattr(api,'db_connection',connection)
+    monkeypatch.setattr(api,'db_transaction',connection)
+    monkeypatch.setattr(api,'identity_headers',lambda:{})
+    monkeypatch.setattr(api,'get_frontend_base_url',lambda:'https://citizenbank.co.ls')
+    identity=AsyncMock(return_value=subject)
+    monkeypatch.setattr(api,'invited_identity',identity)
+    position=await conn.fetchval('SELECT position_code FROM board_positions WHERE is_active=true LIMIT 1')
+    token=str(uuid.uuid4())
+    invite=await conn.fetchval("""INSERT INTO invitations(email,full_name,role,position,token,status,expires_at,invited_by)
+        VALUES($1,'Invited Test','board_member',$2,$3,'pending',now()+interval '7 days',$4) RETURNING id""",email,position,token,user().sub)
+    async def request(data,origin=b'https://citizenbank.co.ls'):
+        async def receive():return {'type':'http.request','body':json.dumps(data).encode(),'more_body':False}
+        return await api.onboarding(Request({'type':'http','method':'POST','path':'/','headers':[(b'origin',origin)]},receive))
+    inspected=await request({'action':'inspect','token':str(token)})
+    assert not inspected['accepted'] and '***' in inspected['recipient']
+    with pytest.raises(HTTPException) as untrusted:await request({'action':'accept','token':str(token)},b'https://untrusted.example')
+    assert untrusted.value.status_code==403
+    assert (await request({'action':'accept','token':str(token)}))['accepted']
+    assert not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1)',subject)
+    body=await conn.fetchval('SELECT body_html FROM email_queue WHERE recipient_email=$1',email)
+    code=re.search(r'setup=([A-Za-z0-9_-]+)',body)[1]
+    assert await conn.fetchval('SELECT token_hash FROM invitation_account_setup WHERE invitation_id=$1',invite)!=code
+    assert (await request({'action':'setup_details','code':code}))['profile']['full_name']=='Invited Test'
+    patched=[]
+    class Result:
+        is_success=True
+        def json(self):return {'id':subject,'primary_email':email}
+    class Client:
+        async def __aenter__(self):return self
+        async def __aexit__(self,*_):pass
+        async def get(self,*_,**kwargs):return Result()
+        async def patch(self,*_,**kwargs):patched.append(kwargs['json']);return Result()
+    monkeypatch.setattr(api.httpx,'AsyncClient',lambda **_:Client())
+    form={'action':'set_password','code':code,'password':'A-long-test-password-123','full_name':'Invited Board Test','phone':'+266 5000 0000','country':'Lesotho'}
+    assert (await request(form))['next'].endswith('/board-portal')
+    assert patched[0]['primary_email_verified'] is True
+    assert await conn.fetchval("SELECT EXISTS(SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE user_id=$1 AND role_name='board_member')",subject)
+    assert await conn.fetchval('SELECT id_number FROM user_profiles WHERE user_id=$1',subject)==''
+    with pytest.raises(HTTPException) as used:await request(form)
+    assert used.value.status_code==422 and len(patched)==1
+    # Password recovery cannot silently restore a revoked role.
+    await conn.execute('DELETE FROM user_roles WHERE user_id=$1',subject)
+    await request({'action':'recover','email':email})
+    body=await conn.fetchval('SELECT body_html FROM email_queue WHERE recipient_email=$1 ORDER BY id DESC LIMIT 1',email)
+    second=re.search(r'setup=([A-Za-z0-9_-]+)',body)[1]
+    await request({**form,'code':second})
+    assert not await conn.fetchval('SELECT EXISTS(SELECT 1 FROM user_roles WHERE user_id=$1)',subject)
