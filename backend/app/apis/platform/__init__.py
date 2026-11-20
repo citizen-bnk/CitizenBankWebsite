@@ -23,6 +23,14 @@ from .profile_service import profile_service
 router = APIRouter(prefix="/platform")
 
 
+@router.get('/investment-funding')
+async def canonical_investment_funding(request: Request):
+    from .investment_funding import investment_funding
+    from fastapi.encoders import jsonable_encoder
+    from fastapi.responses import JSONResponse
+    return JSONResponse(jsonable_encoder(await investment_funding(request)),headers={'Cache-Control':'private, no-store'})
+
+
 @router.api_route("/profile-service", methods=["GET", "PATCH"])
 async def platform_profile_service(request: Request) -> dict:
     return await profile_service(request)
