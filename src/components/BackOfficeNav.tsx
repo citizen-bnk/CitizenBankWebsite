@@ -99,8 +99,8 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
       category: 'members'
     },
     {
-      title: 'Investor Leads',
-      path: '/back-office-investor-leads',
+      title: 'Manage Investors',
+      path: '/back-office-investors',
       icon: UserPlus,
       category: 'members'
     },
@@ -183,7 +183,7 @@ export function BackOfficeNav({ currentPage }: BackOfficeNavProps) {
         { title: 'Communication', path: '/communication-portal', icon: MessageSquare },
       ],
     },
-  ];
+  ].filter(item => item.path !== '/back-office-investors' || hasAnyRole(['admin', 'super_admin']));
 
   const isActive = (path: string | undefined) => {
     if (!path) return false;

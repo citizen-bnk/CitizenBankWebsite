@@ -1,0 +1,31 @@
+.investor-directory {display:grid;gap:1rem;margin-block:1rem}
+.investor-directory-controls,.investor-directory-actions {display:flex;align-items:center;flex-wrap:wrap;gap:.65rem}
+.investor-directory label {display:grid;gap:.3rem}
+.investor-directory button,.investor-directory input,.investor-directory select,.investor-directory textarea {
+  border:1px solid #a69cb9;border-radius:.5rem;padding:.55rem .75rem;background:white;color:#241936;max-width:100%;
+}
+.investor-directory button[aria-pressed=true],.investor-directory button[type=submit] {background:#5b3e89;color:white;border-color:#5b3e89}
+.investor-directory button:disabled {opacity:.55;cursor:default}
+.investor-directory-rows {list-style:none;display:grid;gap:.65rem;padding:0;margin:0}
+.investor-directory-rows li {border:1px solid #cec5dd;border-radius:.65rem;padding:.85rem;display:flex;gap:.75rem;justify-content:space-between;flex-wrap:wrap}
+.investor-directory-rows li > div {min-width:0;overflow-wrap:anywhere}
+.investor-directory-rows strong,.investor-directory-rows span {display:block}
+.investor-directory-rows span {font-size:.875rem}
+.investor-directory dialog {position:fixed;inset:0;margin:auto;width:min(34rem,calc(100vw - 2rem));max-height:90dvh;overflow:auto;padding:1.3rem;border-radius:.8rem;background:white;color:#241936;border:1px solid #cec5dd;z-index:50}
+.investor-directory dialog::backdrop {background:#17102399}
+.investor-directory form {display:grid;gap:.85rem}
+.investor-directory form a {text-decoration:underline}
+.investor-directory h2 {font-size:1.25rem;font-weight:700}
+
+.investor-directory-rows li > div:first-child {flex:1 1 15rem}
+.investor-record-actions {position:relative;flex:0 0 2.5rem;margin-left:auto}
+.investor-record-actions summary {list-style:none;cursor:pointer;border:1px solid #a69cb9;border-radius:.5rem;text-align:center;font-size:1.6rem;line-height:1.5}
+.investor-record-actions summary::-webkit-details-marker {display:none}
+.investor-record-menu {position:absolute;right:0;z-index:30;display:grid;gap:.5rem;padding:.65rem;width:min(16rem,calc(100vw - 3rem));background:white;border:1px solid #a69cb9;border-radius:.5rem;box-shadow:0 8px 24px #24193633}
+.investor-record-menu a {padding:.5rem;border:1px solid #a69cb9;border-radius:.5rem;text-decoration:none}
+.investor-portfolio-dialog {position:fixed;inset:0;margin:auto;width:min(58rem,calc(100vw - 2rem));max-height:90dvh;overflow:auto;padding:1.2rem;border:1px solid #a69cb9;border-radius:.8rem;background:white;color:#241936}
+.investor-portfolio-dialog::backdrop {background:#17102399}
+.investor-portfolio-dialog .button-row {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-block:.75rem}
+.investor-portfolio-dialog .activity-row {padding:.75rem;border:1px solid #cec5dd;border-radius:.5rem;margin-block:.75rem}
+.investor-portfolio-dialog strong,.investor-portfolio-dialog small {display:block}
+.investor-portfolio-dialog .button {display:inline-block;border:1px solid #a69cb9;border-radius:.5rem;background:white;color:#241936;padding:.5rem .75rem;margin:.3rem .3rem .3rem 0}

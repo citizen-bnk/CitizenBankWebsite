@@ -41,11 +41,13 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCurrency } from "components/CurrencyProvider";
+import { useUserRoles } from 'utils/useUserRoles';
 import type { GetDashboardStatsData } from 'types';
 
 export default function BackOfficeDashboard() {
   const navigate = useNavigate();
   const { formatCurrency } = useCurrency();
+  const { hasAnyRole } = useUserRoles();
   const [stats, setStats] = useState<GetDashboardStatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -175,17 +177,14 @@ export default function BackOfficeDashboard() {
       ]
     },
     {
-      title: 'Investor Leads',
-      description: 'Manage prospective investors and follow-up campaigns',
+      title: 'Manage Investors',
+      description: 'Profiles, portfolios and investor invitations',
       icon: UserPlus,
-      path: '/back-office-investor-leads',
+      path: '/back-office-investors',
       color: 'text-violet-600',
       bgColor: 'bg-violet-50',
       category: 'Member Management',
-      stats: [
-        { label: 'Active Leads', value: 0 },
-        { label: 'Converted', value: 0 }
-      ]
+      stats: []
     },
     // Documents & Compliance
     {
@@ -386,7 +385,7 @@ export default function BackOfficeDashboard() {
         { label: 'Active Types', value: 0 }
       ]
     }
-  ];
+  ].filter(service => service.path !== '/back-office-investors' || hasAnyRole(['admin', 'super_admin']));
 
   // Filter services based on search and category
   const filteredServices = adminServices.filter(service => {

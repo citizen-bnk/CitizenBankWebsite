@@ -57,12 +57,12 @@ async def _provision_investor_accounts():
 
 # (name, cron expression in UTC, job)
 JOBS = [
-    ("Provision Imported Investor Accounts", "*/5 * * * *", _provision_investor_accounts),
-    ("Process Communications Email Queue", "* * * * *", _communications_email_queue),
+    ("Provision Imported Investor Accounts", "0 * * * *", _provision_investor_accounts),
+    ("Process Communications Email Queue", "*/15 * * * *", _communications_email_queue),
     ("AI Lead Health Monitor", "0 8 * * *", _lead_monitoring),
     ("AI Lead Follow-up Reminders", "0 9 * * *", _lead_follow_ups),
     ("Profile Completion Reminders", "0 9 * * *", _profile_completion_reminders),
-    ("Process Governance Email Queue", "* * * * *", _governance_email_queue),
+    ("Process Governance Email Queue", "*/15 * * * *", _governance_email_queue),
     ("Board Member Engagement Emails", "0 9 * * 1,3,5", _board_engagement),
     ("Board Document Reminders", "0 8 * * *", _board_document_reminders),
 ]

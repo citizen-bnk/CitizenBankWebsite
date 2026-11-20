@@ -40,6 +40,17 @@ async def hub_operations(request: Request):
     return await dispatch(request)
 
 
+@router.post("/investor-administration")
+async def website_investor_administration(request: Request, user: AuthorizedUser):
+    from .hub_operations import dispatch
+    result = await dispatch(request, website_user=user)
+    if isinstance(result, Response):
+        return result
+    from fastapi.encoders import jsonable_encoder
+    from fastapi.responses import JSONResponse
+    return JSONResponse(jsonable_encoder(result), headers={'Cache-Control': 'private, no-store'})
+
+
 @router.post("/invitation-onboarding")
 async def platform_invitation_onboarding(request: Request):
     from app.libs.invitation_onboarding import onboarding

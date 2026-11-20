@@ -42,3 +42,15 @@ def test_missing_reference_tables_prevent_release(monkeypatch):
     assert response.status_code==503
     assert response.json()['issue']=='REFERENCE_DATA_SETUP_REQUIRED'
     assert 'board_positions' in response.json()['missing_tables']
+
+
+def test_quota_failure_blocks_database_cutover_and_reports_the_exact_issue(monkeypatch):
+    import asyncpg
+    async def connect(*_, **__):
+        raise asyncpg.InsufficientResourcesError('Your account or project has exceeded the quota.')
+    monkeypatch.setattr('asyncpg.connect', connect)
+    monkeypatch.setattr(main, 'CRITICAL_ROUTERS', set())
+    monkeypatch.setenv('DATABASE_URL_PROD', 'postgresql://test')
+    response = TestClient(main.app).get('/api/health/ready')
+    assert response.status_code == 503
+    assert response.json()['issue'] == 'DATABASE_QUOTA_EXHAUSTED'

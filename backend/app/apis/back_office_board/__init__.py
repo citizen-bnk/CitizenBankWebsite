@@ -354,9 +354,9 @@ async def list_invitations(
                 inv_dict = dict(inv)
                 # Add reminder metadata
                 inv_dict['reminder_metadata'] = {
-                    'reminder_count': inv['reminder_count'] or 0,
-                    'last_reminder_sent_at': inv['last_reminder_sent_at'].isoformat() if inv['last_reminder_sent_at'] else None,
-                    'next_reminder_at': inv['next_reminder_at'].isoformat() if inv['next_reminder_at'] else None
+                    'reminder_count': inv_dict.get('reminder_count') or 0,
+                    'last_reminder_sent_at': inv_dict['last_reminder_sent_at'].isoformat() if inv_dict.get('last_reminder_sent_at') else None,
+                    'next_reminder_at': inv_dict['next_reminder_at'].isoformat() if inv_dict.get('next_reminder_at') else None
                 }
                 invitations_with_metadata.append(inv_dict)
             

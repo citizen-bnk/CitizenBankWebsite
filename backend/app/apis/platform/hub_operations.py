@@ -4,7 +4,8 @@ import os
 from datetime import date
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, EmailStr, StringConstraints
+from typing import Annotated
 
 from app.auth import User
 from app.libs.board_positions import resolve_position
@@ -22,36 +23,170 @@ class InvestorUpdate(BaseModel):
     version: int = Field(ge=1)
     phone: str = Field(max_length=30)
     investment_purpose: str = Field(max_length=300)
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=150)] | None = None
+    country: str | None = Field(default=None, max_length=100)
+    account_version: int | None = Field(default=None, ge=1)
+    contact_email: EmailStr | None = None
 
 
 async def investor_update(data, actor):
+    from app.libs.platform_people import legacy_roles
+
     update = InvestorUpdate.model_validate(data)
     async with db_transaction() as conn:
         imported = await conn.fetchrow("""SELECT * FROM investor_profiles
-            WHERE provider_subject=$1 OR person_id::text=$1 FOR UPDATE""", update.user_id)
-        if imported:
-            if imported['version'] != update.version:
-                raise HTTPException(409,'The investor profile changed. Reload before saving.')
-            await conn.execute("""UPDATE investor_profiles SET contact_phone=$1,investment_purpose=$2,
-                version=version+1,updated_at=now() WHERE person_id=$3""",
-                update.phone.strip(),update.investment_purpose.strip(),imported['person_id'])
-            if imported['provider_subject']:
-                await conn.execute("""UPDATE user_profiles SET phone=$1,investment_purpose=$2,
-                    version=version+1,updated_at=now() WHERE user_id=$3""",
-                    update.phone.strip(),update.investment_purpose.strip(),imported['provider_subject'])
-        else:
-            result = await conn.fetchval("""UPDATE user_profiles p
-                SET phone=nullif($1,''),investment_purpose=nullif($2,''),version=version+1,updated_at=now()
-                WHERE p.user_id=$3 AND p.version=$4 AND EXISTS (
-                    SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
-                    WHERE ur.user_id=p.user_id AND r.role_name IN ('investor','shareholder'))
-                RETURNING version""", update.phone.strip(), update.investment_purpose.strip(), update.user_id, update.version)
-            if not result:
-                raise HTTPException(409, 'The investor record changed. Reload before saving.')
+            WHERE person_id::text=$1 OR provider_subject=$1 FOR UPDATE""", update.user_id)
+        if not imported:
+            # Preserve the original subject-based editor for registered investors.
+            target_roles = set(await legacy_roles(conn, update.user_id))
+            if not target_roles & {'investor', 'shareholder'}:
+                raise HTTPException(404, 'Investor profile unavailable.')
+            if target_roles & {'admin', 'super_admin', 'staff', 'back_office'}:
+                if 'super_admin' not in await legacy_roles(conn, actor.sub):
+                    raise HTTPException(403, 'Only a super administrator can edit an institutional account.')
+            if 'contact_email' in update.model_fields_set:
+                raise HTTPException(409, 'Manage an existing sign-in address through the identity provider.')
+            saved = await conn.fetchval("""UPDATE user_profiles SET phone=$1,investment_purpose=$2,
+                full_name=coalesce($3,full_name),country=coalesce($4,country),version=version+1,updated_at=now()
+                WHERE user_id=$5 AND version=$6 RETURNING version""",
+                update.phone.strip(),update.investment_purpose.strip(),update.full_name,update.country,
+                update.user_id,update.version)
+            if not saved:
+                raise HTTPException(409, 'The investor profile changed. Reload before saving.')
+            await conn.execute("""UPDATE platform.person SET display_name=$1,version=version+1,updated_at=now()
+                WHERE id IN(SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$2)
+                AND $1::text IS NOT NULL""",update.full_name,update.user_id)
+            await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+                VALUES($1,'investor.profile_updated','user',$2,'{}'::jsonb)""",actor.sub,update.user_id)
+            return {'saved': True}
+        if imported['version'] != update.version:
+            raise HTTPException(409, 'The investor profile changed. Reload before saving.')
+
+        subject = imported['provider_subject']
+        if subject:
+            target_roles = set(await legacy_roles(conn, subject))
+            if target_roles & {'admin', 'super_admin', 'staff', 'back_office'}:
+                if 'super_admin' not in await legacy_roles(conn, actor.sub):
+                    raise HTTPException(403, 'Only a super administrator can edit an institutional account.')
+            if 'contact_email' in update.model_fields_set:
+                raise HTTPException(409, 'Manage an existing sign-in address through the identity provider.')
+            saved = await conn.fetchval("""UPDATE user_profiles
+                SET full_name=coalesce($2,full_name),phone=$3,investment_purpose=$4,
+                    country=coalesce($5,country),version=version+1,updated_at=now()
+                WHERE user_id=$1 AND ($6::int IS NULL OR version=$6) RETURNING version""",
+                subject, update.full_name, update.phone.strip(), update.investment_purpose.strip(),
+                update.country, update.account_version)
+            if not saved:
+                raise HTTPException(409, 'The linked account changed. Reload before saving.')
+
+        email = imported['contact_email']
+        contact_status = imported['contact_status']
+        if 'contact_email' in update.model_fields_set:
+            revised = str(update.contact_email).lower() if update.contact_email else None
+            if revised != email:
+                if revised:
+                    await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", 'investor-contact:'+revised)
+                    duplicate = await conn.fetchval("""SELECT EXISTS(
+                        SELECT 1 FROM investor_profiles WHERE lower(contact_email)=$1 AND person_id<>$2
+                        UNION ALL SELECT 1 FROM user_profiles WHERE lower(email)=$1)""",revised,imported['person_id'])
+                    if duplicate:
+                        raise HTTPException(409, 'This email is already on another account or investor record.')
+                # A newly entered address must be reviewed before it can provision a login.
+                email, contact_status = revised, 'review' if revised else 'missing'
+        await conn.execute("""UPDATE investor_profiles SET contact_phone=$1,investment_purpose=$2,
+            contact_email=$3,contact_status=$4,version=version+1,updated_at=now() WHERE person_id=$5""",
+            update.phone.strip(),update.investment_purpose.strip(),email,contact_status,imported['person_id'])
+        if update.full_name:
+            await conn.execute("""UPDATE platform.person SET display_name=$1,version=version+1,updated_at=now()
+                WHERE id=$2""", update.full_name, imported['person_id'])
         await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
-            VALUES($1,'investor.profile_updated','user',$2,'{"fields":["phone","investment_purpose"]}'::jsonb)""",
-            actor.sub, update.user_id)
+            VALUES($1,'investor.profile_updated','person',$2,$3::jsonb)""",
+            actor.sub,str(imported['person_id']),json.dumps({'fields':sorted(update.model_fields_set-{'user_id','version','account_version'})}))
     return {'saved': True}
+
+
+async def manage_investor_invitation(operation, data, actor):
+    import html
+    import time
+    from app.libs.email_queue import enqueue_email
+    from app.libs.url_helpers import get_frontend_base_url
+
+    invitation_id = data.get('invitation_id')
+    if type(invitation_id) is not int or invitation_id <= 0:
+        raise HTTPException(422, 'Choose an invitation.')
+    async with db_transaction() as conn:
+        invitation = await conn.fetchrow("""SELECT * FROM invitations WHERE id=$1
+            AND role='investor' FOR UPDATE""", invitation_id)
+        if not invitation:
+            raise HTTPException(404, 'Investor invitation unavailable.')
+        if operation == 'invitation.cancel':
+            if invitation['status'] not in ('pending', 'sent', 'expired'):
+                raise HTTPException(409, 'An accepted or cancelled invitation cannot be cancelled here. Manage account access instead.')
+            await conn.execute("UPDATE invitations SET status='cancelled' WHERE id=$1", invitation_id)
+            await conn.execute("""UPDATE messages SET status='dismissed',dismissed_at=now()
+                WHERE related_invitation_id=$1 AND status='pending'""", invitation_id)
+            await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+                VALUES($1,'investor.invitation_cancelled','invitation',$2,'{}'::jsonb)""",actor.sub,str(invitation_id))
+            return {'saved':True,'message':'Invitation cancelled.'}
+        if invitation['status'] == 'cancelled':
+            raise HTTPException(409, 'This invitation is cancelled. Review the investor before creating a new invitation.')
+        if invitation['status'] != 'accepted':
+            if invitation['status'] not in ('pending','sent','expired'):
+                raise HTTPException(409, 'This invitation cannot be resent in its current state.')
+            await conn.execute("UPDATE invitations SET status='pending',expires_at=now()+interval '30 days' WHERE id=$1",invitation_id)
+            link=get_frontend_base_url().rstrip('/')+'/invite-acceptance?token='+invitation['token']
+            queued=await enqueue_email(recipient_email=invitation['email'],
+                recipient_name=invitation['full_name'] or 'Citizen investor',
+                subject='Your Citizen Bank invitation',
+                body_html='<p>Your private Citizen invitation is ready.</p><p><a href="'+html.escape(link,quote=True)+'">Accept invitation</a></p><p>Set up your password and basic profile to continue.</p>',
+                created_by=actor.sub,conn=conn,priority='high',
+                dedupe_key='investor-invitation-resend:'+str(invitation_id)+':'+str(int(time.time())//120))
+            await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+                VALUES($1,'investor.invitation_resent','invitation',$2,$3::jsonb)""",
+                actor.sub,str(invitation_id),json.dumps({'queue_id':queued['queue_id']}))
+            return {'saved':True,'message':'Invitation email queued or recently sent.'}
+        accepted = dict(invitation)
+    from app.libs.invitation_onboarding import queue_setup
+    await queue_setup(accepted)
+    return {'saved':True,'message':'Account setup email queued or recently sent.'}
+
+
+async def investor_directory(conn):
+    profiles = await conn.fetch("""SELECT i.person_id::text, i.provider_subject AS account_id,
+        coalesce(u.full_name,p.display_name,'Investor') AS full_name,
+        coalesce(u.email,i.contact_email) AS email,
+        coalesce(u.phone,i.contact_phone) AS phone, u.country, u.version AS account_version,
+        coalesce(u.investment_purpose,i.investment_purpose) AS investment_purpose,
+        i.version,i.contact_status,i.activation_status,i.entity_type,i.relationship,
+        u.status AS account_status
+        FROM investor_profiles i JOIN platform.person p ON p.id=i.person_id
+        LEFT JOIN user_profiles u ON u.user_id=i.provider_subject
+        WHERE NOT EXISTS(SELECT 1 FROM invitations qa WHERE qa.accepted_by=i.provider_subject
+            AND qa.message='Citizen QA 20261114')
+        ORDER BY lower(coalesce(u.full_name,p.display_name,'')),i.person_id""")
+    invitations = await conn.fetch("""SELECT i.id,i.full_name,i.email,
+        CASE WHEN i.status IN ('pending','sent') AND i.expires_at<=now() THEN 'expired'
+             ELSE i.status END AS status,
+        coalesce(delivery.status, CASE WHEN i.sent_at IS NOT NULL THEN 'sent' END) AS email_status,
+        coalesce(delivery.sent_at,i.sent_at) AS sent_at,i.created_at,i.expires_at,i.accepted_at,
+        i.accepted_by IS NOT NULL OR setup.completed_at IS NOT NULL AS account_confirmed,
+        setup.completed_at AS setup_completed_at
+        FROM invitations i
+        LEFT JOIN LATERAL (
+            SELECT q.status,q.sent_at FROM platform.audit_log a
+            JOIN email_queue q ON q.queue_id=a.detail->>'queue_id'
+            WHERE a.target_type='invitation' AND a.target_id=i.id::text
+              AND a.action IN ('investor.testing_invitation_queued','investor.invitation_resent')
+            ORDER BY q.created_at DESC LIMIT 1
+        ) delivery ON true
+        LEFT JOIN LATERAL (
+            SELECT max(s.completed_at) AS completed_at FROM invitation_account_setup s
+            WHERE s.invitation_id=i.id
+        ) setup ON true
+        WHERE (i.invitation_type='investor' OR i.role='investor')
+          AND coalesce(i.message,'') <> 'Citizen QA 20261114'
+        ORDER BY i.created_at DESC,i.id DESC""")
+    return {'investors':[dict(row) for row in profiles],'invitations':[dict(row) for row in invitations]}
 
 
 class BoardUpdate(BaseModel):
@@ -96,11 +231,11 @@ async def board_update(data, actor):
     return {'saved': True}
 
 
-async def dispatch(request):
+async def dispatch(request, website_user=None):
     body = await request.body()
     if len(body) > 16000:
         raise HTTPException(413, 'Request is too large.')
-    subject = verify_profile_proof(
+    subject = website_user.sub if website_user else verify_profile_proof(
         request.headers.get('x-citizen-hub-token', ''), request.method, body,
         os.environ.get('HUB_OPERATIONS_SECRET', ''), purpose='hub-operations',
     )
@@ -111,6 +246,12 @@ async def dispatch(request):
             raise ValueError()
     except (ValueError, TypeError, KeyError):
         raise HTTPException(422, 'Invalid workspace request.') from None
+    if website_user and operation not in ('investment.directory', 'investment.update',
+                                           'investment.portfolio', 'investment.certificate',
+                                           'invitation.resend', 'invitation.cancel'):
+        raise HTTPException(404, 'Workspace action unavailable.')
+    if website_user and not website_user.email_verified:
+        raise HTTPException(403, 'Verify your Citizen account email before managing investor records.')
     async with db_connection() as conn:
         person = await conn.fetchrow('''SELECT p.primary_email,p.display_name
             FROM platform.person p JOIN platform.identity_mapping m ON m.person_id=p.id
@@ -123,6 +264,8 @@ async def dispatch(request):
             raise HTTPException(403, 'Your role cannot perform this action.')
         actor = User(sub=subject,email=person['primary_email'],name=person['display_name'],email_verified=True)
 
+        if operation == 'investment.directory':
+            return await investor_directory(conn)
         if operation == 'investment.list':
             from app.libs.investor_portfolio import include_registered_investors
             await include_registered_investors(conn)
@@ -164,6 +307,8 @@ async def dispatch(request):
             return {'candidates':[dict(row) for row in candidates]}
 
     try:
+        if operation in ('invitation.resend','invitation.cancel'):
+            return await manage_investor_invitation(operation,data,actor)
         if operation == 'investment.provision':
             from app.libs.investor_accounts import provision_investor
             return await provision_investor(str(data.get('person_id','')),actor.sub)

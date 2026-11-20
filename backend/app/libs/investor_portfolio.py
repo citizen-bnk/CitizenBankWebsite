@@ -12,6 +12,8 @@ async def include_registered_investors(conn):
     from app.libs.platform_people import ensure_person
     rows=await conn.fetch("""SELECT p.user_id,p.email,p.phone,p.email_verified FROM user_profiles p
         WHERE NOT EXISTS(SELECT 1 FROM investor_profiles i WHERE i.provider_subject=p.user_id)
+        AND NOT EXISTS(SELECT 1 FROM invitations qa WHERE qa.accepted_by=p.user_id
+            AND qa.message='Citizen QA 20261114')
         AND (EXISTS(SELECT 1 FROM user_roles u JOIN roles r ON r.id=u.role_id
             WHERE u.user_id=p.user_id AND r.role_name IN ('investor','shareholder'))
             OR EXISTS(SELECT 1 FROM share_subscriptions s WHERE s.user_id=p.user_id AND s.status!='cancelled'))

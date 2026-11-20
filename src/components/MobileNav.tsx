@@ -55,6 +55,10 @@ export function MobileNav() {
       links.push({ label: 'Investor Leads', path: '/back-office-investor-leads', icon: User });
     }
     
+    if (roles.some(role => ['admin','super_admin'].includes(role))) {
+      links.push({ label: 'Manage Investors', path: '/back-office-investors', icon: User });
+    }
+
     if (roles.some(role => ['board_member','super_admin'].includes(role))) {
       links.push({ label: 'Board Portal', path: '/board-portal', icon: User });
     }

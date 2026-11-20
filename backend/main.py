@@ -178,6 +178,17 @@ def create_app() -> FastAPI:
             "recovery": "retry_later",
         })
 
+    @app.exception_handler(asyncpg.InsufficientResourcesError)
+    async def capacity_error(_request, exc):
+        quota_exhausted = 'quota' in str(exc).lower()
+        logger.error("API database capacity unavailable", exc_info=(type(exc), exc, exc.__traceback__))
+        return JSONResponse(status_code=503, content={
+            "detail": ("The database allowance is exhausted. Your records remain stored. Please return later; repeated attempts will not restore access."
+                       if quota_exhausted else "The data service is temporarily at capacity. Please try again later."),
+            "code": "DATA_QUOTA_EXHAUSTED" if quota_exhausted else "DATA_CAPACITY_UNAVAILABLE",
+            "recovery": "retry_later",
+        }, headers={"Retry-After": "3600" if quota_exhausted else "60"})
+
     @app.exception_handler(asyncpg.PostgresConnectionError)
     async def database_error(_request, exc):
         logger.error("API database connection failed", exc_info=(type(exc), exc, exc.__traceback__))
@@ -231,6 +242,9 @@ def create_app() -> FastAPI:
                     """)
             finally:
                 await conn.close()
+        except asyncpg.InsufficientResourcesError as exc:
+            issue = "DATABASE_QUOTA_EXHAUSTED" if 'quota' in str(exc).lower() else "DATABASE_CAPACITY_UNAVAILABLE"
+            return JSONResponse(status_code=503, content={"status": "unavailable", "issue": issue})
         except Exception:
             return JSONResponse(status_code=503, content={"status": "unavailable", "issue": "DATABASE_CONNECTION_FAILED"})
         found = {row["table_name"] for row in rows}
