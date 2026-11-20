@@ -64,8 +64,8 @@ export function MobileNav() {
     }
     
     if (user) {
-      links.push({ label: 'Customer Portal', path: '/enter-banking', icon: User });
       links.push({ label: 'Mobile app', path: '/enter-app', icon: User });
+      links.push({ label: 'Internet Banking', path: '/enter-banking', icon: User });
     }
     
     if (investorAccess) {

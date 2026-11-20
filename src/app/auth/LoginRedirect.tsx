@@ -3,11 +3,12 @@ import { Navigate } from "react-router-dom";
 import { identify } from "app/analytics";
 import { useEffect, useState } from "react";
 import { readLoginDestination, rememberLoginDestination } from "./loginIntent";
+import {mobileLoginDestination} from './mobileDestination';
 
 export const LoginRedirect = () => {
   const app = useStackApp();
 
-  const [next] = useState(() => readLoginDestination(window.location.search));
+  const [next] = useState(() => mobileLoginDestination(readLoginDestination(window.location.search),navigator.userAgent,navigator.maxTouchPoints));
 
   useEffect(() => { rememberLoginDestination(null); }, []);
 

@@ -63,7 +63,7 @@ export function Header() {
     
     if (user) {
       links.push(
-        { label: 'Customer Portal', path: '/enter-banking', icon: User },
+        { label: 'Internet Banking', path: '/enter-banking', icon: User },
         { label: 'Mobile app', path: '/enter-app', icon: User },
       );
     }
