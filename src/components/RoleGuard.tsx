@@ -2,6 +2,7 @@
  * RoleGuard component - Protects content based on user roles
  * Shows access denied message if user doesn't have required roles
  */
+import {isServiceUnavailable,serviceMessage,serviceTitle} from '../lib/service-availability';
 import { ReactNode } from 'react';
 import { useUserRoles } from 'utils/useUserRoles';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -21,7 +22,7 @@ export interface Props {
 }
 
 export function RoleGuard({ allowedRoles, children, deniedMessage, requireAll = false }: Props) {
-  const { roles, loading, error, hasAnyRole, hasAllRoles, clearCache } = useUserRoles();
+  const { roles, loading, error, errorCode, hasAnyRole, hasAllRoles, clearCache } = useUserRoles();
   const navigate = useNavigate();
 
   // Show loading state
@@ -39,10 +40,10 @@ export function RoleGuard({ allowedRoles, children, deniedMessage, requireAll = 
   if (error) {
     return <main className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center gap-4 p-6 text-center">
       <ShieldAlert className="h-8 w-8 text-[#6d52a2]" />
-      <h1 className="text-2xl font-semibold">Access check unavailable</h1>
-      <p role="alert">We could not check your permissions. Please try again.</p>
+      <h1 className="text-2xl font-semibold">{isServiceUnavailable({code:errorCode})?serviceTitle:'Access check unavailable'}</h1>
+      <p role="alert">{isServiceUnavailable({code:errorCode})?serviceMessage:'We could not check your permissions. Please try again.'}</p>
       <div className="flex flex-wrap justify-center gap-3">
-        <Button onClick={clearCache}>Retry</Button>
+        <Button onClick={()=>isServiceUnavailable({code:errorCode})?window.dispatchEvent(new Event('citizen:service-status')):clearCache()}>{isServiceUnavailable({code:errorCode})?'Check availability':'Retry'}</Button>
         <Button variant="outline" onClick={() => navigate('/')}>Website home</Button>
       </div>
     </main>;

@@ -155,6 +155,8 @@ def create_app() -> FastAPI:
             return JSONResponse(status_code=503, content={'detail': exc.detail['message'], 'code': exc.detail['code'], 'recovery': 'manual_form'})
         if exc.status_code >= 500:
             reason = str(exc.detail).lower()
+            if "quota" in reason and ("exceed" in reason or "exhaust" in reason):
+                return JSONResponse(status_code=503, content={"detail": "Some services are temporarily unavailable. Please return later.", "code": "DATA_QUOTA_EXHAUSTED", "recovery": "retry_later"}, headers={"Retry-After": "3600"})
             if "does not exist" in reason and ("relation" in reason or "column" in reason):
                 code, message, recovery = "DATA_SCHEMA_INCOMPLETE", "This feature's data is being restored.", "retry_later"
             elif "connect" in reason or "timeout" in reason:
@@ -183,8 +185,8 @@ def create_app() -> FastAPI:
         quota_exhausted = 'quota' in str(exc).lower()
         logger.error("API database capacity unavailable", exc_info=(type(exc), exc, exc.__traceback__))
         return JSONResponse(status_code=503, content={
-            "detail": ("The database allowance is exhausted. Your records remain stored. Please return later; repeated attempts will not restore access."
-                       if quota_exhausted else "The data service is temporarily at capacity. Please try again later."),
+            "detail": ("Some services are temporarily unavailable. Please return later. You can still browse the Citizen Bank website."
+                       if quota_exhausted else "Some services are temporarily unavailable. Please return later."),
             "code": "DATA_QUOTA_EXHAUSTED" if quota_exhausted else "DATA_CAPACITY_UNAVAILABLE",
             "recovery": "retry_later",
         }, headers={"Retry-After": "3600" if quota_exhausted else "60"})

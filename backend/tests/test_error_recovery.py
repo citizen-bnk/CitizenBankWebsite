@@ -38,6 +38,20 @@ def test_database_quota_has_a_specific_recovery_without_infrastructure_details()
     assert response.json()['recovery'] == 'retry_later'
     assert response.headers['Retry-After'] == '3600'
     assert 'Upgrade your plan' not in response.text
+    assert 'temporarily unavailable' in response.json()['detail']
+    assert 'database' not in response.json()['detail'].lower()
+
+
+def test_legacy_wrapped_quota_failure_also_returns_service_pause():
+    @app.get('/api/_test/wrapped-quota-recovery', include_in_schema=False)
+    async def wrapped_quota_route():
+        raise HTTPException(status_code=500, detail='Database: project has exceeded the quota')
+
+    response = TestClient(app, raise_server_exceptions=False).get('/api/_test/wrapped-quota-recovery')
+    assert response.status_code == 503
+    assert response.json()['code'] == 'DATA_QUOTA_EXHAUSTED'
+    assert response.headers['Retry-After'] == '3600'
+    assert 'Database' not in response.json()['detail']
 
 
 def test_database_capacity_is_not_misreported_as_a_quota_failure():

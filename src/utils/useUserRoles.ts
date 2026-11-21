@@ -2,6 +2,7 @@ import { useUser } from '@stackframe/react';
 import { apiClient } from 'app';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { UserRolesResponse } from 'types';
+import {isServiceUnavailable} from '../lib/service-availability';
 import { accessError } from './accessError';
 
 const ROLES_QUERY_KEY = 'userRoles';
@@ -36,7 +37,7 @@ export function useUserRoles() {
     // Keep data fresh in the background, but not too often
     refetchIntervalInBackground: false,
     // Retry failed requests up to 2 times
-    retry: 2,
+    retry: (attempt, error) => !isServiceUnavailable(error) && attempt < 2,
   });
 
   const roles = error ? [] : assignedRoles;
@@ -70,6 +71,7 @@ export function useUserRoles() {
     roles,
     loading,
     error: error ? error.message : null,
+    errorCode: error && "code" in error ? String(error.code) : undefined,
     hasRole,
     hasAnyRole,
     hasAllRoles,

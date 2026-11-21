@@ -1,3 +1,4 @@
+import {isServiceUnavailable,serviceTitle,serviceMessage} from '../lib/service-availability';
 import type { ReactNode } from "react";
 
 type Recovery = {
@@ -9,6 +10,7 @@ type Recovery = {
 };
 
 export function recoveryFor(error: unknown): Pick<Recovery, "title" | "message" | "code"> {
+  if(isServiceUnavailable(error))return {title:serviceTitle,message:serviceMessage,code:String((error as {code:string}).code)};
   const text = error instanceof Error ? error.message : String(error ?? "");
   if (/dynamically imported module|loading chunk|chunkloaderror|failed to fetch module/i.test(text)) {
     return { title: "This page has been updated", message: "Reload to get the latest version of this page. Your saved information remains available.", code: "PAGE_VERSION_CHANGED" };
@@ -30,7 +32,7 @@ export function RecoveryPage({ title, message, code, retry, children }: Recovery
       <p style={{ lineHeight: 1.6, color: "#475569" }}>{message}</p>
       {children}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
-        {retry && <button type="button" onClick={retry} style={{ minHeight: 44, padding: "10px 20px", color: "white", background: "#6d52a2", border: 0, borderRadius: 8 }}>Retry</button>}
+        {isServiceUnavailable({code})?<button type="button" onClick={()=>window.dispatchEvent(new Event("citizen:service-status"))} style={{minHeight:44,padding:"10px 20px",borderRadius:8,background:"#6d52a2",color:"white"}}>Check availability</button>:retry && <button type="button" onClick={retry} style={{ minHeight: 44, padding: "10px 20px", color: "white", background: "#6d52a2", border: 0, borderRadius: 8 }}>Retry</button>}
         <button type="button" onClick={() => { if (window.history.length > 1) window.history.back(); else window.location.assign("/"); }} style={{ minHeight: 44, padding: "10px 20px", background: "white", color: "#5a4289", border: "1px solid #6d52a2", borderRadius: 8 }}>Go back</button>
         <a href="/" style={{ display: "inline-flex", alignItems: "center", minHeight: 44, padding: "10px 20px", color: "#5a4289" }}>Website home</a>
       </div>

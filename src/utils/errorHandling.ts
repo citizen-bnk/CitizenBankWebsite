@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import {isServiceUnavailable,serviceMessage,serviceTitle} from '../lib/service-availability';
 
 /**
  * Centralized error handling utility
@@ -82,6 +83,7 @@ function getMessageForStatus(status: number): string {
  * Extracts user-friendly error message from various error formats
  */
 export function getErrorMessage(error: any): string {
+  if(isServiceUnavailable(error))return serviceMessage;
   // If it's already a string, return it
   if (typeof error === 'string') {
     return error;
@@ -130,6 +132,10 @@ export function getErrorMessage(error: any): string {
  * Shows an error toast with user-friendly message
  */
 export function showErrorToast(error: any, fallbackMessage?: string) {
+  if(isServiceUnavailable(error)){
+    toast.info(serviceTitle,{id:'citizen-service-availability',duration:6000,description:'Please return later.',action:{label:'Check availability',onClick:()=>window.dispatchEvent(new Event('citizen:service-status'))}});
+    return;
+  }
   const message = fallbackMessage || getErrorMessage(error);
   toast.error(message, {
     duration: 5000,
@@ -178,6 +184,10 @@ export function handleApiError(
     silent?: boolean;
   }
 ) {
+  if(isServiceUnavailable(error)){
+    if(!options?.silent)showErrorToast(error);
+    return;
+  }
   const message = options?.customMessage || getErrorMessage(error);
 
   if (options?.silent) {
