@@ -22,6 +22,7 @@ type Records = { investors: Profile[]; invitations: Invitation[] };
 type Props = {
   request: (operation: string, data?: Record<string, unknown>) => Promise<unknown>;
   accountUrl: string;
+  initialTab?: 'profiles'|'invitations';
   emailLogUrl?: string;
   onPortfolio: (personId: string) => void;
 };
@@ -46,7 +47,7 @@ const showDate = (value: string | null) => value
   ? new Intl.DateTimeFormat('en-ZA', { dateStyle: 'medium', timeZone: 'Africa/Maseru' }).format(new Date(value))
   : '—';
 
-export function InvestorDirectory({ request, accountUrl, emailLogUrl, onPortfolio }: Props) {
+export function InvestorDirectory({ request, accountUrl, emailLogUrl, initialTab, onPortfolio }: Props) {
   const [records, setRecords] = useState<Records>();
   const [tab, setTab] = useState<'profiles' | 'invitations'>('profiles');
   const [search, setSearch] = useState('');
@@ -75,6 +76,7 @@ export function InvestorDirectory({ request, accountUrl, emailLogUrl, onPortfoli
   }, [request]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(()=>{if(initialTab){setTab(initialTab);setPage(1);setStatus('');}},[initialTab]);
   useEffect(()=>{if(new URLSearchParams(window.location.search).get('invite')==='1')inviteDialog.current?.showModal();},[]);
   useEffect(() => {const sync=()=>{setTab(window.location.hash==='#invitations'?'invitations':'profiles');setPage(1);setStatus('');};sync();window.addEventListener('hashchange',sync);return ()=>window.removeEventListener('hashchange',sync);}, []);
   useEffect(() => {

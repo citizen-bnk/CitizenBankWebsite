@@ -1,6 +1,6 @@
 import {BackOfficeNav} from '@/components/BackOfficeNav';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link,useLocation } from 'react-router-dom';
 import { auth } from 'app/auth';
 import { Header } from 'components/Header';
 import { RoleGuard } from 'components/RoleGuard';
@@ -27,6 +27,7 @@ async function request(operation: string, data?: Record<string, unknown>) {
 }
 
 function Management() {
+  const location=useLocation();
   const [portfolio, setPortfolio] = useState<string>();
   return <>
     <Header/><BackOfficeNav/>
@@ -38,7 +39,7 @@ function Management() {
           <Button asChild variant="outline"><Link to="/admin-users">User access</Link></Button>
         </div>
       </div>
-      <InvestorDirectory request={request} accountUrl="/admin-users" onPortfolio={setPortfolio}/>
+      <InvestorDirectory request={request} accountUrl="/admin-users" initialTab={location.hash==='#invitations'?'invitations':'profiles'} onPortfolio={setPortfolio}/>
       {portfolio && <InvestorPortfolio personId={portfolio} onClose={() => setPortfolio(undefined)} transport={transport}/>}
     </main>
   </>;
