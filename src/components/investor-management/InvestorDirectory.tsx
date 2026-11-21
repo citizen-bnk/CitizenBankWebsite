@@ -204,7 +204,7 @@ export function InvestorDirectory({ request, accountUrl, emailLogUrl, initialTab
             <span>{invitationLabels[invitation.status] || invitation.status}
               {invitation.status === 'accepted' ? invitation.account_confirmed ? ' · Account confirmed' : ' · Account setup pending' : ''}</span></div>
           <div><strong>{emailLabels[invitation.email_status || ''] || 'Email send not recorded'}</strong>
-            <span>Sent {showDate(invitation.sent_at)} · Expires {showDate(invitation.expires_at)}</span>{invitation.provider_message_id&&<small>Provider ID: {invitation.provider_message_id}</small>}</div>
+            <span>Sent {showDate(invitation.sent_at)} · Expires {showDate(invitation.expires_at)}</span>{invitation.provider_message_id&&<small>{/^[0-9a-f-]{36}$/i.test(invitation.provider_message_id)?'Provider ID':'Legacy email reference'}: {invitation.provider_message_id}</small>}</div>
           <RecordActions label={invitation.full_name || invitation.email}>
             {invitation.status !== 'cancelled' && <button type="button" disabled={busy}
               onClick={() => void invitationAction('invitation.resend', invitation)}>

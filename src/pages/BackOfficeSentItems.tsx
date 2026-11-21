@@ -357,7 +357,7 @@ function BackOfficeSentItems() {
           </DialogHeader>
           {selectedEmail && (
             <div className="space-y-4">
-              <p className="text-sm break-all">Provider ID: {selectedEmail.email_id}</p>
+              <p className="text-sm break-all">{/^[0-9a-f-]{36}$/i.test(selectedEmail.email_id)?'Provider ID':'Legacy reference · delivery unverified'}: {selectedEmail.email_id}</p>
               {/^[0-9a-f-]{36}$/i.test(selectedEmail.email_id)&&<EmailConnection key={selectedEmail.email_id} messageId={selectedEmail.email_id}/>}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
