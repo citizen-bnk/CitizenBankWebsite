@@ -15,13 +15,14 @@ type Profile = {
 type Invitation = {
   id: number; full_name: string | null; email: string; status: string;
   email_status: string | null; account_confirmed: boolean;
-  sent_at: string | null; expires_at: string | null;
+  sent_at: string | null; expires_at: string | null; provider_message_id?:string|null;
 };
 
 type Records = { investors: Profile[]; invitations: Invitation[] };
 type Props = {
   request: (operation: string, data?: Record<string, unknown>) => Promise<unknown>;
   accountUrl: string;
+  emailLogUrl?: string;
   onPortfolio: (personId: string) => void;
 };
 
@@ -45,7 +46,7 @@ const showDate = (value: string | null) => value
   ? new Intl.DateTimeFormat('en-ZA', { dateStyle: 'medium', timeZone: 'Africa/Maseru' }).format(new Date(value))
   : '—';
 
-export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
+export function InvestorDirectory({ request, accountUrl, emailLogUrl, onPortfolio }: Props) {
   const [records, setRecords] = useState<Records>();
   const [tab, setTab] = useState<'profiles' | 'invitations'>('profiles');
   const [search, setSearch] = useState('');
@@ -58,6 +59,8 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
   const [formIssue, setFormIssue] = useState('');
   const [notice, setNotice] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
+  const inviteDialog=useRef<HTMLDialogElement>(null);
+  const [inviteError,setInviteError]=useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,13 +75,15 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
   }, [request]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { if (window.location.hash === '#invitations') setTab('invitations'); }, []);
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get('invite')==='1')inviteDialog.current?.showModal();},[]);
+  useEffect(() => {const sync=()=>{setTab(window.location.hash==='#invitations'?'invitations':'profiles');setPage(1);setStatus('');};sync();window.addEventListener('hashchange',sync);return ()=>window.removeEventListener('hashchange',sync);}, []);
   useEffect(() => {
     if (selected && !dialog.current?.open) dialog.current?.showModal();
     if (!selected && dialog.current?.open) dialog.current.close();
   }, [selected]);
 
   function switchTab(next: 'profiles' | 'invitations') {
+    window.history.replaceState(null,'',window.location.pathname+window.location.search+(next==='invitations'?'#invitations':''));
     setTab(next);
     setPage(1);
     setStatus('');
@@ -113,6 +118,14 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
     }
   }
 
+  async function createInvitation(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(busy)return;const form=new FormData(event.currentTarget);
+    setBusy(true);setInviteError('');
+    try{const result=await request('invitation.create',{full_name:form.get('full_name'),email:form.get('email')}) as {message:string};
+      inviteDialog.current?.close();setNotice(result.message);switchTab('invitations');await load();
+    }catch(error){setInviteError(error instanceof Error?error.message:'The invitation could not be saved.');}finally{setBusy(false);}
+  }
+
   async function invitationAction(operation: 'invitation.resend' | 'invitation.cancel', invitation: Invitation) {
     if (busy) return;
     if (operation === 'invitation.cancel' && !window.confirm('Cancel the invitation for ' + invitation.email + '?')) return;
@@ -145,11 +158,12 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
 
   return <section className="investor-directory" aria-label="Manage investors">
     <div className="investor-directory-controls">
+      <button type="button" onClick={()=>{setInviteError('');inviteDialog.current?.showModal();}}>Invite investor</button>
       <button type="button" aria-pressed={tab === 'profiles'} onClick={() => switchTab('profiles')}>
         Investor profiles {records ? '(' + records.investors.length + ')' : ''}
       </button>
       <button type="button" aria-pressed={tab === 'invitations'} onClick={() => switchTab('invitations')}>
-        Invitations {records ? '(' + records.invitations.length + ')' : ''}
+        Invited investors {records ? '(' + records.invitations.length + ')' : ''}
       </button>
       <button type="button" onClick={() => void load()} disabled={loading}>Refresh</button>
     </div>
@@ -188,7 +202,7 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
             <span>{invitationLabels[invitation.status] || invitation.status}
               {invitation.status === 'accepted' ? invitation.account_confirmed ? ' · Account confirmed' : ' · Account setup pending' : ''}</span></div>
           <div><strong>{emailLabels[invitation.email_status || ''] || 'Email send not recorded'}</strong>
-            <span>Sent {showDate(invitation.sent_at)} · Expires {showDate(invitation.expires_at)}</span></div>
+            <span>Sent {showDate(invitation.sent_at)} · Expires {showDate(invitation.expires_at)}</span>{invitation.provider_message_id&&<small>Provider ID: {invitation.provider_message_id}</small>}</div>
           <RecordActions label={invitation.full_name || invitation.email}>
             {invitation.status !== 'cancelled' && <button type="button" disabled={busy}
               onClick={() => void invitationAction('invitation.resend', invitation)}>
@@ -196,6 +210,7 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
             </button>}
             {['pending','sent','expired'].includes(invitation.status) && <button type="button" disabled={busy}
               onClick={() => void invitationAction('invitation.cancel', invitation)}>Cancel invitation</button>}
+            <a href={(emailLogUrl||accountUrl.replace(/\/admin-users$/,'/back-office-sent-items')) + '?search=' + encodeURIComponent(invitation.email)}>View email history</a>
             <a href={accountUrl + '?search=' + encodeURIComponent(invitation.email)}>Manage account access</a>
           </RecordActions>
         </li>)}
@@ -227,6 +242,15 @@ export function InvestorDirectory({ request, accountUrl, onPortfolio }: Props) {
           <button type="button" disabled={busy} onClick={() => setSelected(undefined)}>Close</button>
         </div>
       </form>}
+    </dialog>
+    <dialog ref={inviteDialog} aria-labelledby="invite-investor-title" onCancel={event=>{if(busy)event.preventDefault();}}>
+      <form onSubmit={createInvitation}>
+        <h2 id="invite-investor-title">Invite investor</h2>
+        <label>Full name<input name="full_name" required minLength={2} maxLength={150} placeholder="Example: Thabo Mokoena"/></label>
+        <label>Email<input name="email" type="email" required placeholder="name@example.com"/></label>
+        {inviteError&&<p role="alert">{inviteError}</p>}
+        <div className="investor-directory-actions"><button type="submit" disabled={busy}>{busy?'Saving…':'Save invitation'}</button><button type="button" disabled={busy} onClick={()=>inviteDialog.current?.close()}>Cancel</button></div>
+      </form>
     </dialog>
   </section>;
 }

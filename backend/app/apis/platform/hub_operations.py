@@ -151,6 +151,43 @@ async def manage_investor_invitation(operation, data, actor):
     return {'saved':True,'message':'Account setup email queued or recently sent.'}
 
 
+class InvestorInvitation(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True,min_length=2,max_length=150)]
+    email: EmailStr
+
+
+async def create_investor_invitation(data, actor):
+    import uuid
+    import html
+    from app.libs.email_queue import enqueue_email
+    from app.libs.url_helpers import get_frontend_base_url
+    from app.libs.investment_policy import approved_offer
+    entry = InvestorInvitation.model_validate(data)
+    address = str(entry.email).lower()
+    async with db_transaction() as conn:
+        await conn.execute('SELECT pg_advisory_xact_lock(hashtext($1))','investor-invite:'+address)
+        existing = await conn.fetchval("""SELECT id FROM invitations WHERE lower(email)=$1
+            AND role='investor' AND status IN ('pending','sent','accepted','expired')
+            ORDER BY created_at DESC LIMIT 1""",address)
+        if existing:
+            return {'saved':True,'existing':True,'invitation_id':existing,'message':'This investor already has an invitation. Open Invited investors to review or resend it.'}
+        offer = await approved_offer(conn)
+        token = str(uuid.uuid4())
+        invitation_id = await conn.fetchval("""INSERT INTO invitations(email,full_name,role,invitation_type,
+            token,tracking_token,status,invited_by,invited_by_name,share_class_offered,minimum_investment,expires_at)
+            VALUES($1,$2,'investor','investor',$3,$3,'pending',$4,$5,'Class B',$6,now()+interval '30 days') RETURNING id""",
+            address,entry.full_name,token,actor.sub,actor.name or 'Citizen Bank',offer['price_per_share']*offer['min_shares'])
+        link=get_frontend_base_url().rstrip('/')+'/invite-acceptance?token='+token
+        queued=await enqueue_email(recipient_email=address,recipient_name=entry.full_name,
+            subject='Your Citizen Bank investor invitation',
+            body_html='<p>Hello '+html.escape(entry.full_name)+',</p><p>You are invited to Citizen Bank.</p><p><a href="'+html.escape(link,quote=True)+'">Accept invitation</a></p><p>Set up your password and basic profile to explore the private investor area.</p>',
+            created_by=actor.sub,conn=conn,priority='high',dedupe_key='investor-invitation:'+str(invitation_id)+':initial')
+        await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+            VALUES($1,'investor.invitation_queued','invitation',$2,$3::jsonb)""",actor.sub,str(invitation_id),json.dumps({'queue_id':queued['queue_id']}))
+        return {'saved':True,'invitation_id':invitation_id,'message':'Invitation saved and queued for email delivery. Track it under Invited investors.'}
+
+
 async def investor_directory(conn):
     profiles = await conn.fetch("""SELECT i.person_id::text, i.provider_subject AS account_id,
         coalesce(u.full_name,p.display_name,'Investor') AS full_name,
@@ -170,13 +207,15 @@ async def investor_directory(conn):
         coalesce(delivery.status, CASE WHEN i.sent_at IS NOT NULL THEN 'sent' END) AS email_status,
         coalesce(delivery.sent_at,i.sent_at) AS sent_at,i.created_at,i.expires_at,i.accepted_at,
         i.accepted_by IS NOT NULL OR setup.completed_at IS NOT NULL AS account_confirmed,
-        setup.completed_at AS setup_completed_at
+        setup.completed_at AS setup_completed_at, delivery.provider_message_id
         FROM invitations i
         LEFT JOIN LATERAL (
-            SELECT q.status,q.sent_at FROM platform.audit_log a
+            SELECT q.status,q.sent_at,
+                (SELECT h.email_id FROM email_history h WHERE h.queue_id=q.queue_id ORDER BY h.created_at DESC LIMIT 1) AS provider_message_id
+            FROM platform.audit_log a
             JOIN email_queue q ON q.queue_id=a.detail->>'queue_id'
             WHERE a.target_type='invitation' AND a.target_id=i.id::text
-              AND a.action IN ('investor.testing_invitation_queued','investor.invitation_resent')
+              AND a.action IN ('investor.testing_invitation_queued','investor.invitation_queued','investor.invitation_resent')
             ORDER BY q.created_at DESC LIMIT 1
         ) delivery ON true
         LEFT JOIN LATERAL (
@@ -248,7 +287,7 @@ async def dispatch(request, website_user=None):
         raise HTTPException(422, 'Invalid workspace request.') from None
     if website_user and operation not in ('investment.directory', 'investment.update',
                                            'investment.portfolio', 'investment.certificate',
-                                           'invitation.resend', 'invitation.cancel'):
+                                           'invitation.create', 'invitation.resend', 'invitation.cancel'):
         raise HTTPException(404, 'Workspace action unavailable.')
     if website_user and not website_user.email_verified:
         raise HTTPException(403, 'Verify your Citizen account email before managing investor records.')
@@ -307,6 +346,8 @@ async def dispatch(request, website_user=None):
             return {'candidates':[dict(row) for row in candidates]}
 
     try:
+        if operation == 'invitation.create':
+            return await create_investor_invitation(data,actor)
         if operation in ('invitation.resend','invitation.cancel'):
             return await manage_investor_invitation(operation,data,actor)
         if operation == 'investment.provision':

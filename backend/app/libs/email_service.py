@@ -105,7 +105,8 @@ async def send_bulk_email(
     subject: str,
     content_html: str,
     content_text: str = "",
-    sender_type: str = "noreply"
+    sender_type: str = "noreply",
+    idempotency_key: str | None = None
 ) -> Dict[str, Any]:
     """
     Send email to multiple recipients using Resend batch API.

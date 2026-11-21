@@ -194,7 +194,7 @@ const BackOfficeInvestorLeads = () => {
       
       const response = await apiClient.send_invitation(body);
       if (response.ok) {
-        toast.success("Invitation sent successfully");
+        toast.success("Invitation saved and queued for email delivery");
         setShowInviteDialog(false);
         loadLeads();
         loadInvitationStats();
@@ -229,7 +229,7 @@ const BackOfficeInvestorLeads = () => {
       if (response.ok) {
         const result: any = await response.json();
         toast.success(
-          `Sent ${result.successful} invitations. ${result.failed} failed.`
+          `Queued ${result.successful} invitations. ${result.failed} failed.`
         );
         setShowBulkInviteDialog(false);
         setSelectedLeads([]);

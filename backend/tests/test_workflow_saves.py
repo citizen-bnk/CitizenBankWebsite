@@ -27,6 +27,18 @@ async def workflow_db(monkeypatch):
         def __getattr__(self, key): return getattr(conn, key)
         async def close(self): pass
     proxy = Connection()
+    # Reference setup is part of this isolated fixture, never production seeding.
+    @asynccontextmanager
+    async def local_connection(**_):
+        yield proxy
+    from app.libs import database, share_structure_seed
+    monkeypatch.setattr(database, 'db_connection', local_connection)
+    monkeypatch.setattr(share_structure_seed, 'db_transaction', local_connection)
+    await share_structure_seed.seed_share_structure()
+    await conn.execute("""INSERT INTO board_positions(position_name,position_code,position_level,
+        is_active,minimum_investment_shares)
+        SELECT 'Member','member',1,true,0 WHERE NOT EXISTS(
+            SELECT 1 FROM board_positions WHERE position_code='member' OR lower(position_name)='member')""")
     await prepare_profile(proxy)
     try:
         yield proxy
@@ -161,12 +173,13 @@ async def test_outbox_confirms_delivery_and_retries_without_false_sent(workflow_
     # Only the test outbox is eligible; never contact an external provider.
     await conn.execute("UPDATE email_queue SET scheduled_for=now()+interval '1 year'")
     entry=await queue.enqueue_email(user().email,user().name,'Test','<p>Test</p>',conn=conn,dedupe_key='test-delivery',scheduled_for=datetime.utcnow()-timedelta(minutes=1))
-    sender=AsyncMock(return_value={'success':True})
+    sender=AsyncMock(return_value={'success':True,'message_id':'12345678-1234-1234-1234-123456789abc'})
     monkeypatch.setattr(queue,'send_email',sender)
     stats=await queue.process_email_queue()
     assert stats['sent']==1
     assert sender.call_args.kwargs['idempotency_key']==entry['queue_id']
     assert await conn.fetchval('SELECT count(*) FROM email_history WHERE queue_id=$1',entry['queue_id'])==1
+    assert await conn.fetchval('SELECT email_id FROM email_history WHERE queue_id=$1',entry['queue_id'])=='12345678-1234-1234-1234-123456789abc'
     await queue.enqueue_email(user().email,user().name,'Failure','<p>Retry</p>',conn=conn,scheduled_for=datetime.utcnow()-timedelta(minutes=1))
     sender.side_effect=RuntimeError('provider unavailable')
     stats=await queue.process_email_queue()

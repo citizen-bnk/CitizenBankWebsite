@@ -8,6 +8,15 @@ import json
 
 router = APIRouter(prefix="/email-templates")
 
+async def require_email_admin(user):
+    if not user.email_verified:
+        raise HTTPException(403, 'Verify your email before managing email delivery.')
+    from app.libs.database import db_connection
+    from app.libs.platform_people import legacy_roles
+    async with db_connection() as conn:
+        if not set(await legacy_roles(conn, user.sub)) & {'admin', 'super_admin'}:
+            raise HTTPException(403, 'Administrator access is required to manage email delivery.')
+
 # Request Models
 class CreateEmailTemplateModel(BaseModel):
     template_name: str
@@ -407,6 +416,7 @@ async def get_email_queue_status(user: AuthorizedUser):
     """
     Get email queue statistics.
     """
+    await require_email_admin(user)
     stats = await get_queue_status()
     return {
         "success": True,
@@ -420,6 +430,7 @@ async def process_email_queue_endpoint(user: AuthorizedUser):
     Manually trigger email queue processing.
     Useful for testing or forcing immediate delivery.
     """
+    await require_email_admin(user)
     stats = await process_email_queue(batch_size=20)
     return {
         "success": True,
@@ -435,6 +446,7 @@ async def retry_failed_email_endpoint(queue_id: str, user: AuthorizedUser):
     """
     from app.libs.email_queue import retry_failed_email
     
+    await require_email_admin(user)
     success = await retry_failed_email(queue_id)
     
     if success:
@@ -886,6 +898,7 @@ async def list_sent_emails(
     List sent emails with filters and search.
     Combines email_queue and email_history for comprehensive tracking.
     """
+    await require_email_admin(user)
     conn = await get_db_connection()
     
     try:

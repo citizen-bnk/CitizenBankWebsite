@@ -1,0 +1,12 @@
+.citizen-backoffice-nav{display:flex;flex-wrap:wrap;gap:8px;padding:12px clamp(16px,4vw,40px);border-bottom:1px solid #ddd5e7;background:#fff;width:100%;flex:none}
+.citizen-backoffice-nav a{display:inline-flex;align-items:center;min-height:44px;padding:10px 16px;border:1px solid #d3c8e1;border-radius:10px;color:#493263;text-decoration:none;font-weight:600}
+.citizen-backoffice-nav a.selected{background:#624291;border-color:#624291;color:#fff}
+.citizen-backoffice-nav a:focus-visible{outline:3px solid #a185c4;outline-offset:3px}
+div:has(>.citizen-backoffice-nav){flex-direction:column}
+.citizen-backoffice-nav+main{min-width:0;width:100%}
+.backoffice-workspace{max-width:1100px;margin:auto;padding:24px clamp(16px,4vw,32px);width:100%}
+.backoffice-workspace-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:24px}
+.backoffice-workspace-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}
+.backoffice-workspace-card{display:grid;gap:8px;padding:22px;border:1px solid #d3c8e1;border-radius:14px;background:white;color:#322146;text-decoration:none;min-height:112px}
+.backoffice-workspace-card:hover{border-color:#624291;background:#faf7ff}
+.backoffice-workspace-card strong{font-size:18px}.backoffice-workspace-card span{font-size:14px;color:#645b70}

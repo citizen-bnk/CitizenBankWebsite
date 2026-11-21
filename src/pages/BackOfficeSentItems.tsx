@@ -1,4 +1,7 @@
+import {useSearchParams} from 'react-router-dom';
+import {RoleGuard} from '@/components/RoleGuard';
 import { useState, useEffect } from "react";
+import {EmailConnection} from '@/components/EmailConnection';
 import { Header } from "components/Header";
 import { Footer } from "components/Footer";
 import { BackOfficeNav } from "components/BackOfficeNav";
@@ -57,30 +60,25 @@ interface QueueStats {
   total: number;
 }
 
-export default function BackOfficeSentItems() {
+function BackOfficeSentItems() {
+  const [searchParams]=useSearchParams();
   const [emails, setEmails] = useState<SentEmail[]>([]);
   const [stats, setStats] = useState<QueueStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("search")||"");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedEmail, setSelectedEmail] = useState<SentEmail | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
   const loadSentItems = async () => {
     try {
-      console.log("[BackOfficeSentItems] Loading emails...");
-      console.log("[BackOfficeSentItems] statusFilter:", statusFilter);
-      console.log("[BackOfficeSentItems] searchTerm:", searchTerm);
       
       const response = await apiClient.list_sent_emails({
         status: statusFilter === "all" ? undefined : statusFilter,
         search: searchTerm || undefined,
       });
       
-      console.log("[BackOfficeSentItems] Response status:", response.status);
       const data = await response.json();
-      console.log("[BackOfficeSentItems] Response data:", data);
-      console.log("[BackOfficeSentItems] Emails count:", data.emails?.length);
       
       setEmails(data.emails || []);
     } catch (error) {
@@ -93,7 +91,6 @@ export default function BackOfficeSentItems() {
     try {
       const response = await apiClient.get_email_queue_status();
       const data = await response.json();
-      console.log("[BackOfficeSentItems] Stats data:", data);
       setStats(data.queue_stats || null);
     } catch (error) {
       console.error("Failed to load email stats:", error);
@@ -138,7 +135,7 @@ export default function BackOfficeSentItems() {
     };
     return (
       <Badge variant={variants[status] || "secondary"}>
-        {status.toUpperCase()}
+        {status==='sent'?'Accepted by provider':status.toUpperCase()}
       </Badge>
     );
   };
@@ -158,7 +155,7 @@ export default function BackOfficeSentItems() {
             {/* Header */}
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-3xl font-bold">Sent Items</h1>
+                <h1 className="text-3xl font-bold">Email delivery</h1>
                 <p className="text-muted-foreground mt-1">
                   View and manage all sent emails from the system
                 </p>
@@ -169,6 +166,7 @@ export default function BackOfficeSentItems() {
               </Button>
             </div>
 
+            <EmailConnection/>
             {/* Stats Cards */}
             {stats && (
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -180,7 +178,7 @@ export default function BackOfficeSentItems() {
                 </Card>
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardDescription>Sent</CardDescription>
+                    <CardDescription>Accepted by provider</CardDescription>
                     <CardTitle className="text-3xl text-green-600">
                       {stats.sent}
                     </CardTitle>
@@ -216,7 +214,7 @@ export default function BackOfficeSentItems() {
             {/* Filters */}
             <Card>
               <CardContent className="pt-6">
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <div className="flex-1">
                     <div className="relative">
                       <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -235,7 +233,7 @@ export default function BackOfficeSentItems() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="sent">Sent</SelectItem>
+                      <SelectItem value="sent">Accepted by provider</SelectItem>
                       <SelectItem value="pending">Pending</SelectItem>
                       <SelectItem value="retrying">Retrying</SelectItem>
                       <SelectItem value="failed">Failed</SelectItem>
@@ -359,6 +357,8 @@ export default function BackOfficeSentItems() {
           </DialogHeader>
           {selectedEmail && (
             <div className="space-y-4">
+              <p className="text-sm break-all">Provider ID: {selectedEmail.email_id}</p>
+              {/^[0-9a-f-]{36}$/i.test(selectedEmail.email_id)&&<EmailConnection key={selectedEmail.email_id} messageId={selectedEmail.email_id}/>}
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="font-medium">To:</span>{" "}
@@ -387,10 +387,7 @@ export default function BackOfficeSentItems() {
               )}
               <div className="border rounded-lg p-4 bg-muted/50">
                 <p className="font-medium mb-2">Email Content:</p>
-                <div
-                  className="prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }}
-                />
+                <iframe title="Email content preview" sandbox="" referrerPolicy="no-referrer" className="w-full min-h-[300px] rounded border bg-white" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;; img-src data:">'+selectedEmail.body_html}/>
               </div>
             </div>
           )}
@@ -399,3 +396,5 @@ export default function BackOfficeSentItems() {
     </div>
   );
 }
+
+export default function EmailDeliveryPage(){return <RoleGuard allowedRoles={['admin','super_admin']}><BackOfficeSentItems/></RoleGuard>;}

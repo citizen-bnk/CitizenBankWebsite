@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 import secrets
 from app.auth import AuthorizedUser
-from app.libs.email_queue import get_db_connection
+from app.libs.email_queue import get_db_connection, enqueue_email
 from app.libs.rbac import check_user_has_any_role
 from app.libs.email_templates import create_investor_invitation_email
 from app.libs.url_helpers import get_frontend_path
@@ -45,7 +45,7 @@ class InvitationResponse(BaseModel):
     share_class: str
     minimum_investment: float
     tracking_token: str
-    sent_at: datetime
+    sent_at: Optional[datetime]
     opened_at: Optional[datetime]
     clicked_at: Optional[datetime]
     responded_at: Optional[datetime]
@@ -118,6 +118,18 @@ async def check_admin_access(user: AuthorizedUser) -> bool:
         raise HTTPException(status_code=403, detail="Access denied. Requires super_admin or back_office role.")
     return True
 
+async def queue_investor_email(conn, invitation, lead, actor, html):
+    import json
+    queued = await enqueue_email(recipient_email=lead['email'], recipient_name=lead['full_name'] or 'Investor',
+        subject='Exclusive Investment Opportunity - Citizen Digital Bank', body_html=html,
+        created_by=actor, conn=conn, dedupe_key=f"investor-invitation:{invitation['id']}:initial")
+    await conn.execute("UPDATE invitations SET status='pending',sent_at=NULL WHERE id=$1", invitation['id'])
+    await conn.execute("""INSERT INTO platform.audit_log(actor,action,target_type,target_id,detail)
+        VALUES($1,'investor.invitation_queued','invitation',$2,$3::jsonb)""",
+        actor,str(invitation['id']),json.dumps({'queue_id':queued['queue_id']}))
+    return queued
+
+
 async def log_lead_activity(conn, lead_id: int, activity_type: str, details: dict, created_by: str):
     """Log activity for investor lead"""
     import json
@@ -146,94 +158,94 @@ async def send_invitation(
     await check_admin_access(user)
     if body.share_class not in ('Class B', 'Class B - Ordinary Shares'):
         raise HTTPException(status_code=422, detail='Only Class B is available for investor invitations.')
-    
+
     conn = await get_db_connection()
     try:
-        # Get lead details
-        lead = await conn.fetchrow(
-            "SELECT * FROM investor_leads WHERE id = $1",
-            body.lead_id
-        )
-        
-        if not lead:
-            raise HTTPException(status_code=404, detail="Lead not found")
-        
-        # Check if lead already converted
-        if lead['status'] == 'converted':
-            raise HTTPException(status_code=400, detail="Lead has already converted to shareholder")
-        
-        # Generate unique tracking token
-        tracking_token = secrets.token_urlsafe(32)
-        
-        # Create subscription link with tracking
-        subscription_url = f"{get_frontend_path('/share-subscription')}?invite={tracking_token}"
-        
-        # Create invitation record in unified invitations table
-        invitation = await conn.fetchrow(
-            """
-            INSERT INTO invitations (
-                invitation_type, lead_id, email, share_class_offered, minimum_investment, 
-                special_terms, tracking_token, message, sent_by, full_name, 
-                role, token, status, invited_by, invited_by_name, expires_at
-            )
-            VALUES (
-                'investor', $1, $2, $3, $4, $5, $6, $7, $8, $9, 
-                'investor', gen_random_uuid(), 'sent', $8, 'Investment Team', NOW() + INTERVAL '30 days'
-            )
-            RETURNING *
-            """,
-            body.lead_id, lead['email'], body.share_class, body.minimum_investment,
-            body.special_terms, tracking_token, body.personalized_message, user.sub, lead['full_name']
-        )
-        
-        # Generate email HTML
-        email_html = create_investor_invitation_email(
-            recipient_name=lead['full_name'],
-            share_class=body.share_class,
-            minimum_investment=body.minimum_investment,
-            subscription_link=subscription_url,
-            special_terms=body.special_terms,
-            contact_person=body.contact_person,
-            contact_email=body.contact_email,
-            contact_phone=body.contact_phone
-        )
-        
-        await send_email(to=lead['email'], subject="Exclusive Investment Opportunity - Citizen Digital Bank",
-                         content_html=email_html, sender_type='invitations')
-        
-        # Update lead status to 'invited' if not already
-        if lead['status'] == 'new':
-            await conn.execute(
-                "UPDATE investor_leads SET status = 'invited' WHERE id = $1",
+        async with conn.transaction():
+            # Get lead details
+            lead = await conn.fetchrow(
+                "SELECT * FROM investor_leads WHERE id = $1",
                 body.lead_id
             )
-        
-        # Log activity
-        await log_lead_activity(
-            conn,
-            body.lead_id,
-            'invitation_sent',
-            {
-                'share_class': body.share_class,
-                'minimum_investment': float(body.minimum_investment),
-                'invitation_id': invitation['id']
-            },
-            user.sub
-        )
-        
-        return InvitationResponse(
-            id=invitation['id'],
-            lead_id=invitation['lead_id'],
-            share_class=invitation['share_class_offered'],
-            minimum_investment=invitation['minimum_investment'],
-            tracking_token=invitation['tracking_token'],
-            sent_at=invitation['sent_at'],
-            opened_at=invitation['opened_at'],
-            clicked_at=invitation['clicked_at'],
-            responded_at=invitation['responded_at'],
-            email_status='sent'
-        )
-        
+
+            if not lead:
+                raise HTTPException(status_code=404, detail="Lead not found")
+
+            # Check if lead already converted
+            if lead['status'] == 'converted':
+                raise HTTPException(status_code=400, detail="Lead has already converted to shareholder")
+
+            # Generate unique tracking token
+            tracking_token = secrets.token_urlsafe(32)
+
+            # Create subscription link with tracking
+            subscription_url = f"{get_frontend_path('/share-subscription')}?invite={tracking_token}"
+
+            # Create invitation record in unified invitations table
+            invitation = await conn.fetchrow(
+                """
+                INSERT INTO invitations (
+                    invitation_type, lead_id, email, share_class_offered, minimum_investment,
+                    special_terms, tracking_token, message, sent_by, full_name,
+                    role, token, status, invited_by, invited_by_name, expires_at
+                )
+                VALUES (
+                    'investor', $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                    'investor', gen_random_uuid(), 'sent', $8, 'Investment Team', NOW() + INTERVAL '30 days'
+                )
+                RETURNING *
+                """,
+                body.lead_id, lead['email'], body.share_class, body.minimum_investment,
+                body.special_terms, tracking_token, body.personalized_message, user.sub, lead['full_name']
+            )
+
+            # Generate email HTML
+            email_html = create_investor_invitation_email(
+                recipient_name=lead['full_name'],
+                share_class=body.share_class,
+                minimum_investment=body.minimum_investment,
+                subscription_link=subscription_url,
+                special_terms=body.special_terms,
+                contact_person=body.contact_person,
+                contact_email=body.contact_email,
+                contact_phone=body.contact_phone
+            )
+
+            await queue_investor_email(conn, invitation, lead, user.sub, email_html)
+
+            # Update lead status to 'invited' if not already
+            if lead['status'] == 'new':
+                await conn.execute(
+                    "UPDATE investor_leads SET status = 'invited' WHERE id = $1",
+                    body.lead_id
+                )
+
+            # Log activity
+            await log_lead_activity(
+                conn,
+                body.lead_id,
+                'invitation_sent',
+                {
+                    'share_class': body.share_class,
+                    'minimum_investment': float(body.minimum_investment),
+                    'invitation_id': invitation['id']
+                },
+                user.sub
+            )
+
+            return InvitationResponse(
+                id=invitation['id'],
+                lead_id=invitation['lead_id'],
+                share_class=invitation['share_class_offered'],
+                minimum_investment=invitation['minimum_investment'],
+                tracking_token=invitation['tracking_token'],
+                sent_at=None,
+                opened_at=invitation['opened_at'],
+                clicked_at=invitation['clicked_at'],
+                responded_at=invitation['responded_at'],
+                email_status='pending'
+            )
+
     finally:
         await conn.close()
 
@@ -250,7 +262,7 @@ async def bulk_send_invitations(
     await check_admin_access(user)
     if body.share_class not in ('Class B', 'Class B - Ordinary Shares'):
         raise HTTPException(status_code=422, detail='Only Class B is available for investor invitations.')
-    
+
     conn = await get_db_connection()
     try:
         total_sent = len(body.lead_ids)
@@ -258,90 +270,90 @@ async def bulk_send_invitations(
         failed = 0
         invitation_ids = []
         errors = []
-        
+
         for lead_id in body.lead_ids:
             try:
-                # Get lead details
-                lead = await conn.fetchrow(
-                    "SELECT * FROM investor_leads WHERE id = $1",
-                    lead_id
-                )
-                
-                if not lead:
-                    errors.append({'lead_id': lead_id, 'error': 'Lead not found'})
-                    failed += 1
-                    continue
-                
-                if lead['status'] == 'converted':
-                    errors.append({'lead_id': lead_id, 'error': 'Already converted'})
-                    failed += 1
-                    continue
-                
-                # Generate tracking token
-                tracking_token = secrets.token_urlsafe(32)
-                subscription_url = f"{get_frontend_path('/share-subscription')}?invite={tracking_token}"
-                
-                # Create invitation in unified table
-                invitation = await conn.fetchrow(
-                    """
-                    INSERT INTO invitations (
-                        invitation_type, lead_id, email, share_class_offered, minimum_investment,
-                        special_terms, tracking_token, sent_by, full_name,
-                        role, token, status, invited_by, invited_by_name, expires_at
-                    )
-                    VALUES (
-                        'investor', $1, $2, $3, $4, $5, $6, $7, $8,
-                        'investor', gen_random_uuid(), 'sent', $7, 'Investment Team', NOW() + INTERVAL '30 days'
-                    )
-                    RETURNING id
-                    """,
-                    lead_id, lead['email'], body.share_class, body.minimum_investment,
-                    body.special_terms, tracking_token, user.sub, lead['full_name']
-                )
-                
-                # Generate email
-                email_html = create_investor_invitation_email(
-                    recipient_name=lead['full_name'],
-                    share_class=body.share_class,
-                    minimum_investment=body.minimum_investment,
-                    subscription_link=subscription_url,
-                    special_terms=body.special_terms,
-                    contact_person=body.contact_person,
-                    contact_email=body.contact_email,
-                    contact_phone=body.contact_phone
-                )
-                
-                await send_email(to=lead['email'], subject="Exclusive Investment Opportunity - Citizen Digital Bank",
-                                 content_html=email_html, sender_type='invitations')
-                
-                # Update lead status
-                if lead['status'] == 'new':
-                    await conn.execute(
-                        "UPDATE investor_leads SET status = 'invited' WHERE id = $1",
+                async with conn.transaction():
+                    # Get lead details
+                    lead = await conn.fetchrow(
+                        "SELECT * FROM investor_leads WHERE id = $1",
                         lead_id
                     )
-                
-                # Log activity
-                await log_lead_activity(
-                    conn,
-                    lead_id,
-                    'invitation_sent',
-                    {
-                        'share_class': body.share_class,
-                        'minimum_investment': float(body.minimum_investment),
-                        'invitation_id': invitation['id'],
-                        'bulk_send': True
-                    },
-                    user.sub
-                )
-                
-                invitation_ids.append(invitation['id'])
-                successful += 1
-                
+
+                    if not lead:
+                        errors.append({'lead_id': lead_id, 'error': 'Lead not found'})
+                        failed += 1
+                        continue
+
+                    if lead['status'] == 'converted':
+                        errors.append({'lead_id': lead_id, 'error': 'Already converted'})
+                        failed += 1
+                        continue
+
+                    # Generate tracking token
+                    tracking_token = secrets.token_urlsafe(32)
+                    subscription_url = f"{get_frontend_path('/share-subscription')}?invite={tracking_token}"
+
+                    # Create invitation in unified table
+                    invitation = await conn.fetchrow(
+                        """
+                        INSERT INTO invitations (
+                            invitation_type, lead_id, email, share_class_offered, minimum_investment,
+                            special_terms, tracking_token, sent_by, full_name,
+                            role, token, status, invited_by, invited_by_name, expires_at
+                        )
+                        VALUES (
+                            'investor', $1, $2, $3, $4, $5, $6, $7, $8,
+                            'investor', gen_random_uuid(), 'sent', $7, 'Investment Team', NOW() + INTERVAL '30 days'
+                        )
+                        RETURNING id
+                        """,
+                        lead_id, lead['email'], body.share_class, body.minimum_investment,
+                        body.special_terms, tracking_token, user.sub, lead['full_name']
+                    )
+
+                    # Generate email
+                    email_html = create_investor_invitation_email(
+                        recipient_name=lead['full_name'],
+                        share_class=body.share_class,
+                        minimum_investment=body.minimum_investment,
+                        subscription_link=subscription_url,
+                        special_terms=body.special_terms,
+                        contact_person=body.contact_person,
+                        contact_email=body.contact_email,
+                        contact_phone=body.contact_phone
+                    )
+
+                    await queue_investor_email(conn, invitation, lead, user.sub, email_html)
+
+                    # Update lead status
+                    if lead['status'] == 'new':
+                        await conn.execute(
+                            "UPDATE investor_leads SET status = 'invited' WHERE id = $1",
+                            lead_id
+                        )
+
+                    # Log activity
+                    await log_lead_activity(
+                        conn,
+                        lead_id,
+                        'invitation_sent',
+                        {
+                            'share_class': body.share_class,
+                            'minimum_investment': float(body.minimum_investment),
+                            'invitation_id': invitation['id'],
+                            'bulk_send': True
+                        },
+                        user.sub
+                    )
+
+                    invitation_ids.append(invitation['id'])
+                    successful += 1
+
             except Exception as e:
                 errors.append({'lead_id': lead_id, 'error': str(e)})
                 failed += 1
-        
+
         return BulkInvitationResponse(
             total_sent=total_sent,
             successful=successful,
@@ -349,7 +361,7 @@ async def bulk_send_invitations(
             invitation_ids=invitation_ids,
             errors=errors
         )
-        
+
     finally:
         await conn.close()
 
@@ -366,24 +378,24 @@ async def list_investor_invitations(
     Requires super_admin or back_office role.
     """
     await check_admin_access(user)
-    
+
     conn = await get_db_connection()
     try:
         query = "SELECT * FROM invitations WHERE invitation_type = 'investor'"
         params = []
-        
+
         if lead_id:
             params.append(lead_id)
             query += f" AND lead_id = ${len(params)}"
-        
+
         query += " ORDER BY sent_at DESC"
         params.append(limit)
         query += f" LIMIT ${len(params)}"
         params.append(offset)
         query += f" OFFSET ${len(params)}"
-        
+
         rows = await conn.fetch(query, *params)
-        
+
         return [
             InvitationResponse(
                 id=row['id'],
@@ -399,7 +411,7 @@ async def list_investor_invitations(
             )
             for row in rows
         ]
-        
+
     finally:
         await conn.close()
 
@@ -421,7 +433,7 @@ async def track_investor_invitation_open(tracking_token: str) -> dict:
             """,
             tracking_token
         )
-        
+
         # Log activity if updated
         if result:
             invitation = await conn.fetchrow(
@@ -436,9 +448,9 @@ async def track_investor_invitation_open(tracking_token: str) -> dict:
                     {'tracking_token': tracking_token},
                     None
                 )
-        
+
         return {"success": True}
-        
+
     finally:
         await conn.close()
 
@@ -460,7 +472,7 @@ async def track_link_click(tracking_token: str) -> dict:
             """,
             tracking_token
         )
-        
+
         # Log activity
         if result:
             invitation = await conn.fetchrow(
@@ -475,9 +487,9 @@ async def track_link_click(tracking_token: str) -> dict:
                     {'tracking_token': tracking_token},
                     None
                 )
-        
+
         return {"success": True}
-        
+
     finally:
         await conn.close()
 
@@ -489,29 +501,29 @@ async def get_invitation_stats(user: AuthorizedUser) -> dict:
     Requires super_admin or back_office role.
     """
     await check_admin_access(user)
-    
+
     conn = await get_db_connection()
     try:
         # Total invitations sent (investor type only)
         total_sent = await conn.fetchval(
             "SELECT COUNT(*) FROM invitations WHERE invitation_type = 'investor'"
         ) or 0
-        
+
         # Opened rate
         opened_count = await conn.fetchval(
             "SELECT COUNT(*) FROM invitations WHERE invitation_type = 'investor' AND opened_at IS NOT NULL"
         ) or 0
-        
+
         # Clicked rate
         clicked_count = await conn.fetchval(
             "SELECT COUNT(*) FROM invitations WHERE invitation_type = 'investor' AND clicked_at IS NOT NULL"
         ) or 0
-        
+
         # Responded rate (started subscription)
         responded_count = await conn.fetchval(
             "SELECT COUNT(*) FROM invitations WHERE invitation_type = 'investor' AND responded_at IS NOT NULL"
         ) or 0
-        
+
         # Conversion rate (completed subscription)
         converted_count = await conn.fetchval(
             """
@@ -521,7 +533,7 @@ async def get_invitation_stats(user: AuthorizedUser) -> dict:
             WHERE i.invitation_type = 'investor' AND il.status = 'converted'
             """
         ) or 0
-        
+
         return {
             'total_sent': total_sent,
             'opened_count': opened_count,
@@ -533,6 +545,6 @@ async def get_invitation_stats(user: AuthorizedUser) -> dict:
             'response_rate': round((responded_count / total_sent * 100), 2) if total_sent > 0 else 0,
             'conversion_rate': round((converted_count / total_sent * 100), 2) if total_sent > 0 else 0
         }
-        
+
     finally:
         await conn.close()

@@ -120,3 +120,33 @@ async def test_website_directory_checks_authoritative_roles(workflow_db,monkeypa
     assert denied.value.status_code==403
     await conn.execute("INSERT INTO user_roles(user_id,role_id) SELECT $1,id FROM roles WHERE role_name='admin'",user().sub)
     assert 'investors' in await api.dispatch(request(),website_user=user())
+
+
+@pytest.mark.asyncio
+async def test_new_invitation_is_atomic_tracked_and_deduplicated(workflow_db,monkeypatch):
+    from app.apis.platform import hub_operations as api
+    conn=workflow_db
+    patch_database(monkeypatch,api,conn)
+    data={'full_name':'New Investor','email':'new-invitation@example.com'}
+    first=await api.create_investor_invitation(data,user())
+    again=await api.create_investor_invitation(data,user())
+    assert again['existing'] and first['invitation_id']==again['invitation_id']
+    assert await conn.fetchval("SELECT count(*) FROM invitations WHERE email=$1",data['email'])==1
+    result=await api.investor_directory(conn)
+    invitation=next(i for i in result['invitations'] if i['id']==first['invitation_id'])
+    assert invitation['email_status']=='pending' and invitation['provider_message_id'] is None
+    assert await conn.fetchval("SELECT count(*) FROM email_queue WHERE recipient_email=$1",data['email'])==1
+    assert '/invite-acceptance?token=' in await conn.fetchval("SELECT body_html FROM email_queue WHERE recipient_email=$1",data['email'])
+
+
+@pytest.mark.asyncio
+async def test_invitation_and_audit_roll_back_if_email_cannot_be_queued(workflow_db,monkeypatch):
+    from app.apis.platform import hub_operations as api
+    from app.libs import email_queue
+    from unittest.mock import AsyncMock
+    conn=workflow_db
+    patch_database(monkeypatch,api,conn)
+    monkeypatch.setattr(email_queue,'enqueue_email',AsyncMock(side_effect=RuntimeError('outbox failed')))
+    with pytest.raises(RuntimeError,match='outbox failed'):
+        await api.create_investor_invitation({'full_name':'Rollback Investor','email':'rollback-invite@example.com'},user())
+    assert await conn.fetchval("SELECT count(*) FROM invitations WHERE email='rollback-invite@example.com'")==0

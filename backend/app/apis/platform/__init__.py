@@ -23,6 +23,13 @@ from .profile_service import profile_service
 router = APIRouter(prefix="/platform")
 
 
+@router.get('/email-delivery')
+async def platform_email_delivery(user: AuthorizedUser, message_id: str | None = None):
+    from .email_diagnostics import email_diagnostics
+    from fastapi.responses import JSONResponse
+    return JSONResponse(await email_diagnostics(user, message_id), headers={'Cache-Control': 'private, no-store'})
+
+
 @router.get('/investment-funding')
 async def canonical_investment_funding(request: Request):
     from .investment_funding import investment_funding

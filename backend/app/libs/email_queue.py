@@ -63,12 +63,15 @@ async def process_email_queue(batch_size:int=10)->Dict:
                     content_html=email['body_html'],content_text=email['body_text'] or '',
                     sender_type='shares',idempotency_key=email['queue_id'])
                 if not result.get('success'):raise RuntimeError('Delivery not confirmed')
+                provider_id = result.get('message_id') or result.get('id')
+                if not isinstance(provider_id, str) or not provider_id.strip():
+                    raise RuntimeError('Email provider did not return a message reference')
                 async with conn.transaction():
                     await conn.execute("UPDATE email_queue SET status='sent',sent_at=now(),updated_at=now(),last_error=NULL WHERE id=$1",email['id'])
                     await conn.execute("""INSERT INTO email_history(email_id,queue_id,recipient_id,recipient_email,
                         recipient_name,subject,body_html,status,sent_at,sent_by,template_id)
                         VALUES($1,$2,$3,$4,$5,$6,$7,'sent',now(),'system',$8)
-                        ON CONFLICT(queue_id) DO NOTHING""",'EM-'+uuid.uuid4().hex[:12].upper(),email['queue_id'],
+                        ON CONFLICT(queue_id) DO NOTHING""",provider_id,email['queue_id'],
                         email['recipient_id'],email['recipient_email'],email['recipient_name'],email['subject'],email['body_html'],email['template_id'])
                 stats['sent']+=1
             except Exception:

@@ -53,6 +53,7 @@ export function Header() {
     
     if (roles.some(role => ['admin','super_admin'].includes(role))) {
       links.push({ label: 'Manage Investors', path: '/back-office-investors', icon: User });
+      links.push({ label: 'Invited investors', path: '/back-office-investors#invitations', icon: User });
     }
 
     if (roles.some(role => ['board_member','super_admin'].includes(role))) {
