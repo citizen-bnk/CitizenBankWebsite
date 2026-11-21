@@ -1,4 +1,4 @@
-# Database consolidation — 20 November 2026
+# Database consolidation — updated 21 November 2026
 
 ## Approved outcome
 
@@ -18,6 +18,26 @@ Preservation branches created without compute:
 - Destination: `br-morning-sunset-av4nsum5` (`before-investor-consolidation-2026-11-20`), parent `br-restless-resonance-avby6n2k`, LSN `0/31B9618`.
 
 These preserve database state inside Neon. They are not exported archives and do not prove row-level reconciliation. Both branches were verified ready.
+
+## Banking Core completed on 21 November
+
+The active banking database, `citizen_core_business`, was exported from `morning-river-77500926` and restored into a new, separate database of the same name on `damp-term-89130008` main. The existing `neondb` and corporate/licensing framework databases were preserved.
+
+The isolated rehearsal branch is `br-lucky-wave-avfggbcr` (`core-consolidation-rehearsal-2026-11-20`). Both rehearsal and production copies passed comparisons of every table's rows, deterministic row hashes, column definitions, constraints and sequence positions. The source was also checked for intervening changes before cutover. The private export and verification reports are retained outside the repository.
+
+The 21 copied tables include five banking users, 17 accounts, three cards and 53 session records. `phafanep@gmail.com` has one existing banking profile in the copied data. No user profiles were reconstructed from email matches or older backups.
+
+Production now uses the new main-branch database; Preview uses the isolated rehearsal copy. `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `LIVE_DATABASE_URL` and `LIVE_DATABASE_URL_UNPOOLED` have separate server-only Production and Preview values. Core functions now run in `iad1`, near the destination database. The source database is retained for rollback.
+
+Production deployment: `dpl_8ssAS6nys21ajsv6K3TF4avgHoUy`, code commit `6fffb6cd8690bd97eea53198a91b3f13332c52a4`. The staged and published Core health checks returned HTTP 200 with `db: up`.
+
+### Super Admin testing controls
+
+Hub → Administration → Banking test controls (`/banking-controls`) allows a verified Super Admin to approve fictional account activity, card ordering and one-time Energize. They can then open/activate Current and Savings accounts, provide an explicit fictional credit amount, or order a simulated virtual/physical card. Repeated Energize calls cannot credit twice; repeated administrative card-order requests reuse the saved order. Existing one-form restrictions still apply unless separately approved.
+
+These permissions do not verify KYC or enable real money. Ordinary administrators, staff and customers cannot mint the required Super Admin authority. Banking menus derive privileged roles from the current verified shared identity rather than stale stored roles.
+
+The investor/identity source below is still inaccessible. Therefore the live Super Admin password/sign-in and full Hub authorisation journey have **not** been verified; successful banking health and a preserved banking profile are not proof of institutional access. Existing source role assignments remain unchanged, and there is no offline privilege fallback.
 
 ## Cutover gate
 
@@ -40,4 +60,4 @@ Website governance and communication queue scans run together every 15 minutes, 
 
 Quota failures return HTTP 503 with `DATA_QUOTA_EXHAUSTED` and a retry-later recovery. Readiness returns `DATABASE_QUOTA_EXHAUSTED`; it must never report an empty or inaccessible destination as ready.
 
-No production database connection has been switched by this preparation. Migration and live end-to-end verification remain blocked until a fresh source export is possible.
+Website and Hub investor connections have not been switched. The banking Core transfer described above is complete; the investor/identity transfer and live end-to-end sign-in verification remain blocked until a fresh investor source export is possible. All projects remain on the free plan.
