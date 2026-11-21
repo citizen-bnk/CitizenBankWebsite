@@ -2,13 +2,13 @@
 
 ## Approved outcome
 
-Use Neon project `damp-term-89130008` as the production data home, keep the free plan, preserve every existing investor, invitation, subscription, payment, document reference, role and board appointment. No reseeding or substitution of older backups for the current register is authorised by this migration.
+Use Neon project `damp-term-89130008` as the production data home and preserve every existing investor, invitation, subscription, payment, document reference, role and board appointment. No reseeding or substitution of older backups for the current register is authorised by this migration.
 
 ## Verified inventory
 
 | Project/database | Finding |
 | --- | --- |
-| `lucky-frog-62757466` / `citizen_website_production` | Current website investor source. Reads fail with an explicit Neon quota error. |
+| `lucky-frog-62757466` / `citizen_website_production` | Current website investor source. Access restored after the user upgraded Neon on 21 November 2026. Production readiness returns HTTP 200. |
 | `damp-term-89130008` / `neondb` | Banking and authentication tables. A read-only connection succeeds. |
 | `damp-term-89130008` / `citizen_canonical_production` | Corporate framework exists, but people, holders, subscriptions and appointments currently contain zero rows. This is not a copy of the investor register. |
 
@@ -37,13 +37,13 @@ Hub → Administration → Banking test controls (`/banking-controls`) allows a 
 
 These permissions do not verify KYC or enable real money. Ordinary administrators, staff and customers cannot mint the required Super Admin authority. Banking menus derive privileged roles from the current verified shared identity rather than stale stored roles.
 
-The investor/identity source below is still inaccessible. Therefore the live Super Admin password/sign-in and full Hub authorisation journey have **not** been verified; successful banking health and a preserved banking profile are not proof of institutional access. Existing source role assignments remain unchanged, and there is no offline privilege fallback.
+The investor/identity source is accessible after the Neon upgrade. Read-only checks confirm the Super Admin role and an active verified canonical identity for phafanep@gmail.com. The password/sign-in journey has not been exercised through a user session. Existing role assignments remain unchanged, and there is no offline privilege fallback.
 
 ## Cutover gate
 
-The source quota prevents obtaining a fresh complete export. Its reported consumption period ends 1 December 2026. Do not switch production connections while the current source cannot be read and compared. The target's successful connection does not remove this requirement.
+The source quota restriction is resolved. Investor data still lives in the existing website source; the banking Core is already on damp-term. A single-project investor cutover remains a separate, validated migration. Do not change its production connection without a complete current export, rehearsal and comparison.
 
-1. Recover read access to the source on its existing free plan.
+1. Source access restored after the user-authorised Neon upgrade on 21 November 2026.
 2. Inventory every active application connection. Include website, Hub, original provider Core and the separate Core currently serving banking. The latter must not be confused with the original provider project.
 3. Enter a controlled write pause; stop scheduled sends and provisioning during the snapshot/cutover. Record a cutover timestamp. Preserve in-flight email states to avoid duplicate delivery.
 4. Export the complete current source using a consistent snapshot and a direct connection. Store the archive privately with a checksum. Do not use October archives or reconstruct rows from source documents as a replacement for this export.
@@ -61,3 +61,11 @@ Website governance and communication queue scans run together every 15 minutes, 
 Quota failures return HTTP 503 with `DATA_QUOTA_EXHAUSTED` and a retry-later recovery. Readiness returns `DATABASE_QUOTA_EXHAUSTED`; it must never report an empty or inaccessible destination as ready.
 
 Website and Hub investor connections have not been switched. The banking Core transfer described above is complete; the investor/identity transfer and live end-to-end sign-in verification remain blocked until a fresh investor source export is possible. All projects remain on the free plan.
+
+## Upgrade release verification — 21 November 2026
+
+Production source checks returned 51 investor profiles, 24 total invitations and one subscription. The directory excludes one QA profile and one QA investor invitation: 50 visible profiles and 20 visible investor invitations. Nineteen invitations have recorded email-service acceptance; historical locally generated email references do not prove delivery.
+
+The existing prospect/import route lacked investor_leads and lead_activity_log, and its analytics joined a missing share_subscriptions.lead_id. Additive migration 013 restores these structures. It was rehearsed on br-snowy-heart-b177a2l3 and tested with 23 local isolated workflow tests before application. The production migration inserted no prospect or investor records, and the investor/invitation/subscription counts were identical before and after. The rehearsal branch is retained and its compute suspends after five idle minutes.
+
+Class A remains 80 million reserved founder shares, Class B 10 million shares at R10, and Class C 10 million reserved internal shares. No holdings, payments, conversions or issued certificates were changed.

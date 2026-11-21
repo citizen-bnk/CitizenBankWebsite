@@ -223,7 +223,7 @@ async def create_lead(body: CreateLeadRequest, user: AuthorizedUser) -> LeadResp
     try:
         # Check if email already exists
         existing = await conn.fetchrow(
-            "SELECT id FROM investor_leads WHERE email = $1",
+            "SELECT id FROM investor_leads WHERE lower(email) = lower($1)",
             body.email
         )
         
