@@ -33,7 +33,7 @@ function Management() {
     <main className="max-w-6xl mx-auto p-5 md:p-8">
       <div className="flex flex-wrap justify-between items-center gap-4">
         <h1 className="text-3xl font-bold">Manage investors</h1>
-        <div className="flex flex-wrap gap-3"><Button asChild><Link to="/back-office-investors?invite=1">Invite investor</Link></Button><Button asChild variant="outline"><Link to="/back-office-sent-items">Email delivery</Link></Button>
+        <div className="flex flex-wrap gap-3"><Button asChild variant="outline"><Link to="/back-office-sent-items">Email delivery</Link></Button>
           <Button asChild variant="outline"><Link to="/back-office-dashboard">Back Office</Link></Button>
           <Button asChild variant="outline"><Link to="/admin-users">User access</Link></Button>
         </div>
