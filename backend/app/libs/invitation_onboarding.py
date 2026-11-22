@@ -88,6 +88,23 @@ async def queue_setup(invitation):
 
 
 async def grant_invited_role(conn,row,subject,name,position):
+    if row['role']=='investor':
+        # Acceptance proves control of this invitation's email; bind only its named
+        # investor, never every family member sharing that contact address.
+        imported=await conn.fetch("""SELECT i.person_id,i.provider_subject FROM investor_profiles i JOIN platform.person p ON p.id=i.person_id
+            WHERE i.entity_type='person' AND lower(trim(i.contact_email))=lower(trim($1))
+              AND (i.provider_subject=$2 OR lower(trim(p.display_name))=lower(trim($3))) FOR UPDATE OF i""",row['email'],subject,row['full_name'] or name)
+        if len(imported)==1:
+            person=imported[0]
+            if person['provider_subject'] not in (None,subject):
+                raise HTTPException(409,'This investor is linked to another login. An administrator must reconcile the identity.')
+            mapping=await conn.fetchval("SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$1",subject)
+            if mapping is None:
+                await conn.execute("""INSERT INTO platform.identity_mapping(person_id,provider,subject,status,source)
+                    VALUES($1,'stack_auth',$2,'verified','accepted_investor_invitation')""",person['person_id'],subject)
+            await conn.execute("""UPDATE investor_profiles SET provider_subject=$2,activation_status='linked',
+                version=version+1,updated_at=now() WHERE person_id=$1""",person['person_id'],subject)
+            await conn.execute("UPDATE share_subscriptions SET user_id=$2,updated_at=now() WHERE investor_person_id=$1 AND user_id IS NULL",person['person_id'],subject)
     await conn.execute('''INSERT INTO user_roles(user_id,role_id,assigned_by)
         SELECT $1,id,$2 FROM roles WHERE role_name=$3 ON CONFLICT DO NOTHING''',subject,row['invited_by'],row['role'])
     if position:

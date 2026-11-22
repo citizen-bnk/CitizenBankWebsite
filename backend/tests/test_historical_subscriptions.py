@@ -34,3 +34,22 @@ async def test_paid_safe_cannot_automatically_issue_an_ordinary_certificate():
  with pytest.raises(HTTPException) as exc:
   await issue_certificate_for_subscription(AsyncMock(),{'instrument_type':'historical_safe'},'admin')
  assert exc.value.status_code==409
+
+
+@pytest.mark.asyncio
+async def test_accepted_invitation_binds_only_named_investor_and_their_subscriptions(workflow_db):
+ from app.libs.invitation_onboarding import grant_invited_role
+ from test_investor_administration import add_investor
+ conn=workflow_db
+ person=await add_investor(conn,email=user().email)
+ await conn.execute("UPDATE platform.person SET display_name='Invited Person' WHERE id=$1",person)
+ other=await add_investor(conn,email=user().email)
+ await conn.execute("UPDATE platform.person SET display_name='Other Family Member' WHERE id=$1",other)
+ for key,name in [(person,'Invited Person'),(other,'Other Family Member')]:
+  await conn.execute("""INSERT INTO share_subscriptions(subscription_id,full_name,email,num_shares,total_amount,amount_paid,
+   share_class,status,payment_status,instrument_type,investor_person_id)
+   VALUES($1,$2,$3,NULL,5000,0,'SAFE','pending','unpaid','historical_safe',$4)""",str(key),name,user().email,key)
+ await grant_invited_role(conn,{'role':'investor','email':user().email,'full_name':'Invited Person','invited_by':'admin'},user().sub,'Invited Person',None)
+ assert await conn.fetchval('SELECT provider_subject FROM investor_profiles WHERE person_id=$1',person)==user().sub
+ assert await conn.fetchval('SELECT user_id FROM share_subscriptions WHERE investor_person_id=$1',person)==user().sub
+ assert await conn.fetchval('SELECT user_id FROM share_subscriptions WHERE investor_person_id=$1',other) is None
