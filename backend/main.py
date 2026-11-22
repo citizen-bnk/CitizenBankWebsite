@@ -151,6 +151,8 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(_request, exc):
+        if exc.status_code == 403 and isinstance(exc.detail, dict) and exc.detail.get('code') == 'EMAIL_VERIFICATION_REQUIRED':
+            return JSONResponse(status_code=403, content={'detail':exc.detail['message'], 'code':'EMAIL_VERIFICATION_REQUIRED', 'recovery':'verify_email'})
         if isinstance(exc.detail, dict) and exc.detail.get('code') == 'AI_CONNECTION_UNAVAILABLE':
             return JSONResponse(status_code=503, content={'detail': exc.detail['message'], 'code': exc.detail['code'], 'recovery': 'manual_form'})
         if exc.status_code >= 500:

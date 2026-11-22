@@ -1,4 +1,5 @@
 import { checkedResponse } from '@/utils/formSubmission';
+import {filterInvitations} from '@/utils/invitationList';
 import { useState, useEffect } from 'react';
 import brain from 'brain';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ interface Invitation {
   expires_at: string;
   accepted_at?: string;
   token?: string;
-  user_resend_count: number;
+  user_resend_count?: number | null;
   total_codes_generated?: number;
   codes_used?: number;
   codes_expired?: number;
@@ -52,7 +53,7 @@ export default function BackOfficeInvitations() {
   const [resendingCode, setResendingCode] = useState<number | null>(null);
   const [resendingEmail, setResendingEmail] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState('new');
+  const [activeTab, setActiveTab] = useState('all');
   const [error, setError] = useState<string | null>(null);
   
   // Form state
@@ -299,26 +300,10 @@ export default function BackOfficeInvitations() {
     );
   };
 
-  // Filter invitations by tab
-  const getFilteredInvitations = (tab: string) => {
-    switch (tab) {
-      case 'new':
-        // New invitations: pending status and never resent (user_resend_count = 0)
-        return invitations.filter(inv => inv.status === 'pending' && inv.user_resend_count === 0);
-      case 'resent':
-        // Resent invitations: pending status and has been resent (user_resend_count > 0)
-        return invitations.filter(inv => inv.status === 'pending' && inv.user_resend_count > 0);
-      case 'expired':
-        // Expired and cancelled invitations
-        return invitations.filter(inv => inv.status === 'expired' || inv.status === 'cancelled');
-      default:
-        return invitations;
-    }
-  };
-
-  const newCount = invitations.filter(inv => inv.status === 'pending' && inv.user_resend_count === 0).length;
-  const resentCount = invitations.filter(inv => inv.status === 'pending' && inv.user_resend_count > 0).length;
-  const expiredCount = invitations.filter(inv => inv.status === 'expired' || inv.status === 'cancelled').length;
+  const getFilteredInvitations = (tab:string) => filterInvitations(invitations,tab);
+  const newCount=filterInvitations(invitations,'new').length;
+  const resentCount=filterInvitations(invitations,'resent').length;
+  const expiredCount=filterInvitations(invitations,'expired').length;
 
   // Render card for mobile view
   const renderInvitationCard = (invitation: Invitation, index: number) => (
@@ -650,13 +635,14 @@ export default function BackOfficeInvitations() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <CardTitle className="text-lg sm:text-xl">Invitation Management</CardTitle>
-                  <CardDescription className="text-sm">Review and manage board member invitations by status</CardDescription>
+                  <CardDescription className="text-sm">Review invitations by status, including accepted invitations.</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-4">
+                  <TabsTrigger value="all">All ({invitations.length})</TabsTrigger>
                   <TabsTrigger value="new" className="relative">
                     New
                     {newCount > 0 && (
@@ -683,6 +669,9 @@ export default function BackOfficeInvitations() {
                   </TabsTrigger>
                 </TabsList>
 
+                <TabsContent value="all" className="space-y-4">
+                  <ResponsiveTable columns={columns} data={getFilteredInvitations('all')} keyExtractor={inv=>inv.id} renderCard={renderInvitationCard} emptyMessage="No invitations have been recorded."/>
+                </TabsContent>
                 {/* New Invitations Tab */}
                 <TabsContent value="new" className="space-y-4">
                   <ResponsiveTable

@@ -1,3 +1,4 @@
+import {EmailVerificationAction} from './EmailVerificationAction';
 import { Building2, ChevronDown, User, Settings, LogOut, Home, UserCircle, Shield, Globe } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
@@ -17,7 +18,6 @@ const logoUrl = "/brand/logo.png";
 export function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const [verificationMessage, setVerificationMessage] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const user = useUser();
@@ -150,16 +150,8 @@ export function Header() {
                         {rolesError && <div className="mt-2 space-y-2 text-sm" role="status">
                           <p>{rolesError}</p>
                           <button type="button" className="rounded border px-3 py-1" onClick={retryRoles}>Retry access check</button>
-                          {!user.primaryEmailVerified && <button type="button" className="rounded border px-3 py-1" onClick={async () => {
-                            try {
-                              await user.sendVerificationEmail();
-                              setVerificationMessage('Check your inbox for the verification link, then retry the access check.');
-                            } catch {
-                              setVerificationMessage('The verification email could not be requested. Try again.');
-                            }
-                          }}>Send verification email</button>}
-                          {verificationMessage && <p>{verificationMessage}</p>}
                         </div>}
+                        <EmailVerificationAction compact/>
                         {!rolesLoading && roles.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {roles.map(role => (

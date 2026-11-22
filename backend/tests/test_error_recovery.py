@@ -62,3 +62,12 @@ def test_database_capacity_is_not_misreported_as_a_quota_failure():
     response = TestClient(app, raise_server_exceptions=False).get('/api/_test/capacity-recovery')
     assert response.status_code == 503
     assert response.json()['code'] == 'DATA_CAPACITY_UNAVAILABLE'
+
+def test_email_verification_has_actionable_recovery():
+    @app.get('/api/_test/email-verification-recovery',include_in_schema=False)
+    async def route():
+        raise HTTPException(403,{'code':'EMAIL_VERIFICATION_REQUIRED','message':'Verify your email.'})
+    response=TestClient(app,raise_server_exceptions=False).get('/api/_test/email-verification-recovery')
+    assert response.status_code==403
+    assert response.json()['code']=='EMAIL_VERIFICATION_REQUIRED'
+    assert response.json()['recovery']=='verify_email'

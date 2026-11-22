@@ -1,4 +1,7 @@
 import {BackOfficeNav} from '@/components/BackOfficeNav';
+import {useUser} from '@stackframe/react';
+import {useUserRoles} from 'utils/useUserRoles';
+import {EmailVerificationAction} from '@/components/EmailVerificationAction';
 import { useState } from 'react';
 import { Link,useLocation } from 'react-router-dom';
 import { auth } from 'app/auth';
@@ -27,6 +30,8 @@ async function request(operation: string, data?: Record<string, unknown>) {
 }
 
 function Management() {
+  const user=useUser();
+  const {roles}=useUserRoles();
   const location=useLocation();
   const [portfolio, setPortfolio] = useState<string>();
   return <>
@@ -39,7 +44,7 @@ function Management() {
           <Button asChild variant="outline"><Link to="/admin-users">User access</Link></Button>
         </div>
       </div>
-      <InvestorDirectory request={request} accountUrl="/admin-users" initialTab={location.hash==='#invitations'?'invitations':'profiles'} onPortfolio={setPortfolio}/>
+      {user&&!user.primaryEmailVerified&&!roles.includes('super_admin')?<EmailVerificationAction/>:<InvestorDirectory request={request} accountUrl="/admin-users" initialTab={location.hash==='#invitations'?'invitations':'profiles'} onPortfolio={setPortfolio}/>}
       {portfolio && <InvestorPortfolio personId={portfolio} onClose={() => setPortfolio(undefined)} transport={transport}/>}
     </main>
   </>;

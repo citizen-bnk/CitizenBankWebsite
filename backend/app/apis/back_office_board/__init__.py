@@ -351,14 +351,8 @@ async def list_invitations(
             # Transform invitations to include reminder metadata
             invitations_with_metadata = []
             for inv in invitations:
-                inv_dict = dict(inv)
-                # Add reminder metadata
-                inv_dict['reminder_metadata'] = {
-                    'reminder_count': inv_dict.get('reminder_count') or 0,
-                    'last_reminder_sent_at': inv_dict['last_reminder_sent_at'].isoformat() if inv_dict.get('last_reminder_sent_at') else None,
-                    'next_reminder_at': inv_dict['next_reminder_at'].isoformat() if inv_dict.get('next_reminder_at') else None
-                }
-                invitations_with_metadata.append(inv_dict)
+                from app.libs.invitation_listing import invitation_for_listing
+                invitations_with_metadata.append(invitation_for_listing(inv))
             
             return {"invitations": invitations_with_metadata}
         finally:

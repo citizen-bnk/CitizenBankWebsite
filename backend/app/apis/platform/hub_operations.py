@@ -289,8 +289,6 @@ async def dispatch(request, website_user=None):
                                            'investment.portfolio', 'investment.certificate',
                                            'invitation.create', 'invitation.resend', 'invitation.cancel'):
         raise HTTPException(404, 'Workspace action unavailable.')
-    if website_user and not website_user.email_verified:
-        raise HTTPException(403, 'Verify your Citizen account email before managing investor records.')
     async with db_connection() as conn:
         person = await conn.fetchrow('''SELECT p.primary_email,p.display_name
             FROM platform.person p JOIN platform.identity_mapping m ON m.person_id=p.id
@@ -301,6 +299,10 @@ async def dispatch(request, website_user=None):
             JOIN roles r ON r.id=u.role_id WHERE u.user_id=$1''', subject)}
         if not roles & {'super_admin', 'admin'} or (operation.startswith('board.') and 'super_admin' not in roles):
             raise HTTPException(403, 'Your role cannot perform this action.')
+        # Only the authoritative assigned role can exempt an authenticated Super Admin.
+        if website_user and not website_user.email_verified and 'super_admin' not in roles:
+            raise HTTPException(403, {'code':'EMAIL_VERIFICATION_REQUIRED',
+                'message':'Verify your Citizen account email before managing investor records.'})
         actor = User(sub=subject,email=person['primary_email'],name=person['display_name'],email_verified=True)
 
         if operation == 'investment.directory':

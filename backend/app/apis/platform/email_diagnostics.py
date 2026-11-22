@@ -8,12 +8,12 @@ from app.libs.platform_people import legacy_roles
 
 
 async def email_diagnostics(user, message_id=None):
-    if not user.email_verified:
-        raise HTTPException(403, 'Verify your account email before opening email delivery records.')
     async with db_connection() as conn:
         roles = set(await legacy_roles(conn, user.sub))
         if not roles & {'admin', 'super_admin'}:
             raise HTTPException(403, 'Administrator access is required to inspect email delivery.')
+        if not user.email_verified and 'super_admin' not in roles:
+            raise HTTPException(403, 'Verify your account email before opening email delivery records.')
         if message_id:
             if not re.fullmatch(r'[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}', message_id):
                 raise HTTPException(422, 'Select a valid provider message ID.')
