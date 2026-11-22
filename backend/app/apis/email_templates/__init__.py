@@ -9,13 +9,14 @@ import json
 router = APIRouter(prefix="/email-templates")
 
 async def require_email_admin(user):
-    if not user.email_verified:
-        raise HTTPException(403, 'Verify your email before managing email delivery.')
     from app.libs.database import db_connection
     from app.libs.platform_people import legacy_roles
     async with db_connection() as conn:
-        if not set(await legacy_roles(conn, user.sub)) & {'admin', 'super_admin'}:
+        roles = set(await legacy_roles(conn, user.sub))
+        if not roles & {'admin', 'super_admin'}:
             raise HTTPException(403, 'Administrator access is required to manage email delivery.')
+        if not user.email_verified and 'super_admin' not in roles:
+            raise HTTPException(403, 'Verify your email before managing email delivery.')
 
 # Request Models
 class CreateEmailTemplateModel(BaseModel):

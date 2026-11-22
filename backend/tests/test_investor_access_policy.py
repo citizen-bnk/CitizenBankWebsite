@@ -53,3 +53,22 @@ async def test_unmapped_identity_cannot_use_super_admin_exception(monkeypatch):
   await api.dispatch(request,website_user=SimpleNamespace(sub='unmapped',email_verified=False))
  assert exc.value.status_code==403
  conn.fetch.assert_not_awaited()
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('roles,allowed',[(['super_admin'],True),(['admin'],False),(['customer'],False)])
+async def test_email_management_super_admin_exception_is_role_bound(monkeypatch,roles,allowed):
+ from app.apis.email_templates import require_email_admin
+ import app.libs.database as database
+ import app.libs.platform_people as people
+ @asynccontextmanager
+ async def connection():
+  yield object()
+ monkeypatch.setattr(database,'db_connection',connection)
+ monkeypatch.setattr(people,'legacy_roles',AsyncMock(return_value=roles))
+ user=SimpleNamespace(sub='authenticated',email_verified=False)
+ if allowed:
+  await require_email_admin(user)
+ else:
+  with pytest.raises(HTTPException) as exc:
+   await require_email_admin(user)
+  assert exc.value.status_code==403
