@@ -7,10 +7,11 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('operation',['investment.directory','invitation.list'])
 @pytest.mark.parametrize('roles,verified,allowed',[
  (['super_admin'],False,True),(['admin'],False,False),
  (['admin'],True,True),(['customer'],True,False),([],False,False)])
-async def test_directory_uses_stored_roles_not_claimed_client_role(monkeypatch,roles,verified,allowed):
+async def test_directory_uses_stored_roles_not_claimed_client_role(monkeypatch,roles,verified,allowed,operation):
  import importlib
  api=importlib.import_module('app.apis.platform.hub_operations')
  conn=SimpleNamespace(fetchrow=AsyncMock(return_value={'primary_email':'owner@example.com','display_name':'Owner'}),fetch=AsyncMock(return_value=[{'role_name':r} for r in roles]))
@@ -20,13 +21,19 @@ async def test_directory_uses_stored_roles_not_claimed_client_role(monkeypatch,r
  monkeypatch.setattr(api,'db_connection',connection)
  directory=AsyncMock(return_value={'investors':[],'invitations':[]})
  monkeypatch.setattr(api,'investor_directory',directory)
+ invitations=AsyncMock(return_value=[])
+ monkeypatch.setattr(api,'investor_invitations',invitations)
  async def receive():
-  return {'type':'http.request','body':json.dumps({'operation':'investment.directory','data':{'role':'super_admin'}}).encode()}
+  return {'type':'http.request','body':json.dumps({'operation':operation,'data':{'role':'super_admin'}}).encode()}
  request=Request({'type':'http','method':'POST','path':'/','headers':[]},receive)
  user=SimpleNamespace(sub='signed-in-subject',email_verified=verified)
  if allowed:
-  assert await api.dispatch(request,website_user=user)=={'investors':[],'invitations':[]}
-  directory.assert_awaited_once()
+  result=await api.dispatch(request,website_user=user)
+  assert result==({'investors':[],'invitations':[]} if operation=='investment.directory' else {'invitations':[]})
+  if operation=='investment.directory': directory.assert_awaited_once()
+  else:
+   invitations.assert_awaited_once()
+   directory.assert_not_awaited()
  else:
   with pytest.raises(HTTPException) as exc:
    await api.dispatch(request,website_user=user)
@@ -34,6 +41,7 @@ async def test_directory_uses_stored_roles_not_claimed_client_role(monkeypatch,r
   if roles==['admin']:
    assert exc.value.detail['code']=='EMAIL_VERIFICATION_REQUIRED'
   directory.assert_not_awaited()
+  invitations.assert_not_awaited()
  assert user.email_verified is verified
 
 

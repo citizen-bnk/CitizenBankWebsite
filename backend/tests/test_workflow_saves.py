@@ -19,7 +19,7 @@ async def workflow_db(monkeypatch):
         pytest.skip('Isolated workflow database required')
     assert ('ep-polished-sun-b1nwomy3' in url or '127.0.0.1:55437/citizen_workflow_tests' in url), 'Tests must never write to production'
     conn = await asyncpg.connect(url)
-    for name in ['007_workflow_delivery.sql', '008_board_workflows.sql','011_investor_profiles.sql','012_invitation_account_setup.sql','013_investor_leads.sql']:
+    for name in ['007_workflow_delivery.sql', '008_board_workflows.sql','011_investor_profiles.sql','012_invitation_account_setup.sql','013_investor_leads.sql','014_investor_source_reconciliation.sql']:
         await conn.execute((Path(__file__).parents[1] / 'migrations/investment' / name).read_text(encoding='utf-8'))
     transaction = conn.transaction()
     await transaction.start()

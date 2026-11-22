@@ -1,5 +1,6 @@
 """Canonical investor portfolios and private certificate previews."""
 import uuid
+import json
 from fastapi import HTTPException, Response
 from fastapi.concurrency import run_in_threadpool
 from app import runtime
@@ -49,9 +50,12 @@ async def investor_portfolio(person_id):
         certificates=await conn.fetch("""SELECT certificate_number,shares_count,share_class,status,issue_date
             FROM share_certificates WHERE user_id=$1 ORDER BY issue_date DESC""",profile['provider_subject'])
         documents=await conn.fetch('SELECT title,source_url,review_note FROM investor_documents WHERE person_id=$1 ORDER BY title',key)
+        evidence=await conn.fetch('''SELECT source_sheet,source_row,source_date,source_url,source_data,review_note,review_status
+            FROM investor_source_records WHERE person_id=$1 ORDER BY source_sheet,source_row''',key)
     return {'person_id':str(key),'name':profile['display_name'],'email':profile['contact_email'],
         'contact_status':profile['contact_status'],'activation_status':profile['activation_status'],
         'holdings':[dict(row) for row in holdings],'subscriptions':[dict(row) for row in subscriptions],
+        'source_evidence':[{**dict(row),'source_data':json.loads(row['source_data']) if isinstance(row['source_data'],str) else row['source_data']} for row in evidence],
         'certificates':[dict(row) for row in certificates],'source_documents':[dict(row) for row in documents],'template_source':TEMPLATE_SOURCE}
 
 

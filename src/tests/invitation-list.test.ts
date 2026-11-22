@@ -8,8 +8,8 @@ test('missing or null resend counters cannot hide pending invitations',()=>{
  assert.equal(filterInvitations(records,'all').length,5);
 });
 test('admin investor cards open the investor directory and exclude board records',()=>{
- assert.equal(investorInvitationPath(['super_admin']),'/back-office-investors#invitations');
- assert.equal(investorInvitationPath(['admin']),'/back-office-investors#invitations');
+ assert.equal(investorInvitationPath(['super_admin']),'/back-office-investor-invitations');
+ assert.equal(investorInvitationPath(['admin']),'/back-office-investor-invitations');
  assert.equal(investorInvitationPath(['investor']),'/board-portal-invitations');
  assert.equal(onlyInvestorInvitations([{status:'pending',role:'board_member'},{status:'pending',role:'investor'}]).length,1);
 });

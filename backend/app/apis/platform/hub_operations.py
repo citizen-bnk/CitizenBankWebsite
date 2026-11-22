@@ -201,6 +201,10 @@ async def investor_directory(conn):
         WHERE NOT EXISTS(SELECT 1 FROM invitations qa WHERE qa.accepted_by=i.provider_subject
             AND qa.message='Citizen QA 20261114')
         ORDER BY lower(coalesce(u.full_name,p.display_name,'')),i.person_id""")
+    return {'investors':[dict(row) for row in profiles],'invitations':await investor_invitations(conn)}
+
+
+async def investor_invitations(conn):
     invitations = await conn.fetch("""SELECT i.id,i.full_name,i.email,
         CASE WHEN i.status IN ('pending','sent') AND i.expires_at<=now() THEN 'expired'
              ELSE i.status END AS status,
@@ -225,7 +229,7 @@ async def investor_directory(conn):
         WHERE (i.invitation_type='investor' OR i.role='investor')
           AND coalesce(i.message,'') <> 'Citizen QA 20261114'
         ORDER BY i.created_at DESC,i.id DESC""")
-    return {'investors':[dict(row) for row in profiles],'invitations':[dict(row) for row in invitations]}
+    return [dict(row) for row in invitations]
 
 
 class BoardUpdate(BaseModel):
@@ -287,7 +291,7 @@ async def dispatch(request, website_user=None):
         raise HTTPException(422, 'Invalid workspace request.') from None
     if website_user and operation not in ('investment.directory', 'investment.update',
                                            'investment.portfolio', 'investment.certificate',
-                                           'invitation.create', 'invitation.resend', 'invitation.cancel'):
+                                           'investment.source_records', 'invitation.list', 'invitation.create', 'invitation.resend', 'invitation.cancel'):
         raise HTTPException(404, 'Workspace action unavailable.')
     async with db_connection() as conn:
         person = await conn.fetchrow('''SELECT p.primary_email,p.display_name
@@ -305,6 +309,14 @@ async def dispatch(request, website_user=None):
                 'message':'Verify your Citizen account email before managing investor records.'})
         actor = User(sub=subject,email=person['primary_email'],name=person['display_name'],email_verified=True)
 
+        if operation == 'investment.source_records':
+            rows=await conn.fetch('''SELECT s.source_id,s.source_sheet,s.source_row,s.record_name,s.person_id::text,
+                p.display_name AS canonical_name,s.source_date,s.source_url,s.source_data,s.review_status,s.review_note
+                FROM investor_source_records s LEFT JOIN platform.person p ON p.id=s.person_id
+                ORDER BY s.source_sheet,s.source_row''')
+            return {'records':[{**dict(row),'source_data':json.loads(row['source_data']) if isinstance(row['source_data'],str) else row['source_data']} for row in rows]}
+        if operation == 'invitation.list':
+            return {'invitations':await investor_invitations(conn)}
         if operation == 'investment.directory':
             return await investor_directory(conn)
         if operation == 'investment.list':

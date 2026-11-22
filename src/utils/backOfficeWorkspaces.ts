@@ -5,6 +5,7 @@ export const backOfficeWorkspaces:{id:string;label:string;description:string;ite
     "label": "Investors",
     "description": "Profiles, invitations and investments.",
     "items": [
+      {"label":"Source reconciliation","path":"/back-office-investor-reconciliation","description":"Contacts, holdings, bank evidence and exceptions.","roles":["admin","super_admin"]},
       {
         "label": "Investor profiles",
         "path": "/back-office-investors",
@@ -16,7 +17,7 @@ export const backOfficeWorkspaces:{id:string;label:string;description:string;ite
       },
       {
         "label": "Invited investors",
-        "path": "/back-office-investors#invitations",
+        "path": "/back-office-investor-invitations",
         "description": "Acceptance, email status and resending.",
         "roles": [
           "admin",

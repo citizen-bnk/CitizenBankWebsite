@@ -1,4 +1,4 @@
-export const INVESTOR_INVITATIONS_PATH='/back-office-investors#invitations';
+export const INVESTOR_INVITATIONS_PATH='/back-office-investor-invitations';
 export function managesInvestorInvitations(roles:readonly string[]){return roles.some(role=>role==='admin'||role==='super_admin');}
 export function investorInvitationPath(roles:readonly string[]){return managesInvestorInvitations(roles)?INVESTOR_INVITATIONS_PATH:'/board-portal-invitations';}
 type InvitationState={status:string;user_resend_count?:number|null;role?:string;invitation_type?:string;expires_at?:string|null};

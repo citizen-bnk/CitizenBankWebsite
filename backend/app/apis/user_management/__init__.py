@@ -826,6 +826,9 @@ class UserListItem(BaseModel):
     profile_completion_percentage: int
     last_login: Optional[str] = None
     roles: List[str] = []
+    subscription_count: int = 0
+    board_count: int = 0
+    has_investor_profile: bool = False
 
 
 class UserListResponse(BaseModel):
@@ -906,6 +909,8 @@ async def list_all_users(
         
         rows = await conn.fetch(list_query, *params)
         
+        from app.libs.managed_user_overview import relationship_counts
+        relationships = await relationship_counts(conn,[row['user_id'] for row in rows])
         # Get roles for each user
         users = []
         for row in rows:
@@ -920,6 +925,7 @@ async def list_all_users(
             )
             
             users.append(UserListItem(
+                **relationships.get(row['user_id'],{}),
                 user_id=row['user_id'],
                 email=row['email'],
                 full_name=row['full_name'],
@@ -981,6 +987,8 @@ async def search_users(
             LIMIT 50
         """, search_pattern)
         
+        from app.libs.managed_user_overview import relationship_counts
+        relationships = await relationship_counts(conn,[row['user_id'] for row in rows])
         # Get roles for each user
         users = []
         for row in rows:
@@ -995,6 +1003,7 @@ async def search_users(
             )
             
             users.append(UserListItem(
+                **relationships.get(row['user_id'],{}),
                 user_id=row['user_id'],
                 email=row['email'],
                 full_name=row['full_name'],
@@ -1272,5 +1281,21 @@ async def user_summary(user: AuthorizedUser):
             count(*) FILTER (WHERE status='active') AS active,
             count(*) FILTER (WHERE status='suspended') AS suspended FROM user_profiles""")
         return dict(row)
+    finally:
+        await conn.close()
+
+@router.get('/admin/{user_id}/overview')
+async def managed_user_overview(user_id: str, user: AuthorizedUser):
+    if not await check_user_has_any_role(user.sub, ['admin','super_admin']):
+        raise HTTPException(403,'Administrator access is required to view a full profile.')
+    from app.libs.managed_user_overview import user_overview
+    from fastapi.responses import JSONResponse
+    from fastapi.encoders import jsonable_encoder
+    conn=await get_db_connection()
+    try:
+        overview=await user_overview(conn,user_id)
+        if overview is None:
+            raise HTTPException(404,'User not found.')
+        return JSONResponse(jsonable_encoder(overview),headers={'Cache-Control':'private, no-store'})
     finally:
         await conn.close()
