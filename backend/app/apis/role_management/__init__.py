@@ -23,6 +23,7 @@ router = APIRouter(prefix="/roles")
 
 
 class UserRolesResponse(BaseModel):
+    banking_status: Optional[str] = None
     """User's current roles"""
     user_id: str
     roles: List[str]
@@ -131,11 +132,19 @@ async def assign_role(request: AssignRoleRequest, user: AuthorizedUser) -> UserR
             finally:
                 await conn.close()
         
+        banking_status=None
+        if request.role_name=='customer':
+            from app.libs.customer_products import prepare_customer_products
+            try:
+                banking_status='prepared' if await prepare_customer_products(request.user_id) else 'pending_first_banking_visit'
+            except Exception:
+                banking_status='pending_first_banking_visit'
         # Return updated roles
         roles = await get_user_roles(request.user_id)
         return UserRolesResponse(
             user_id=request.user_id,
-            roles=roles
+            roles=roles,
+            banking_status=banking_status
         )
         
     except ValueError as e:

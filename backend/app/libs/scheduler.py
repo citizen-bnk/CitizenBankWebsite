@@ -37,6 +37,19 @@ async def _governance_email_queue():
 
 async def _communications_email_queue():
     from app.libs.email_queue import process_email_queue
+    # Retry committed Core events before processing the shared email outbox.
+    try:
+        import os,base64,hmac,hashlib,json,time,httpx
+        secret=os.environ.get('PROFILE_SERVICE_SECRET','')
+        if len(secret)>=32:
+            raw='{}';now=int(time.time())
+            payload=base64.urlsafe_b64encode(json.dumps({'use':'banking-email-flush','sub':'00000000-0000-4000-8000-000000000001','method':'POST','body':hashlib.sha256(raw.encode()).hexdigest(),'iat':now,'exp':now+30},separators=(',',':')).encode()).decode().rstrip('=')
+            token=payload+'.'+base64.urlsafe_b64encode(hmac.new(secret.encode(),payload.encode(),hashlib.sha256).digest()).decode().rstrip('=')
+            async with httpx.AsyncClient(timeout=110) as client:
+                await client.post('https://citizenbankcore-demo.vercel.app/api/internal/banking-email-flush',content=raw,headers={'Content-Type':'application/json','X-Citizen-Profile-Token':token})
+    except Exception:
+        pass # Core retains its outbox for the next retry; website email delivery continues.
+
     batches=[]
     for _ in range(3):
         result=await process_email_queue(batch_size=20)

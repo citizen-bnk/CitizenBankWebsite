@@ -8,7 +8,7 @@ from typing import Literal
 from urllib.parse import quote
 
 import asyncpg
-from fastapi import APIRouter, HTTPException, Response, Request
+from fastapi import APIRouter, HTTPException, Response, Request, BackgroundTasks
 from pydantic import BaseModel
 
 from app.auth import AuthorizedUser
@@ -261,3 +261,19 @@ async def platform_handoff(body: HandoffRequest, user: AuthorizedUser, response:
         url=f"{base}/sso?code={token}&next={quote(safe_next_path(body.next), safe='/')}",
         expires_in=tokens.HANDOFF_TTL_SECONDS,
     )
+
+@router.post('/banking-notification')
+async def banking_notification(request: Request,background_tasks: BackgroundTasks):
+    import json
+    from .profile_service import verify_profile_proof
+    from app.libs.banking_notifications import BankingNotice,queue_notice
+    from app.libs.email_queue import process_email_queue
+    body=await request.body()
+    if len(body)>16000:
+        raise HTTPException(413,'Notification too large.')
+    person_id=verify_profile_proof(request.headers.get('x-citizen-profile-token',''),'POST',body,
+        os.environ.get('PROFILE_SERVICE_SECRET',''),purpose='banking-notification')
+    notice=BankingNotice.model_validate_json(body)
+    result=await queue_notice(notice,person_id)
+    background_tasks.add_task(process_email_queue,batch_size=5)
+    return result
