@@ -36,6 +36,8 @@ def map_db_to_response(db_row: dict) -> dict:
     if 'half_body_picture_url' in mapped:
         mapped['profile_picture_half_body_url'] = mapped.pop('half_body_picture_url')
     
+    if mapped.get('cv_document_url'):
+        mapped['cv_filename'] = mapped['cv_document_url'].removeprefix('cv_uploads_'+str(mapped.get('user_id',''))+'_').split('/')[-1]
     return mapped
 
 
@@ -593,111 +595,23 @@ async def check_profile_completeness(
 
 @router.post("/profile/upload-cv")
 async def upload_cv(file: UploadFile, user: AuthorizedUser):
-    """Upload CV/Resume document for the user profile"""
-    allowed_types = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-    allowed_extensions = [".pdf", ".docx"]
-    
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail=f"Invalid file type. Only PDF and DOCX files are allowed.")
-    
-    file_ext = file.filename.split(".")[-1].lower() if "." in file.filename else ""
-    if f".{file_ext}" not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"Invalid file extension. Only .pdf and .docx files are allowed.")
-    
-    content = await file.read()
-    max_size = 10 * 1024 * 1024  # 10MB
-    if len(content) > max_size:
-        raise HTTPException(status_code=400, detail=f"File too large. Maximum size is 10MB.")
-    
-    conn = await get_db_connection()
-    
-    try:
-        profile = await conn.fetchrow("SELECT full_name FROM user_profiles WHERE user_id = $1", user.sub)
-        
-        if not profile or not profile['full_name']:
-            raise HTTPException(status_code=400, detail="User profile not found or name is missing")
-        
-        name_parts = profile['full_name'].strip().split()
-        first_name = name_parts[0] if name_parts else "User"
-        last_name = name_parts[-1] if len(name_parts) >= 2 else "CV"
-        
-        from datetime import date
-        today = date.today().strftime("%Y%m%d")
-        base_filename = f"{first_name}_{last_name}_CV_{today}"
-        
-        existing_cvs = runtime.storage.binary.list()
-        version = 1
-        pattern = re.compile(rf"cv_uploads_{re.escape(user.sub)}_{re.escape(base_filename)}_V(\d+)\.")
-        
-        for existing_file in existing_cvs:
-            match = pattern.search(existing_file.name)
-            if match:
-                existing_version = int(match.group(1))
-                version = max(version, existing_version + 1)
-        
-        new_filename = f"{base_filename}_V{version}.{file_ext}"
-        
-        def sanitize_storage_key(key: str) -> str:
-            return re.sub(r'[^a-zA-Z0-9._-]', '', key)
-        
-        safe_filename = sanitize_storage_key(new_filename.replace(" ", "_"))
-        storage_key = f"cv_uploads_{user.sub}_{safe_filename}"
-        
-        try:
-            runtime.storage.binary.put(storage_key, content)
-            print(f"✅ CV uploaded to storage: {storage_key} ({len(content)} bytes)")
-        except Exception as e:
-            print(f"❌ Failed to store CV: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to store CV file")
-        
-        # Generate share link
-        share_link = None
-        try:
-            from app.apis.short_links import mint_short_link, MintShortLinkRequest
-            short_link_response = await mint_short_link(
-                MintShortLinkRequest(
-                    user_id=user.sub,
-                    purpose="cv_share",
-                    target_path=f"/api/users/profile/cv/download/{user.sub}",
-                    metadata={
-                        "type": "cv_download",
-                        "filename": new_filename,
-                        "uploaded_at": datetime.now(timezone.utc).isoformat()
-                    },
-                    expires_in_days=365,
-                    max_uses=None
-                )
-            )
-            share_link = short_link_response.short_url
-        except Exception as e:
-            print(f"⚠️ Failed to generate share link: {str(e)}")
-        
-        await conn.execute("""
-            UPDATE user_profiles
-            SET cv_document_url = $1,
-                cv_uploaded_at = NOW(),
-                cv_share_link = $2,
-                updated_at = NOW()
-            WHERE user_id = $3
-        """, storage_key, share_link, user.sub)
-        
-        print(f"📄 CV uploaded for user {user.sub}: {new_filename}")
-        
-        return {
-            "success": True,
-            "message": "CV uploaded successfully",
-            "cv_filename": new_filename,
-            "cv_uploaded_at": datetime.now(timezone.utc),
-            "cv_share_link": share_link
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Failed to upload CV: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to upload CV")
-    finally:
-        await conn.close()
+    """Store an immutable private CV file, then update only the profile reference."""
+    from app.libs.profile_cv import save_cv
+    return await save_cv(file,user)
+
+
+@router.get('/profile/documents/cv')
+async def download_cv(user: AuthorizedUser, download: bool = False):
+    from app.libs.profile_cv import read_cv
+    return await read_cv(user.sub,download)
+
+
+@router.get('/admin/{user_id}/cv')
+async def admin_download_cv(user_id: str,user: AuthorizedUser,download: bool=False):
+    if not await check_user_has_any_role(user.sub,['admin','super_admin']):
+        raise HTTPException(403,'Administrator access is required.')
+    from app.libs.profile_cv import read_cv
+    return await read_cv(user_id,download)
 
 
 # ========== Profile Picture Upload Endpoint ==========

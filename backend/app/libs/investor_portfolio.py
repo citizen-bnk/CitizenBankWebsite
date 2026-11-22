@@ -46,7 +46,7 @@ async def investor_portfolio(person_id):
             reconciliation_status,review_note,units_under_review,source_date FROM cap_table_working_records
             WHERE person_id=$1 ORDER BY kind,source_row""",key)
         subscriptions=await conn.fetch("""SELECT subscription_id,num_shares,share_class,total_amount,amount_paid,status
-            FROM share_subscriptions WHERE user_id=$1 ORDER BY created_at DESC""",profile['provider_subject'])
+            FROM share_subscriptions WHERE user_id=$1 OR investor_person_id=$2 ORDER BY created_at DESC""",profile['provider_subject'],key)
         certificates=await conn.fetch("""SELECT certificate_number,shares_count,share_class,status,issue_date
             FROM share_certificates WHERE user_id=$1 ORDER BY issue_date DESC""",profile['provider_subject'])
         documents=await conn.fetch('SELECT title,source_url,review_note FROM investor_documents WHERE person_id=$1 ORDER BY title',key)

@@ -1,3 +1,4 @@
+import {ProfileCV} from '@/components/ProfileCV';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -230,7 +231,7 @@ const Profile = () => {
           <Button variant="outline" onClick={() => setSection('contact')}>Edit contact details</Button>
         </section>
         <div className="grid sm:grid-cols-2 gap-3">
-          {(activeStage === 'basic' ? [['personal','Personal details'],['photo','Photo & introduction'],['settings','Preferences & security']] : activeStage === 'standard' ? [['identity','Identity verification'],['address','Residential address'],...(profile.account_type === 'business' ? [['business','Business details']] : [])] : [['professional','Professional details'],...(canSeeInvestor ? [['investor','Investor details']] : []),...(boardData ? [['board','Board information']] : [])]).map(([key,label]) =>
+          {(activeStage === 'basic' ? [['personal','Personal details'],['photo','Photo & introduction'],['cv','Your CV'],['settings','Preferences & security']] : activeStage === 'standard' ? [['identity','Identity verification'],['address','Residential address'],...(profile.account_type === 'business' ? [['business','Business details']] : [])] : [['professional','Professional details'],...(canSeeInvestor ? [['investor','Investor details']] : []),...(boardData ? [['board','Board information']] : [])]).map(([key,label]) =>
             <button key={key} onClick={() => setSection(key)} className="flex items-center justify-between gap-4 rounded-xl border bg-white p-5 text-left hover:border-purple-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-purple-500"><span className="font-medium">{label}</span><span aria-hidden="true">↗</span></button>)}
         </div>
         <p className="text-xs text-gray-500 mt-4">Additional information is requested when a service needs it.</p>
@@ -241,6 +242,7 @@ const Profile = () => {
             {section === 'identity' && <PersonalInfoSection profile={profile} onEditField={openEditDialog} section="identity"/>}
             {section === 'photo' && <BioSection bio={profile.bio} profilePictureUrl={profile.profile_picture_selfie_url} userName={profile.full_name} onUpdate={fetchProfileData} onPictureUploadSuccess={url => setProfile({...profile,profile_picture_selfie_url:url})}/>}
             {section === 'address' && <AddressInfoSection profile={profile} onEditField={openEditDialog}/>}
+            {section === 'cv' && <ProfileCV profile={profile} onUpdate={fetchProfileData}/>}
             {section === 'professional' && <ProfessionalInfoSection profile={profile} onEditField={openEditDialog} onUpdate={fetchProfileData}/>}
             {section === 'investor' && <InvestorInfoSection profile={profile} onEditField={openEditDialog}/>}
             {section === 'business' && <BusinessInfoSection profile={profile} onEditField={openEditDialog}/>}

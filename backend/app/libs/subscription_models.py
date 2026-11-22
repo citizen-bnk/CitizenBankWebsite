@@ -65,7 +65,7 @@ class SubscriptionStatus(BaseModel):
     subscription_id: str
     full_name: str
     email: str
-    num_shares: int
+    num_shares: int | None
     total_amount: Decimal
     amount_paid: Decimal
     amount_remaining: Decimal

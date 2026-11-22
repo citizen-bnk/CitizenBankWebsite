@@ -14,8 +14,12 @@ PROFILE_GROUPS = {
 
 
 def profile_sections(profile):
-    return {label:{field:profile[field] for field in fields if profile.get(field) is not None and profile[field] != ''}
+    sections = {label:{field:profile[field] for field in fields if profile.get(field) is not None and profile[field] != ''}
             for label,fields in PROFILE_GROUPS.items()}
+    if profile.get('cv_document_url'):
+        sections['Documents']['cv_available']=True
+        sections['Documents']['cv_filename']=profile['cv_document_url'].rsplit('/',1)[-1]
+    return sections
 
 
 async def user_overview(conn, subject):
@@ -30,7 +34,7 @@ async def user_overview(conn, subject):
         FROM investor_profiles i WHERE i.provider_subject=$1 OR i.person_id IN
         (SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$1 AND status='verified')''',subject)
     subscriptions = await conn.fetch('''SELECT subscription_id,num_shares,share_class,total_amount,amount_paid,status,payment_status
-        FROM share_subscriptions WHERE user_id=$1 ORDER BY created_at DESC''',subject)
+        FROM share_subscriptions WHERE user_id=$1 OR investor_person_id IN (SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$1 AND status='verified') ORDER BY created_at DESC''',subject)
     board = await conn.fetch('''SELECT position,status,appointed_date,term_end_date FROM board_members WHERE user_id=$1''',subject)
     invitations = await conn.fetch('''SELECT id,invitation_type,role,status,created_at,expires_at,accepted_at
         FROM invitations WHERE accepted_by=$1 OR lower(email)=lower($2) ORDER BY created_at DESC''',subject,profile['email'])

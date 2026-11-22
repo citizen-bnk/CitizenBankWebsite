@@ -561,6 +561,8 @@ async def transfer_shares_between_classes(subscription_id: int, body: TransferCl
                 
                 if not source:
                     raise HTTPException(status_code=404, detail="Source subscription not found")
+                if source.get('instrument_type','ordinary')!='ordinary':
+                    raise HTTPException(409,'This SAFE is pending conversion and cannot be transferred as issued shares.')
                 
                 if source['share_class'] == body.target_share_class:
                     raise HTTPException(status_code=400, detail="Source and target classes are the same")
@@ -669,6 +671,8 @@ async def transfer_shares_between_members(subscription_id: int, body: TransferMe
                 
                 if not source:
                     raise HTTPException(status_code=404, detail="Source subscription not found")
+                if source.get('instrument_type','ordinary')!='ordinary':
+                    raise HTTPException(409,'This SAFE is pending conversion and cannot be transferred as issued shares.')
                 
                 if source['user_id'] == body.target_user_id:
                     raise HTTPException(status_code=400, detail="Cannot transfer to the same board member")

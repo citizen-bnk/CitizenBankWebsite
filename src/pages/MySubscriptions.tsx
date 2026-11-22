@@ -899,7 +899,7 @@ export default function MySubscriptions() {
                           <div className="space-y-2">
                             <div className="flex justify-between items-center py-2 border-b">
                               <span className="text-sm text-muted-foreground">Shares</span>
-                              <span className="font-bold text-lg">{sub.num_shares.toLocaleString()}</span>
+                              <span className="font-bold text-lg">{sub.num_shares?.toLocaleString() ?? 'Conversion pending'}</span>
                             </div>
                             <div className="flex justify-between items-center py-2 border-b">
                               <span className="text-sm text-muted-foreground">Total Amount</span>
@@ -1126,7 +1126,7 @@ export default function MySubscriptions() {
                                   <FileText className="h-4 w-4 mr-2" />
                                   View Details & Pay
                                 </Button>
-                                {sub.num_shares > 0 && (sub.status === 'completed' || sub.status === 'pending') && sub.share_class && (
+                                {sub.num_shares > 0 && (sub.status === 'completed' || sub.status === 'pending') && sub.share_class && (!sub.instrument_type||sub.instrument_type==='ordinary') && (
                                   <div className="grid grid-cols-2 gap-2">
                                     <Button
                                       onClick={() => {
@@ -1477,7 +1477,7 @@ export default function MySubscriptions() {
                 </div>
                 <div className="text-sm">
                   <span className="font-medium">Number of Shares:</span>
-                  <span className="ml-2 font-semibold">{conversionSubscription.num_shares.toLocaleString()}</span>
+                  <span className="ml-2 font-semibold">{conversionSubscription.num_shares?.toLocaleString() ?? 'Conversion pending'}</span>
                 </div>
                 <div className="text-sm">
                   <span className="font-medium">Current Total Value:</span>

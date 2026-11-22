@@ -47,7 +47,7 @@ async def transfers_transfer_shares(
         # Get source subscription
         source = await conn.fetchrow("""
             SELECT id, subscription_id, user_id, full_name, email, num_shares,
-                   share_class, total_amount, amount_paid, status
+                   share_class, instrument_type, total_amount, amount_paid, status
             FROM share_subscriptions
             WHERE subscription_id = $1
         """, request.from_subscription_id)
@@ -55,6 +55,9 @@ async def transfers_transfer_shares(
         if not source:
             raise HTTPException(status_code=404, detail="Source subscription not found")
         
+        if source.get('instrument_type','ordinary')!='ordinary':
+            raise HTTPException(409,'This SAFE is pending conversion and cannot be transferred as issued shares.')
+
         if source['status'] != 'completed':
             raise HTTPException(
                 status_code=400,
@@ -249,7 +252,7 @@ async def transfers_convert_share_class(
         # Get subscription
         subscription = await conn.fetchrow("""
             SELECT id, subscription_id, user_id, full_name, email, num_shares,
-                   share_class, total_amount, status, certificate_number
+                   share_class, instrument_type, total_amount, status, certificate_number
             FROM share_subscriptions
             WHERE subscription_id = $1
         """, request.subscription_id)
@@ -257,6 +260,9 @@ async def transfers_convert_share_class(
         if not subscription:
             raise HTTPException(status_code=404, detail="Subscription not found")
         
+        if subscription.get('instrument_type','ordinary')!='ordinary':
+            raise HTTPException(409,'Record the SAFE conversion evidence before changing its share class.')
+
         if subscription['status'] != 'completed':
             raise HTTPException(
                 status_code=400,

@@ -79,7 +79,7 @@ class SubscriptionListItem(BaseModel):
     subscription_id: str
     full_name: str
     email: str
-    num_shares: int
+    num_shares: int | None
     total_amount: float
     amount_paid: float
     payment_method: str
@@ -378,18 +378,19 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
         if user_email:
             subscriptions = await conn.fetch("""
                 SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                       num_shares, share_class, instrument_type, source_reference, total_amount, amount_paid, payment_method, payment_status,
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, payment_deadline, created_at, updated_at,
                        created_by_admin, admin_user_id
                 FROM share_subscriptions
-                WHERE user_id = $1 OR (user_id IS NULL AND lower(email) = lower($2))
+                WHERE user_id = $1 OR (user_id IS NULL AND instrument_type='ordinary' AND lower(email) = lower($2))
+                   OR investor_person_id IN (SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$1 AND status='verified')
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
             subscriptions = await conn.fetch("""
                 SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                       num_shares, share_class, instrument_type, source_reference, total_amount, amount_paid, payment_method, payment_status,
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, payment_deadline, created_at, updated_at,
                        created_by_admin, admin_user_id
@@ -399,7 +400,7 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
             """, user.sub)
         
         # Calculate summary
-        total_shares = sum(s['num_shares'] for s in subscriptions if s['status'] in ['active', 'completed', 'partial', 'pending'])
+        total_shares = sum((s['num_shares'] or 0) for s in subscriptions if s.get('instrument_type','ordinary')=='ordinary' and s['status'] in ['active', 'completed', 'partial', 'pending'])
         total_investment = sum(Decimal(str(s['total_amount'])) for s in subscriptions if s['status'] != 'cancelled')
         active_subs = sum(1 for s in subscriptions if s['status'] in ['active', 'pending', 'partial', 'completed'])
         pending_payments = sum(Decimal(str(s['total_amount'])) - Decimal(str(s['amount_paid'])) 
@@ -426,6 +427,8 @@ async def core_get_my_public_subscriptions(user: AuthorizedUser):
                 "full_name": s['full_name'],
                 "email": s['email'],
                 "num_shares": s['num_shares'],
+                "instrument_type": s.get('instrument_type','ordinary'),
+                "source_reference": s.get('source_reference'),
                 "share_class": s['share_class'] or "Class B",
                 "total_amount": str(s['total_amount']),
                 "amount_paid": str(s['amount_paid']),
@@ -479,17 +482,18 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
         if user_email:
             subscriptions = await conn.fetch("""
                 SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                       num_shares, share_class, instrument_type, source_reference, total_amount, amount_paid, payment_method, payment_status,
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, created_at, updated_at
                 FROM share_subscriptions
-                WHERE user_id = $1 OR (user_id IS NULL AND lower(email) = lower($2))
+                WHERE user_id = $1 OR (user_id IS NULL AND instrument_type='ordinary' AND lower(email) = lower($2))
+                   OR investor_person_id IN (SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$1 AND status='verified')
                 ORDER BY created_at DESC
             """, user.sub, user_email)
         else:
             subscriptions = await conn.fetch("""
                 SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                       num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                       num_shares, share_class, instrument_type, source_reference, total_amount, amount_paid, payment_method, payment_status,
                        installment_plan, status, certificate_number, certificate_issued_date,
                        certificate_url, created_at, updated_at
                 FROM share_subscriptions
@@ -498,7 +502,7 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
             """, user.sub)
         
         # Calculate summary
-        total_shares = sum(s['num_shares'] for s in subscriptions if s['status'] in ['completed', 'partial', 'pending'])
+        total_shares = sum((s['num_shares'] or 0) for s in subscriptions if s.get('instrument_type','ordinary')=='ordinary' and s['status'] in ['completed', 'partial', 'pending'])
         total_investment = sum(Decimal(str(s['total_amount'])) for s in subscriptions if s['status'] != 'cancelled')
         active_subs = sum(1 for s in subscriptions if s['status'] in ['pending', 'partial', 'completed'])
         pending_payments = sum(Decimal(str(s['total_amount'])) - Decimal(str(s['amount_paid'])) 
@@ -521,6 +525,8 @@ async def core_get_my_subscriptions(user: AuthorizedUser):
                 "subscription_id": s['subscription_id'],
                 "share_class": s.get('share_class', 'N/A'),
                 "num_shares": s['num_shares'],
+                "instrument_type": s.get('instrument_type','ordinary'),
+                "source_reference": s.get('source_reference'),
                 "total_amount": float(s['total_amount']),
                 "amount_paid": float(s['amount_paid']),
                 "payment_status": s['payment_status'],
@@ -545,12 +551,13 @@ async def core_get_subscription_details(subscription_id: str, user: AuthorizedUs
         # Get subscription
         sub = await conn.fetchrow("""
             SELECT id, subscription_id, user_id, full_name, email, phone, id_number,
-                   num_shares, share_class, total_amount, amount_paid, payment_method, payment_status,
+                   num_shares, share_class, instrument_type, source_reference, total_amount, amount_paid, payment_method, payment_status,
                    installment_plan, status, certificate_number, certificate_issued_date,
                    certificate_url, created_at, updated_at
             FROM share_subscriptions
             WHERE subscription_id = $1 AND
-                  (user_id = $2 OR (user_id IS NULL AND lower(email) = lower($3)))
+                  (user_id = $2 OR (user_id IS NULL AND instrument_type='ordinary' AND lower(email) = lower($3))
+                   OR investor_person_id IN (SELECT person_id FROM platform.identity_mapping WHERE provider='stack_auth' AND subject=$2 AND status='verified'))
         """, subscription_id, user.sub, user_email)
         
         if not sub:

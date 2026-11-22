@@ -6,7 +6,7 @@ type Portfolio = {
   person_id:string; name:string; email:string|null; contact_status:string; activation_status:string;
   holdings:{source_sheet:string;source_row:number;kind:string;quantity:number;reference:string|null;
     reconciliation_status:string;review_note:string|null;units_under_review:number|null}[];
-  subscriptions:{subscription_id:string;num_shares:number;amount_paid:number;total_amount:number;status:string}[];
+  subscriptions:{subscription_id:string;num_shares:number|null;amount_paid:number;total_amount:number;status:string}[];
   certificates:{certificate_number:string;shares_count:number;share_class:string;status:string;issue_date:string}[];
   source_evidence?:{source_sheet:string;source_row:number;source_date:string;source_url:string;source_data:Record<string,string>;review_status:string;review_note:string}[];
   source_documents:{title:string;source_url:string;review_note:string}[];
@@ -90,7 +90,7 @@ export function InvestorPortfolio({personId,onClose,transport=action}:{personId:
           <button className="button" disabled={busy} onClick={()=>void certificate({source_sheet:h.source_sheet,source_row:h.source_row})}>Preview certificate</button>}
       </article>)}
       {!portfolio.holdings.length&&<p>No holdings recorded for this profile.</p>}
-      {portfolio.subscriptions.map(s=><article className="activity-row" key={s.subscription_id}><strong>{s.subscription_id}</strong><small>{number(s.num_shares)} shares · {s.status} · {number(s.amount_paid)} of {number(s.total_amount)} paid</small></article>)}
+      {portfolio.subscriptions.map(s=><article className="activity-row" key={s.subscription_id}><strong>{s.subscription_id}</strong><small>{s.num_shares===null?'Quantity pending conversion':number(s.num_shares)+' reference units'} · {s.status} · {number(s.amount_paid)} of {number(s.total_amount)} paid</small></article>)}
       <h3>Reconciliation evidence</h3>
       {(portfolio.source_evidence||[]).filter(e=>e.source_sheet!=='DOCUMENT_INDEX').map(e=><details className="activity-row" key={e.source_sheet+e.source_row}><summary>{e.source_sheet.replaceAll('_',' ')} · Row {e.source_row}</summary><p>{e.review_note}</p><dl>{Object.entries(e.source_data).filter(([,v])=>v).map(([key,value])=><div key={key} style={{marginBlock:'.65rem',overflowWrap:'anywhere'}}><dt><strong>{key}</strong></dt><dd>{String(value)}</dd></div>)}</dl><a className="button" href={e.source_url} target="_blank" rel="noreferrer">View source workbook</a></details>)}
       <h3>Source certificate documents</h3>

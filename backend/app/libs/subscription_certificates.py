@@ -49,6 +49,9 @@ async def issue_certificate_for_subscription(
     Returns:
         Certificate record
     """
+    if subscription.get('instrument_type','ordinary') != 'ordinary':
+        raise HTTPException(409,'This SAFE remains pending conversion. An ordinary share certificate cannot be issued from payment alone.')
+
     # Check if certificate already exists
     existing = await conn.fetchrow("""
         SELECT certificate_number FROM share_certificates

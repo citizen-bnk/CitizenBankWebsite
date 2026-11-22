@@ -37,7 +37,13 @@ async def _governance_email_queue():
 
 async def _communications_email_queue():
     from app.libs.email_queue import process_email_queue
-    return await process_email_queue()
+    batches=[]
+    for _ in range(3):
+        result=await process_email_queue(batch_size=20)
+        batches.append(result)
+        if result['processed']<20:
+            break
+    return {'batches':batches}
 
 
 async def _board_engagement():
